@@ -1,48 +1,33 @@
 version: "3.9"
 
 services:
-
-  # =========================
-  # AUTH DATABASE
-  # =========================
   postgres-auth:
     image: postgres:15
-    container_name: postgres-auth
     environment:
-      POSTGRES_USER: auth_user
-      POSTGRES_PASSWORD: auth_pass
-      POSTGRES_DB: auth_db
+      POSTGRES_USER: ${AUTH_DB_USER}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASS}
+      POSTGRES_DB: ${AUTH_DB_NAME}
     volumes:
       - auth_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - "${AUTH_DB_PORT}:5432"
 
-  # =========================
-  # IMAGE DATABASE
-  # =========================
   postgres-image:
     image: postgres:15
-    container_name: postgres-image
     environment:
-      POSTGRES_USER: image_user
-      POSTGRES_PASSWORD: image_pass
-      POSTGRES_DB: image_db
+      POSTGRES_USER: ${IMAGE_DB_USER}
+      POSTGRES_PASSWORD: ${IMAGE_DB_PASS}
+      POSTGRES_DB: ${IMAGE_DB_NAME}
     volumes:
       - image_data:/var/lib/postgresql/data
     ports:
-      - "5434:5432"
+      - "${IMAGE_DB_PORT}:5432"
 
-  # =========================
-  # ZOOKEEPER
-  # =========================
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
 
-  # =========================
-  # KAFKA
-  # =========================
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     depends_on:
@@ -50,56 +35,35 @@ services:
     ports:
       - "9092:9092"
     environment:
-      KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${KAFKA_BROKER}
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
-  # =========================
-  # AUTH SERVICE
-  # =========================
   auth:
     build: ./auth
     depends_on:
       - postgres-auth
-    environment:
-      DB_HOST: postgres-auth
-      DB_PORT: 5432
-      DB_USER: auth_user
-      DB_PASS: auth_pass
-      DB_NAME: auth_db
-      JWT_SECRET: supersecret
+    env_file:
+      - ./auth/.env
     ports:
       - "8081:8080"
 
-  # =========================
-  # IMAGE SERVICE
-  # =========================
   image-api:
     build: ./image-api
     depends_on:
       - postgres-image
       - kafka
-    environment:
-      DB_HOST: postgres-image
-      DB_PORT: 5432
-      DB_USER: image_user
-      DB_PASS: image_pass
-      DB_NAME: image_db
-      KAFKA_BROKER: kafka:9092
-      JWT_SECRET: supersecret
+    env_file:
+      - ./image-api/.env
     ports:
       - "8080:8080"
 
-  # =========================
-  # PROCESSOR SERVICE
-  # =========================
   processor:
     build: ./processor
     depends_on:
       - kafka
-    environment:
-      KAFKA_BROKER: kafka:9092
+    env_file:
+      - ./processor/.env
 
 volumes:
   auth_data:
