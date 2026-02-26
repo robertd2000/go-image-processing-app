@@ -1,4 +1,11 @@
+// Package role
 package role
+
+import (
+	"slices"
+
+	"github.com/google/uuid"
+)
 
 type Name string
 
@@ -17,12 +24,12 @@ const (
 )
 
 type Role struct {
-	id          int64
+	id          uuid.UUID
 	name        Name
 	permissions []Permission
 }
 
-func New(id int64, name Name, permissions []Permission) (*Role, error) {
+func New(id uuid.UUID, name Name, permissions []Permission) (*Role, error) {
 	if name == "" {
 		return nil, ErrInvalidRoleName
 	}
@@ -34,7 +41,7 @@ func New(id int64, name Name, permissions []Permission) (*Role, error) {
 	}, nil
 }
 
-func (r *Role) ID() int64 {
+func (r *Role) ID() uuid.UUID {
 	return r.id
 }
 
@@ -43,12 +50,7 @@ func (r *Role) Name() Name {
 }
 
 func (r *Role) HasPermission(p Permission) bool {
-	for _, perm := range r.permissions {
-		if perm == p {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(r.permissions, p)
 }
 
 func (r *Role) Permissions() []Permission {
@@ -67,5 +69,6 @@ func uniquePermissions(perms []Permission) []Permission {
 			result = append(result, p)
 		}
 	}
+
 	return result
 }

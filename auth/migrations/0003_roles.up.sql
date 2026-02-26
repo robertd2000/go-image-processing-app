@@ -1,5 +1,5 @@
 CREATE TABLE roles (
-    id          BIGSERIAL PRIMARY KEY,
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name        VARCHAR(20) NOT NULL UNIQUE,
 
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
