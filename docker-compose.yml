@@ -1,70 +1,121 @@
-version: "3.9"
-
 services:
+  # =====================
+  # Zookeeper
+  # =====================
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  # =====================
+  # Kafka
+  # =====================
+  kafka:
+    image: confluentinc/cp-kafka:7.3.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  # =====================
+  # Auth Postgres
+  # =====================
   postgres-auth:
     image: postgres:15
+    container_name: postgres-auth
     environment:
       POSTGRES_USER: ${AUTH_DB_USER}
       POSTGRES_PASSWORD: ${AUTH_DB_PASS}
       POSTGRES_DB: ${AUTH_DB_NAME}
     volumes:
-      - auth_data:/var/lib/postgresql/data
-    ports:
-      - "${AUTH_DB_PORT}:5432"
+      - auth_db_data:/var/lib/postgresql/data
 
+  # =====================
+  # Image Postgres
+  # =====================
   postgres-image:
     image: postgres:15
+    container_name: postgres-image
     environment:
       POSTGRES_USER: ${IMAGE_DB_USER}
       POSTGRES_PASSWORD: ${IMAGE_DB_PASS}
       POSTGRES_DB: ${IMAGE_DB_NAME}
     volumes:
-      - image_data:/var/lib/postgresql/data
-    ports:
-      - "${IMAGE_DB_PORT}:5432"
+      - image_db_data:/var/lib/postgresql/data
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-
-  kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://${KAFKA_BROKER}
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-
+  # =====================
+  # Auth Service
+  # =====================
   auth:
-    build: ./auth
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    container_name: auth
     depends_on:
       - postgres-auth
+      - kafka
     env_file:
-      - ./auth/.env
+      - .env
     ports:
-      - "8081:8080"
+      - "8080:8080"
 
-  image-api:
-    build: ./image-api
+  # =====================
+  # Image Service
+  # =====================
+  image:
+    build:
+      context: ./image
+      dockerfile: Dockerfile
+    container_name: image
     depends_on:
       - postgres-image
       - kafka
     env_file:
-      - ./image-api/.env
+      - .env
     ports:
-      - "8080:8080"
+      - "8081:8080"
 
+  # =====================
+  # Processor Service
+  # =====================
   processor:
-    build: ./processor
+    build:
+      context: ./processor
+      dockerfile: Dockerfile
+    container_name: processor
     depends_on:
       - kafka
+      - postgres-image
     env_file:
-      - ./processor/.env
+      - .env
+    ports:
+      - "8082:8080"
 
+  # =====================
+  # Migrate Service
+  # =====================
+  migrate:
+    image: migrate/migrate:4
+    container_name: migrate
+    depends_on:
+      - postgres-auth
+      - postgres-image
+    env_file:
+      - .env
+    entrypoint: ["sleep", "infinity"] # оставляем в фоне
+    volumes:
+      - ./auth/migrations:/migrations/auth
+      - ./image/migrations:/migrations/image
+
+# =====================
+# Volumes
+# =====================
 volumes:
-  auth_data:
-  image_data:
+  auth_db_data:
+  image_db_data:
