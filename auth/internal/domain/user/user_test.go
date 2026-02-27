@@ -10,7 +10,7 @@ import (
 )
 
 func TestAddRole_Success(t *testing.T) {
-	u, _ := user.New("username", "First", "Last", nil, "hashed")
+	u, _ := user.CreateUser("username", "First", "Last", nil, "hashed")
 	r, _ := role.New(uuid.New(), "admin", []role.Permission{"read", "write"})
 
 	err := u.AddRole(*r) // передаём Role по значению
@@ -20,7 +20,7 @@ func TestAddRole_Success(t *testing.T) {
 }
 
 func TestAddRole_AlreadyAssigned(t *testing.T) {
-	u, _ := user.New("username", "First", "Last", nil, "hashed")
+	u, _ := user.CreateUser("username", "First", "Last", nil, "hashed")
 	r, _ := role.New(uuid.New(), "admin", nil)
 
 	_ = u.AddRole(*r)
@@ -29,7 +29,7 @@ func TestAddRole_AlreadyAssigned(t *testing.T) {
 }
 
 func TestRemoveRole_Success(t *testing.T) {
-	u, _ := user.New("username", "First", "Last", nil, "hashed")
+	u, _ := user.CreateUser("username", "First", "Last", nil, "hashed")
 	r, _ := role.New(uuid.New(), "admin", nil)
 
 	_ = u.AddRole(*r)
@@ -39,7 +39,7 @@ func TestRemoveRole_Success(t *testing.T) {
 }
 
 func TestRemoveRole_NotAssigned(t *testing.T) {
-	u, _ := user.New("username", "First", "Last", nil, "hashed")
+	u, _ := user.CreateUser("username", "First", "Last", nil, "hashed")
 	r, _ := role.New(uuid.New(), "admin", nil)
 
 	err := u.RemoveRole(r.ID())

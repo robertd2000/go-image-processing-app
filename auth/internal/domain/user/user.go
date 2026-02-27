@@ -23,7 +23,8 @@ type User struct {
 	deletedAt  *time.Time
 }
 
-func New(
+func NewUser(
+	userID uuid.UUID,
 	username, firstName, lastName string,
 	email *string,
 	passwordHash string,
@@ -48,6 +49,14 @@ func New(
 		roles:        []role.Role{},
 		createdAt:    now,
 	}, nil
+}
+
+func CreateUser(
+	username, firstName, lastName string,
+	email *string,
+	passwordHash string,
+) (*User, error) {
+	return NewUser(uuid.New(), username, firstName, lastName, email, passwordHash)
 }
 
 func (u *User) ID() uuid.UUID { return u.id }
