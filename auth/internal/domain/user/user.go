@@ -55,7 +55,7 @@ func (u *User) ID() uuid.UUID { return u.id }
 func (u *User) Username() string       { return u.username }
 func (u *User) FirstName() string      { return u.firstName }
 func (u *User) LastName() string       { return u.lastName }
-func (u *User) Email() *string         { return u.email }
+func (u *User) Email() string          { return *u.email }
 func (u *User) PasswordHash() string   { return u.passwordHash }
 func (u *User) Enabled() bool          { return u.enabled }
 func (u *User) Roles() []role.Role     { return u.roles }

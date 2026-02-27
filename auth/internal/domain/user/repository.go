@@ -2,14 +2,19 @@ package user
 
 import (
 	"context"
-	"os/user"
+
+	"github.com/google/uuid"
 )
 
 type UserRepository interface {
-	CreateUser(ctx context.Context, u user.User) (user.User, error)
-	Update(ctx context.Context, id int64, user *user.User) error
-	Delete(ctx context.Context, id int64) error
-	FetchUserInfo(ctx context.Context, username string, password string) (user.User, error)
-	ExistsByEmail(email string) (bool, error)
-	ExistsByUsername(username string) (bool, error)
+	Create(ctx context.Context, u *User) error
+	Update(ctx context.Context, u *User) error
+	Delete(ctx context.Context, id uuid.UUID) error
+
+	GetByEmail(ctx context.Context, email string) (*User, error)
+	GetByUsername(ctx context.Context, username string) (*User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
+
+	ExistsByEmail(ctx context.Context, email string) (bool, error)
+	ExistsByUsername(ctx context.Context, username string) (bool, error)
 }
