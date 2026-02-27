@@ -6,32 +6,67 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 )
 
-func TestNewAccessRefresh(t *testing.T) {
+func TestNewTokens(t *testing.T) {
 	tests := []struct {
-		name string // description of this test case
-		// Named input parameters for target function.
+		name         string
 		accessToken  string
 		refreshToken string
-		want         *token.Tokens
+		wantAccess   string
+		wantRefresh  string
 		wantErr      bool
 	}{
-		// TODO: Add test cases.
+		{
+			name:         "valid tokens",
+			accessToken:  "access123",
+			refreshToken: "refresh123",
+			wantAccess:   "access123",
+			wantRefresh:  "refresh123",
+			wantErr:      false,
+		},
+		{
+			name:         "empty access token",
+			accessToken:  "",
+			refreshToken: "refresh123",
+			wantErr:      true,
+		},
+		{
+			name:         "empty refresh token",
+			accessToken:  "access123",
+			refreshToken: "",
+			wantErr:      true,
+		},
+		{
+			name:         "both tokens empty",
+			accessToken:  "",
+			refreshToken: "",
+			wantErr:      true,
+		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, gotErr := token.NewTokens(tt.accessToken, tt.refreshToken)
-			if gotErr != nil {
-				if !tt.wantErr {
-					t.Errorf("NewAccessRefresh() failed: %v", gotErr)
-				}
+			got, err := token.NewTokens(tt.accessToken, tt.refreshToken)
+
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewTokens() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.wantErr {
 				return
 			}
-			if tt.wantErr {
-				t.Fatal("NewAccessRefresh() succeeded unexpectedly")
+
+			if got == nil {
+				t.Fatal("NewTokens() returned nil without error")
 			}
-			// TODO: update the condition below to compare got with tt.want.
-			if true {
-				t.Errorf("NewAccessRefresh() = %v, want %v", got, tt.want)
+
+			if got.GetAccessToken() != tt.wantAccess {
+				t.Errorf("GetAccessToken() = %v, want %v",
+					got.GetAccessToken(), tt.wantAccess)
+			}
+
+			if got.GetRefreshToken() != tt.wantRefresh {
+				t.Errorf("GetRefreshToken() = %v, want %v",
+					got.GetRefreshToken(), tt.wantRefresh)
 			}
 		})
 	}

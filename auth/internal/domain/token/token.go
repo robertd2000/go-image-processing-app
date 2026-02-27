@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrInvalidToken   = errors.New("invalid token")
 	ErrInvalidRefresh = errors.New("invalid refresh")
+	ErrExpiredToken   = errors.New("expired token")
 )
 
 type Tokens struct {
