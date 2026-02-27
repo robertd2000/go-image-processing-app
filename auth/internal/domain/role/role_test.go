@@ -9,22 +9,53 @@ import (
 
 func TestRole_Name(t *testing.T) {
 	tests := []struct {
+		name        string
 		id          uuid.UUID
-		name        role.Name
+		roleName    role.Name
 		permissions []role.Permission
 		want        role.Name
+		wantErr     bool
 	}{
-		// TODO: Add test cases.
+		{
+			name:        "admin role",
+			id:          uuid.New(),
+			roleName:    role.Admin,
+			permissions: []role.Permission{role.PermUserRead, role.PermUserWrite},
+			want:        role.Admin,
+			wantErr:     false,
+		},
+		{
+			name:        "user role",
+			id:          uuid.New(),
+			roleName:    role.User,
+			permissions: []role.Permission{role.PermUserRead},
+			want:        role.User,
+			wantErr:     false,
+		},
+		{
+			name:        "invalid empty role name",
+			id:          uuid.New(),
+			roleName:    "",
+			permissions: []role.Permission{role.PermUserRead},
+			want:        "",
+			wantErr:     true,
+		},
 	}
+
 	for _, tt := range tests {
-		t.Run(string(tt.name), func(t *testing.T) {
-			r, err := role.New(tt.id, tt.name, tt.permissions)
-			if err != nil {
-				t.Fatalf("could not construct receiver type: %v", err)
+		t.Run(tt.name, func(t *testing.T) {
+			r, err := role.New(tt.id, tt.roleName, tt.permissions)
+
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("role.New() error = %v, wantErr %v", err, tt.wantErr)
 			}
+
+			if tt.wantErr {
+				return
+			}
+
 			got := r.Name()
-			// TODO: update the condition below to compare got with tt.want.
-			if true {
+			if got != tt.want {
 				t.Errorf("Name() = %v, want %v", got, tt.want)
 			}
 		})
