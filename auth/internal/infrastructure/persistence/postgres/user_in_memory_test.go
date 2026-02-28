@@ -25,6 +25,25 @@ func TestCreateUserSuccess(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestCreateUserErrAlreadyExists(t *testing.T) {
+	repo := postgres.NewUserInMemoryRepository()
+
+	userEmail := "test@example.com"
+	username := "test 1"
+	userFirstname := "test"
+	userLastname := "1"
+
+	user := generateTestUserData(t, userEmail, username, userFirstname, userLastname)
+
+	err := repo.Create(context.Background(), user)
+
+	assert.NoError(t, err)
+
+	err = repo.Create(context.Background(), user)
+
+	assert.Error(t, err)
+}
+
 func TestGetUserByEmail(t *testing.T) {
 	repo := postgres.NewUserInMemoryRepository()
 
