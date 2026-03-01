@@ -2,72 +2,94 @@ package token_test
 
 import (
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 )
 
 func TestNewTokens(t *testing.T) {
+	now := time.Now()
+	expires := now.Add(time.Hour)
+	userID := uuid.New()
+
 	tests := []struct {
 		name         string
+		userID       uuid.UUID
 		accessToken  string
 		refreshToken string
-		wantAccess   string
-		wantRefresh  string
+		expiresAt    time.Time
 		wantErr      bool
 	}{
 		{
 			name:         "valid tokens",
+			userID:       userID,
 			accessToken:  "access123",
 			refreshToken: "refresh123",
-			wantAccess:   "access123",
-			wantRefresh:  "refresh123",
+			expiresAt:    expires,
 			wantErr:      false,
 		},
 		{
 			name:         "empty access token",
+			userID:       userID,
 			accessToken:  "",
 			refreshToken: "refresh123",
+			expiresAt:    expires,
 			wantErr:      true,
 		},
 		{
 			name:         "empty refresh token",
+			userID:       userID,
 			accessToken:  "access123",
 			refreshToken: "",
+			expiresAt:    expires,
 			wantErr:      true,
 		},
 		{
 			name:         "both tokens empty",
+			userID:       userID,
 			accessToken:  "",
 			refreshToken: "",
+			expiresAt:    expires,
+			wantErr:      true,
+		},
+		{
+			name:         "zero user id",
+			userID:       uuid.Nil,
+			accessToken:  "access123",
+			refreshToken: "refresh123",
+			expiresAt:    expires,
 			wantErr:      true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := token.NewTokens(tt.accessToken, tt.refreshToken)
-
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("NewTokens() error = %v, wantErr %v", err, tt.wantErr)
-			}
+			got, err := token.NewTokens(
+				tt.userID,
+				tt.accessToken,
+				tt.refreshToken,
+				tt.expiresAt,
+			)
 
 			if tt.wantErr {
+				require.Error(t, err)
+				assert.Nil(t, got)
 				return
 			}
 
-			if got == nil {
-				t.Fatal("NewTokens() returned nil without error")
-			}
+			require.NoError(t, err)
+			require.NotNil(t, got)
 
-			if got.GetAccessToken() != tt.wantAccess {
-				t.Errorf("GetAccessToken() = %v, want %v",
-					got.GetAccessToken(), tt.wantAccess)
-			}
+			assert.Equal(t, tt.userID, got.UserID())
+			assert.Equal(t, tt.accessToken, got.AccessToken())
+			assert.Equal(t, tt.refreshToken, got.RefreshToken())
 
-			if got.GetRefreshToken() != tt.wantRefresh {
-				t.Errorf("GetRefreshToken() = %v, want %v",
-					got.GetRefreshToken(), tt.wantRefresh)
-			}
+			assert.False(t, got.IsRevoked())
+			assert.False(t, got.IsExpired(now))
 		})
 	}
 }

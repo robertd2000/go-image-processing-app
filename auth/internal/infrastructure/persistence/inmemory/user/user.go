@@ -1,5 +1,5 @@
-// Package postgres
-package postgres
+// Package usermem
+package usermem
 
 import (
 	"context"
@@ -15,7 +15,7 @@ type userInMemoryRepository struct {
 	data map[uuid.UUID]*userDomain.User
 }
 
-func NewUserInMemoryRepository() userDomain.UserRepository {
+func NewUserRepository() userDomain.UserRepository {
 	return &userInMemoryRepository{
 		data: make(map[uuid.UUID]*userDomain.User),
 		mu:   &sync.RWMutex{},
@@ -30,15 +30,30 @@ func (r *userInMemoryRepository) Create(_ context.Context, user *userDomain.User
 	if existedUser != nil {
 		return errors.New("user already exists")
 	}
+
 	r.data[user.ID()] = user
 	return nil
 }
 
 func (r *userInMemoryRepository) Update(_ context.Context, user *userDomain.User) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	existedUser, _ := r.findByEmail(context.Background(), user.Email())
+	if existedUser != nil {
+		return errors.New("user already exists")
+	}
+
+	r.data[user.ID()] = user
 	return nil
 }
 
 func (r *userInMemoryRepository) Delete(_ context.Context, id uuid.UUID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	delete(r.data, id)
+
 	return nil
 }
 
