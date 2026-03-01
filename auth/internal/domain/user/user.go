@@ -122,3 +122,34 @@ func (u *User) touch() {
 	now := time.Now()
 	u.modifiedAt = &now
 }
+
+func (u *User) Clone() *User {
+	if u == nil {
+		return nil
+	}
+
+	clone := *u
+
+	if u.email != nil {
+		emailCopy := *u.email
+		clone.email = &emailCopy
+	}
+
+	if u.modifiedAt != nil {
+		t := *u.modifiedAt
+		clone.modifiedAt = &t
+	}
+
+	if u.deletedAt != nil {
+		t := *u.deletedAt
+		clone.deletedAt = &t
+	}
+
+	if u.roles != nil {
+		rolesCopy := make([]role.Role, len(u.roles))
+		copy(rolesCopy, u.roles)
+		clone.roles = rolesCopy
+	}
+
+	return &clone
+}
