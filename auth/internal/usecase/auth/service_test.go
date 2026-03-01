@@ -4,7 +4,8 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
-	userInmemory "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/user"
+	tokenmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/token"
+	usermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/port"
@@ -25,7 +26,8 @@ type (
 func (s *AuthTestSuite) SetupTest() {
 	s.hasher = &security.FakeHasher{}
 	s.tokenGen = jwt.NewInMemoryTokenGenerator()
-	s.userRepo = userInmemory.NewUserInMemoryRepository()
+	s.userRepo = usermem.NewUserRepository()
+	s.tokenRepo = tokenmem.NewTokenRepository()
 
 	s.service = auth.NewAuthService(s.userRepo, s.tokenRepo, s.hasher, s.tokenGen)
 }

@@ -16,7 +16,7 @@ var ctx = context.Background()
 // ---------- helpers ----------
 
 func newRepo() userDomain.UserRepository {
-	return usermem.NewUserInMemoryRepository()
+	return usermem.NewUserRepository()
 }
 
 func generateTestUserData(t *testing.T, email, username, firstname, lastname string) *userDomain.User {

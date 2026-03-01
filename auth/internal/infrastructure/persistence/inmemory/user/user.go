@@ -15,7 +15,7 @@ type userInMemoryRepository struct {
 	data map[uuid.UUID]*userDomain.User
 }
 
-func NewUserInMemoryRepository() userDomain.UserRepository {
+func NewUserRepository() userDomain.UserRepository {
 	return &userInMemoryRepository{
 		data: make(map[uuid.UUID]*userDomain.User),
 		mu:   &sync.RWMutex{},
