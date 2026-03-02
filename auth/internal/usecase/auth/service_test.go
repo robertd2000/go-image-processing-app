@@ -26,7 +26,11 @@ type (
 
 	AuthTestSuite struct {
 		suite.Suite
-		service   AuthService
+
+		ctx context.Context
+
+		service AuthService
+
 		hasher    port.PasswordHasher
 		userRepo  user.UserRepository
 		tokenRepo tokensDomain.TokenRepository
@@ -35,6 +39,8 @@ type (
 )
 
 func (s *AuthTestSuite) SetupTest() {
+	s.ctx = context.Background()
+
 	s.hasher = &security.FakeHasher{}
 	s.tokenGen = jwt.NewInMemoryTokenGenerator()
 	s.userRepo = usermem.NewUserRepository()
@@ -44,34 +50,40 @@ func (s *AuthTestSuite) SetupTest() {
 }
 
 func (s *AuthTestSuite) TestAuthService_Register_Success() {
-	ctx := context.Background()
 	password := "!Secure123"
 	email := "test_user1@example.com"
 	username := "test_user"
 	firstname := "user"
 	lastname := "1"
 
-	err := s.service.Register(ctx, username, firstname, lastname, email, password)
-	assert.NoError(s.T(), err)
+	err := s.service.Register(
+		s.ctx,
+		username,
+		firstname,
+		lastname,
+		email,
+		password,
+	)
 
-	user, err := s.userRepo.GetByEmail(ctx, email)
-	assert.NoError(s.T(), err)
-	assert.NotNil(s.T(), user)
+	s.Require().NoError(err)
+
+	userEntity, err := s.userRepo.GetByEmail(s.ctx, email)
+	s.Require().NoError(err)
+	s.Require().NotNil(userEntity)
 }
 
 func (s *AuthTestSuite) TestAuthService_Register_UserAlreadyExists() {
-	ctx := context.Background()
 	password := "!Secure123"
 	email := "test_user1@example.com"
 	username := "test_user"
 	firstname := "user"
 	lastname := "1"
 
-	err := s.service.Register(ctx, username, firstname, lastname, email, password)
+	err := s.service.Register(s.ctx, username, firstname, lastname, email, password)
 	assert.NoError(s.T(), err)
 
-	err = s.service.Register(ctx, username, firstname, lastname, email, password)
-	assert.Error(s.T(), err, user.ErrUserAlreadyExists)
+	err = s.service.Register(s.ctx, username, firstname, lastname, email, password)
+	assert.ErrorIs(s.T(), err, user.ErrUserAlreadyExists)
 }
 
 func (s *AuthTestSuite) TestAuthService_Register_InvalidEmail() {
@@ -83,7 +95,20 @@ func (s *AuthTestSuite) TestAuthService_Register_InvalidEmail() {
 	lastname := "1"
 
 	err := s.service.Register(ctx, username, firstname, lastname, email, password)
-	assert.Error(s.T(), err, user.ErrInvalidEmail)
+	assert.ErrorIs(s.T(), err, user.ErrInvalidEmail)
+}
+
+func (s *AuthTestSuite) TestAuthService_Register_InvalidPassword() {
+	err := s.service.Register(
+		s.ctx,
+		"test_user",
+		"user",
+		"1",
+		"test@example.com",
+		"",
+	)
+
+	assert.Error(s.T(), err)
 }
 
 func TestAuthServiceSuite(t *testing.T) {

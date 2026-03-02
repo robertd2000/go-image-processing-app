@@ -9,6 +9,7 @@ import (
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/port"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/validation"
 )
 
 type authService struct {
@@ -28,6 +29,18 @@ func NewAuthService(userRepo userDomain.UserRepository, refreshRepo tokensDomain
 }
 
 func (s *authService) Register(ctx context.Context, username, fistname, lastname, email, password string) error {
+	if err := validation.ValidateEmail(email); err != nil {
+		return err
+	}
+
+	if err := validation.ValidatePassword(password); err != nil {
+		return err
+	}
+
+	if err := validation.ValidateUsername(username); err != nil {
+		return err
+	}
+
 	exists, err := s.userRepo.ExistsByEmail(ctx, email)
 	if err != nil {
 		return fmt.Errorf("error by finding user by email")

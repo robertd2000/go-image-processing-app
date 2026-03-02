@@ -10,4 +10,5 @@ var (
 	ErrRoleNotAssigned     = errors.New("role not assigned")
 	ErrInvalidUsername     = errors.New("invalid username")
 	ErrInvalidPasswordHash = errors.New("invalid password hash")
+	ErrInvalidPassword     = errors.New("invalid password")
 )
