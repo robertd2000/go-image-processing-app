@@ -9,18 +9,26 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	username     = "username"
+	firtname     = "First"
+	lastname     = "Last"
+	email        = "user@example.com"
+	passwordHash = "!!!!123PasswordHashSecure11111!?"
+)
+
 func TestAddRole_Success(t *testing.T) {
-	u, _ := user.CreateUser("username", "First", "Last", nil, "hashed")
+	u, _ := user.CreateUser(username, firtname, lastname, &email, passwordHash)
 	r, _ := role.New(uuid.New(), "admin", []role.Permission{"read", "write"})
 
-	err := u.AddRole(*r) // передаём Role по значению
+	err := u.AddRole(*r)
 	assert.NoError(t, err)
 	assert.Len(t, u.Roles(), 1)
 	assert.Equal(t, "admin", string(u.Roles()[0].Name()))
 }
 
 func TestAddRole_AlreadyAssigned(t *testing.T) {
-	u, _ := user.CreateUser("username", "First", "Last", nil, "hashed")
+	u, _ := user.CreateUser(username, firtname, lastname, &email, passwordHash)
 	r, _ := role.New(uuid.New(), "admin", nil)
 
 	_ = u.AddRole(*r)
@@ -29,7 +37,7 @@ func TestAddRole_AlreadyAssigned(t *testing.T) {
 }
 
 func TestRemoveRole_Success(t *testing.T) {
-	u, _ := user.CreateUser("username", "First", "Last", nil, "hashed")
+	u, _ := user.CreateUser(username, firtname, lastname, &email, passwordHash)
 	r, _ := role.New(uuid.New(), "admin", nil)
 
 	_ = u.AddRole(*r)
@@ -39,7 +47,7 @@ func TestRemoveRole_Success(t *testing.T) {
 }
 
 func TestRemoveRole_NotAssigned(t *testing.T) {
-	u, _ := user.CreateUser("username", "First", "Last", nil, "hashed")
+	u, _ := user.CreateUser(username, firtname, lastname, &email, passwordHash)
 	r, _ := role.New(uuid.New(), "admin", nil)
 
 	err := u.RemoveRole(r.ID())

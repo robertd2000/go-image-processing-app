@@ -79,7 +79,7 @@ func (r *userInMemoryRepository) findByEmail(_ context.Context, email string) (*
 		}
 	}
 
-	return nil, errors.New("user not found")
+	return nil, userDomain.ErrUserNotFound
 }
 
 // helper method to find user by email without locking
@@ -90,14 +90,14 @@ func (r *userInMemoryRepository) findByUsername(_ context.Context, username stri
 		}
 	}
 
-	return nil, errors.New("user not found")
+	return nil, userDomain.ErrUserNotFound
 }
 
 // helper method to find user by email without locking
 func (r *userInMemoryRepository) findByID(_ context.Context, userID uuid.UUID) (*userDomain.User, error) {
 	user, exists := r.data[userID]
 	if !exists {
-		return nil, errors.New("user not found")
+		return nil, userDomain.ErrUserNotFound
 	}
 	return user, nil
 }
@@ -113,14 +113,16 @@ func (r *userInMemoryRepository) ExistsByEmail(_ context.Context, email string) 
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	user, err := r.findByEmail(context.Background(), email)
+	user, _ := r.findByEmail(context.Background(), email)
 
-	return user != nil, err
+	return user != nil, nil
 }
 
 func (r *userInMemoryRepository) ExistsByUsername(_ context.Context, username string) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	return false, nil
+	user, _ := r.findByUsername(context.Background(), username)
+
+	return user != nil, nil
 }

@@ -5,10 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/google/uuid"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/port"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/validation"
 )
 
 type authService struct {
@@ -28,6 +31,18 @@ func NewAuthService(userRepo userDomain.UserRepository, refreshRepo tokensDomain
 }
 
 func (s *authService) Register(ctx context.Context, username, fistname, lastname, email, password string) error {
+	if err := validation.ValidateEmail(email); err != nil {
+		return err
+	}
+
+	if err := validation.ValidatePassword(password); err != nil {
+		return err
+	}
+
+	if err := validation.ValidateUsername(username); err != nil {
+		return err
+	}
+
 	exists, err := s.userRepo.ExistsByEmail(ctx, email)
 	if err != nil {
 		return fmt.Errorf("error by finding user by email")
@@ -60,14 +75,55 @@ func (s *authService) Register(ctx context.Context, username, fistname, lastname
 	return nil
 }
 
-func (s *authService) Login(ctx context.Context, email string, password string) (tokensDomain.Tokens, error) {
-	return tokensDomain.Tokens{}, nil
+func (s *authService) Login(ctx context.Context, email string, password string) (*tokensDomain.Tokens, error) {
+	if err := validation.ValidateEmail(email); err != nil {
+		return nil, err
+	}
+
+	if err := validation.ValidatePassword(password); err != nil {
+		return nil, err
+	}
+
+	user, err := s.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+
+	if !s.hasher.Compare(user.PasswordHash(), password) {
+		return nil, userDomain.ErrInvalidPassword
+	}
+
+	return s.generateTokens(ctx, user.ID())
 }
 
-func (s *authService) Refresh(ctx context.Context, refreshToken string) (tokensDomain.Tokens, error) {
-	return tokensDomain.Tokens{}, nil
+func (s *authService) Refresh(ctx context.Context, refreshToken string) (*tokensDomain.Tokens, error) {
+	return nil, nil
 }
 
 func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 	return nil
+}
+
+func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*tokensDomain.Tokens, error) {
+	access, err := s.tokenGen.GenerateAccess(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	refresh, err := s.tokenGen.GenerateRefresh(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.refreshRepo.Save(ctx, userID, refresh)
+	if err != nil {
+		return nil, err
+	}
+
+	tokens, err := tokensDomain.NewTokens(userID, access, refresh, time.Now().Add(time.Hour))
+	if err != nil {
+		return nil, err
+	}
+
+	return tokens, nil
 }
