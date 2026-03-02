@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
+	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
 	tokenmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/token"
 	usermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/user"
@@ -19,8 +19,8 @@ import (
 type (
 	AuthService interface {
 		Register(ctx context.Context, username, fistname, lastname, email, password string) error
-		Login(ctx context.Context, email string, password string) (tokensDomain.Tokens, error)
-		Refresh(ctx context.Context, refreshToken string) (tokensDomain.Tokens, error)
+		Login(ctx context.Context, email string, password string) (*tokensDomain.Tokens, error)
+		Refresh(ctx context.Context, refreshToken string) (*tokensDomain.Tokens, error)
 		Logout(ctx context.Context, refreshToken string) error
 	}
 
@@ -32,7 +32,7 @@ type (
 		service AuthService
 
 		hasher    port.PasswordHasher
-		userRepo  user.UserRepository
+		userRepo  userDomain.UserRepository
 		tokenRepo tokensDomain.TokenRepository
 		tokenGen  port.TokenGenerator
 	}
@@ -83,7 +83,7 @@ func (s *AuthTestSuite) TestAuthService_Register_UserAlreadyExists() {
 	assert.NoError(s.T(), err)
 
 	err = s.service.Register(s.ctx, username, firstname, lastname, email, password)
-	assert.ErrorIs(s.T(), err, user.ErrUserAlreadyExists)
+	assert.ErrorIs(s.T(), err, userDomain.ErrUserAlreadyExists)
 }
 
 func (s *AuthTestSuite) TestAuthService_Register_InvalidEmail() {
@@ -95,7 +95,7 @@ func (s *AuthTestSuite) TestAuthService_Register_InvalidEmail() {
 	lastname := "1"
 
 	err := s.service.Register(ctx, username, firstname, lastname, email, password)
-	assert.ErrorIs(s.T(), err, user.ErrInvalidEmail)
+	assert.ErrorIs(s.T(), err, userDomain.ErrInvalidEmail)
 }
 
 func (s *AuthTestSuite) TestAuthService_Register_InvalidPassword() {
@@ -109,6 +109,59 @@ func (s *AuthTestSuite) TestAuthService_Register_InvalidPassword() {
 	)
 
 	assert.Error(s.T(), err)
+}
+
+func (s *AuthTestSuite) TestAuthService_LoginSuccess() {
+	password := "!Secure123"
+	email := "test_user1@example.com"
+	username := "test_user"
+	firstname := "user"
+	lastname := "1"
+
+	hashed, err := s.hasher.Hash(password)
+	s.Require().NoError(err)
+
+	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
+	s.Require().NoError(err)
+
+	err = s.userRepo.Create(s.ctx, user)
+	s.Require().NoError(err)
+	tokens, err := s.service.Login(s.ctx, email, password)
+	s.Require().NoError(err)
+	s.Require().NotNil(tokens)
+
+	s.NotEmpty(tokens.AccessToken())
+	s.NotEmpty(tokens.RefreshToken())
+}
+
+func (s *AuthTestSuite) TestAuthService_LoginUserNotExists() {
+	password := "!Secure123"
+	email := "test_user1@example.com"
+
+	tokens, err := s.service.Login(s.ctx, email, password)
+	s.Require().Error(err)
+	s.Require().ErrorIs(err, userDomain.ErrUserNotFound)
+	s.Require().Nil(tokens)
+}
+
+func (s *AuthTestSuite) TestAuthService_LoginWrongPassword() {
+	password := "!Secure123"
+	email := "test_user1@example.com"
+	username := "test_user"
+	firstname := "user"
+	lastname := "1"
+
+	hashed, err := s.hasher.Hash(password)
+	s.Require().NoError(err)
+
+	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
+	s.Require().NoError(err)
+
+	err = s.userRepo.Create(s.ctx, user)
+	s.Require().NoError(err)
+	tokens, err := s.service.Login(s.ctx, email, "!!!!!!SecureDifferent22")
+	s.Require().Error(err)
+	s.Require().Nil(tokens)
 }
 
 func TestAuthServiceSuite(t *testing.T) {
