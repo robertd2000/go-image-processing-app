@@ -2,6 +2,7 @@ package auth_test
 
 import (
 	"context"
+	"testing"
 
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
@@ -45,7 +46,6 @@ func (s *AuthTestSuite) SetupTest() {
 func (s *AuthTestSuite) TestAuthService_Register_Success() {
 	ctx := context.Background()
 	password := "!Secure123"
-	// secure := "!HashedSecure1234"
 	email := "test_user1@example.com"
 	username := "test_user"
 	firstname := "user"
@@ -57,4 +57,35 @@ func (s *AuthTestSuite) TestAuthService_Register_Success() {
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), user)
+}
+
+func (s *AuthTestSuite) TestAuthService_Register_UserAlreadyExists() {
+	ctx := context.Background()
+	password := "!Secure123"
+	email := "test_user1@example.com"
+	username := "test_user"
+	firstname := "user"
+	lastname := "1"
+
+	err := s.service.Register(ctx, username, firstname, lastname, email, password)
+	assert.NoError(s.T(), err)
+
+	err = s.service.Register(ctx, username, firstname, lastname, email, password)
+	assert.Error(s.T(), err, user.ErrUserAlreadyExists)
+}
+
+func (s *AuthTestSuite) TestAuthService_Register_InvalidEmail() {
+	ctx := context.Background()
+	password := "!Secure123"
+	email := "test_user1"
+	username := "test_user"
+	firstname := "user"
+	lastname := "1"
+
+	err := s.service.Register(ctx, username, firstname, lastname, email, password)
+	assert.Error(s.T(), err, user.ErrInvalidEmail)
+}
+
+func TestAuthServiceSuite(t *testing.T) {
+	suite.Run(t, new(AuthTestSuite))
 }

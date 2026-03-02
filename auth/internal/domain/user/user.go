@@ -2,7 +2,10 @@
 package user
 
 import (
+	"net/mail"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/role"
@@ -29,11 +32,14 @@ func NewUser(
 	email *string,
 	passwordHash string,
 ) (*User, error) {
-	if username == "" {
-		return nil, ErrInvalidUsername
+	if err := validateUsername(username); err != nil {
+		return nil, err
 	}
-	if passwordHash == "" {
-		return nil, ErrInvalidPasswordHash
+	if err := validateEmail(email); err != nil {
+		return nil, err
+	}
+	if err := validatePasswordHash(passwordHash); err != nil {
+		return nil, err
 	}
 
 	now := time.Now()
@@ -152,4 +158,53 @@ func (u *User) Clone() *User {
 	}
 
 	return &clone
+}
+
+func validateUsername(username string) error {
+	username = strings.TrimSpace(username)
+
+	if username == "" {
+		return ErrInvalidUsername
+	}
+
+	if !utf8.ValidString(username) {
+		return ErrInvalidUsername
+	}
+
+	if len(username) < 3 || len(username) > 50 {
+		return ErrInvalidUsername
+	}
+
+	return nil
+}
+
+func validateEmail(email *string) error {
+	if email == nil {
+		return nil
+	}
+
+	e := strings.TrimSpace(*email)
+	if e == "" {
+		return ErrInvalidEmail
+	}
+
+	if _, err := mail.ParseAddress(e); err != nil {
+		return ErrInvalidEmail
+	}
+
+	return nil
+}
+
+func validatePasswordHash(hash string) error {
+	hash = strings.TrimSpace(hash)
+
+	if hash == "" {
+		return ErrInvalidPasswordHash
+	}
+
+	if len(hash) < 20 {
+		return ErrInvalidPasswordHash
+	}
+
+	return nil
 }

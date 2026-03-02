@@ -113,14 +113,16 @@ func (r *userInMemoryRepository) ExistsByEmail(_ context.Context, email string) 
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	user, err := r.findByEmail(context.Background(), email)
+	user, _ := r.findByEmail(context.Background(), email)
 
-	return user != nil, err
+	return user != nil, nil
 }
 
 func (r *userInMemoryRepository) ExistsByUsername(_ context.Context, username string) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	return false, nil
+	user, _ := r.findByUsername(context.Background(), username)
+
+	return user != nil, nil
 }

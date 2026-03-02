@@ -23,7 +23,7 @@ func generateTestUserData(t *testing.T, email, username, firstname, lastname str
 	t.Helper()
 
 	userID := uuid.New()
-	userPassword := "hashedpassword"
+	userPassword := "!!!!123PasswordHashSecure11111!?"
 
 	user, err := userDomain.NewUser(userID, username, firstname, lastname, &email, userPassword)
 	require.NoError(t, err)
