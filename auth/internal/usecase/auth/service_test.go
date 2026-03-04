@@ -296,6 +296,77 @@ func (s *AuthTestSuite) TestAuthService_Refresh_TokenRevoked() {
 	s.Require().Error(err)
 }
 
+func (s *AuthTestSuite) TestAuthService_Logout_Success() {
+	ctx := s.ctx
+
+	err := s.service.Register(
+		ctx,
+		"user_logout",
+		"John",
+		"Doe",
+		"logout@example.com",
+		"!Secure123",
+	)
+	s.Require().NoError(err)
+
+	tokens, err := s.service.Login(ctx, "logout@example.com", "!Secure123")
+	s.Require().NoError(err)
+
+	err = s.service.Logout(ctx, tokens.RefreshToken())
+	s.Require().NoError(err)
+
+	userID, err := s.tokenGen.ValidateRefresh(tokens.RefreshToken())
+	s.Require().NoError(err)
+
+	ok, err := s.tokenRepo.IsValid(ctx, userID, tokens.RefreshToken())
+	s.Require().NoError(err)
+	s.False(ok)
+}
+
+func (s *AuthTestSuite) TestAuthService_Logout_InvalidToken() {
+	ctx := s.ctx
+
+	err := s.service.Logout(ctx, "invalid_token")
+
+	s.Require().Error(err)
+}
+
+func (s *AuthTestSuite) TestAuthService_Logout_TokenNotInRepo() {
+	ctx := s.ctx
+
+	userID := uuid.New()
+
+	refresh, err := s.tokenGen.GenerateRefresh(userID)
+	s.Require().NoError(err)
+
+	err = s.service.Logout(ctx, refresh)
+
+	s.Require().Error(err)
+}
+
+func (s *AuthTestSuite) TestAuthService_Logout_AlreadyRevoked() {
+	ctx := s.ctx
+
+	err := s.service.Register(
+		ctx,
+		"user_logout2",
+		"John",
+		"Doe",
+		"logout2@example.com",
+		"!Secure123",
+	)
+	s.Require().NoError(err)
+
+	tokens, err := s.service.Login(ctx, "logout2@example.com", "!Secure123")
+	s.Require().NoError(err)
+
+	err = s.service.Logout(ctx, tokens.RefreshToken())
+	s.Require().NoError(err)
+
+	err = s.service.Logout(ctx, tokens.RefreshToken())
+	s.Require().NoError(err)
+}
+
 func TestAuthServiceSuite(t *testing.T) {
 	suite.Run(t, new(AuthTestSuite))
 }
