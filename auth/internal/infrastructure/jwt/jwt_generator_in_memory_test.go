@@ -1,6 +1,7 @@
 package jwt_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -12,20 +13,14 @@ func TestInMemoryTokenGenerator_GenerateAccess(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		userID  uuid.UUID
-		want    string
 		wantErr bool
 	}{
 		{
 			name:    "success",
-			userID:  userID,
-			want:    "access_" + userID.String(),
 			wantErr: false,
 		},
 		{
 			name:    "generate error",
-			userID:  userID,
-			want:    "",
 			wantErr: true,
 		},
 	}
@@ -38,29 +33,46 @@ func TestInMemoryTokenGenerator_GenerateAccess(t *testing.T) {
 				g.GenerateErr = assertTestError()
 			}
 
-			got, err := g.GenerateAccess(tt.userID)
-			if err != nil {
-				if !tt.wantErr {
-					t.Fatalf("GenerateAccess() unexpected error: %v", err)
+			got, err := g.GenerateAccess(userID)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
 				}
 				return
 			}
 
-			if tt.wantErr {
-				t.Fatal("GenerateAccess() expected error, got nil")
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if got != tt.want {
-				t.Errorf("GenerateAccess() = %v, want %v", got, tt.want)
+			// ✅ проверяем, что токен есть
+			if got == "" {
+				t.Fatal("expected non-empty token")
+			}
+
+			// ✅ проверяем префикс
+			if !strings.HasPrefix(got, "access_") {
+				t.Fatalf("unexpected token format: %s", got)
+			}
+
+			// ✅ проверяем, что он валидируется
+			id, err := g.ValidateAccess(got)
+			if err != nil {
+				t.Fatalf("validate failed: %v", err)
+			}
+
+			if id != userID {
+				t.Fatalf("userID mismatch: got %v want %v", id, userID)
 			}
 		})
 	}
 }
+
+func (e *testError) Error() string { return "test error" }
 
 func assertTestError() error {
 	return &testError{}
 }
 
 type testError struct{}
-
-func (e *testError) Error() string { return "test error" }

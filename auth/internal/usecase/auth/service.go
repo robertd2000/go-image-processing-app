@@ -86,22 +86,43 @@ func (s *authService) Login(ctx context.Context, email string, password string) 
 
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		return nil, err
+		return nil, userDomain.ErrWrongCreadentials
+	}
+
+	if !user.Enabled() {
+		return nil, userDomain.ErrUserDisabled
 	}
 
 	if !s.hasher.Compare(user.PasswordHash(), password) {
-		return nil, userDomain.ErrInvalidPassword
+		return nil, userDomain.ErrWrongCreadentials
 	}
 
 	return s.generateTokens(ctx, user.ID())
 }
 
 func (s *authService) Refresh(ctx context.Context, refreshToken string) (*tokensDomain.Tokens, error) {
-	return nil, nil
+	userID, err := s.tokenGen.ValidateRefresh(refreshToken)
+	if err != nil {
+		return nil, err
+	}
+
+	valid, err := s.refreshRepo.IsValid(ctx, userID, refreshToken)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, tokensDomain.ErrInvalidToken
+	}
+
+	if err := s.refreshRepo.Revoke(ctx, userID, refreshToken); err != nil {
+		return nil, err
+	}
+
+	return s.generateTokens(ctx, userID)
 }
 
 func (s *authService) Logout(ctx context.Context, refreshToken string) error {
-	return nil
+	return s.refreshRepo.RevokeByToken(ctx, refreshToken)
 }
 
 func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*tokensDomain.Tokens, error) {

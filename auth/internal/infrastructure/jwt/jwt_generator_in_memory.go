@@ -2,11 +2,14 @@ package jwt
 
 import (
 	"errors"
+	"sync"
 
 	"github.com/google/uuid"
 )
 
 type InMemoryTokenGenerator struct {
+	mu sync.RWMutex
+
 	accessTokens  map[string]uuid.UUID
 	refreshTokens map[string]uuid.UUID
 	genericTokens map[string]uuid.UUID
@@ -28,8 +31,12 @@ func (g *InMemoryTokenGenerator) Generate(userID uuid.UUID, email string) (strin
 		return "", g.GenerateErr
 	}
 
-	token := "generic_" + userID.String()
+	token := "generic_" + uuid.NewString()
+
+	g.mu.Lock()
 	g.genericTokens[token] = userID
+	g.mu.Unlock()
+
 	return token, nil
 }
 
@@ -38,7 +45,10 @@ func (g *InMemoryTokenGenerator) Validate(token string) (uuid.UUID, error) {
 		return uuid.Nil, g.ValidateErr
 	}
 
+	g.mu.RLock()
 	id, ok := g.genericTokens[token]
+	g.mu.RUnlock()
+
 	if !ok {
 		return uuid.Nil, errors.New("invalid token")
 	}
@@ -51,8 +61,12 @@ func (g *InMemoryTokenGenerator) GenerateAccess(userID uuid.UUID) (string, error
 		return "", g.GenerateErr
 	}
 
-	token := "access_" + userID.String()
+	token := "access_" + uuid.NewString()
+
+	g.mu.Lock()
 	g.accessTokens[token] = userID
+	g.mu.Unlock()
+
 	return token, nil
 }
 
@@ -61,8 +75,12 @@ func (g *InMemoryTokenGenerator) GenerateRefresh(userID uuid.UUID) (string, erro
 		return "", g.GenerateErr
 	}
 
-	token := "refresh_" + userID.String()
+	token := "refresh_" + uuid.NewString()
+
+	g.mu.Lock()
 	g.refreshTokens[token] = userID
+	g.mu.Unlock()
+
 	return token, nil
 }
 
@@ -71,7 +89,10 @@ func (g *InMemoryTokenGenerator) ValidateAccess(token string) (uuid.UUID, error)
 		return uuid.Nil, g.ValidateErr
 	}
 
+	g.mu.RLock()
 	id, ok := g.accessTokens[token]
+	g.mu.RUnlock()
+
 	if !ok {
 		return uuid.Nil, errors.New("invalid access token")
 	}
@@ -84,7 +105,10 @@ func (g *InMemoryTokenGenerator) ValidateRefresh(token string) (uuid.UUID, error
 		return uuid.Nil, g.ValidateErr
 	}
 
+	g.mu.RLock()
 	id, ok := g.refreshTokens[token]
+	g.mu.RUnlock()
+
 	if !ok {
 		return uuid.Nil, errors.New("invalid refresh token")
 	}
