@@ -98,6 +98,18 @@ func (s *AuthTestSuite) TestAuthService_Register_InvalidEmail() {
 	assert.ErrorIs(s.T(), err, userDomain.ErrInvalidEmail)
 }
 
+func (s *AuthTestSuite) TestAuthService_Register_InvalidUsername() {
+	ctx := context.Background()
+	password := "!Secure123"
+	email := "test_user1@example.com"
+	username := ""
+	firstname := "user"
+	lastname := "1"
+
+	err := s.service.Register(ctx, username, firstname, lastname, email, password)
+	assert.ErrorIs(s.T(), err, userDomain.ErrInvalidUsername)
+}
+
 func (s *AuthTestSuite) TestAuthService_Register_InvalidPassword() {
 	err := s.service.Register(
 		s.ctx,
@@ -140,7 +152,27 @@ func (s *AuthTestSuite) TestAuthService_LoginUserNotExists() {
 
 	tokens, err := s.service.Login(s.ctx, email, password)
 	s.Require().Error(err)
-	s.Require().ErrorIs(err, userDomain.ErrUserNotFound)
+	s.Require().ErrorIs(err, userDomain.ErrWrongCreadentials)
+	s.Require().Nil(tokens)
+}
+
+func (s *AuthTestSuite) TestAuthService_LoginInvalidEmail() {
+	password := "!Secure123"
+	email := "test_user1"
+
+	tokens, err := s.service.Login(s.ctx, email, password)
+	s.Require().Error(err)
+	s.Require().ErrorIs(err, userDomain.ErrInvalidEmail)
+	s.Require().Nil(tokens)
+}
+
+func (s *AuthTestSuite) TestAuthService_LoginInvalidPasswordFormat() {
+	password := "!Secure"
+	email := "test_user1@example"
+
+	tokens, err := s.service.Login(s.ctx, email, password)
+	s.Require().Error(err)
+	s.Require().ErrorIs(err, userDomain.ErrInvalidPassword)
 	s.Require().Nil(tokens)
 }
 
@@ -161,6 +193,32 @@ func (s *AuthTestSuite) TestAuthService_LoginWrongPassword() {
 	s.Require().NoError(err)
 	tokens, err := s.service.Login(s.ctx, email, "!!!!!!SecureDifferent22")
 	s.Require().Error(err)
+	s.Require().ErrorIs(err, userDomain.ErrWrongCreadentials)
+	s.Require().Nil(tokens)
+}
+
+func (s *AuthTestSuite) TestAuthService_LoginDisabledUser() {
+	password := "!Secure123"
+	email := "test_user1@example.com"
+	username := "test_user"
+	firstname := "user"
+	lastname := "1"
+
+	hashed, err := s.hasher.Hash(password)
+	s.Require().NoError(err)
+
+	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
+	s.Require().NoError(err)
+
+	err = s.userRepo.Create(s.ctx, user)
+	s.Require().NoError(err)
+
+	err = s.userRepo.Disable(s.ctx, user.ID())
+	s.Require().NoError(err)
+
+	tokens, err := s.service.Login(s.ctx, email, password)
+	s.Require().Error(err)
+	s.Require().ErrorIs(err, userDomain.ErrUserDisabled)
 	s.Require().Nil(tokens)
 }
 

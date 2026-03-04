@@ -86,11 +86,15 @@ func (s *authService) Login(ctx context.Context, email string, password string) 
 
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		return nil, err
+		return nil, userDomain.ErrWrongCreadentials
+	}
+
+	if !user.Enabled() {
+		return nil, userDomain.ErrUserDisabled
 	}
 
 	if !s.hasher.Compare(user.PasswordHash(), password) {
-		return nil, userDomain.ErrInvalidPassword
+		return nil, userDomain.ErrWrongCreadentials
 	}
 
 	return s.generateTokens(ctx, user.ID())

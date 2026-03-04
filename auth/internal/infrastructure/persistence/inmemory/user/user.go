@@ -126,3 +126,31 @@ func (r *userInMemoryRepository) ExistsByUsername(_ context.Context, username st
 
 	return user != nil, nil
 }
+
+func (r *userInMemoryRepository) Disable(ctx context.Context, userID uuid.UUID) error {
+	user, err := r.findByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	user.Disable()
+
+	return nil
+}
+
+func (r *userInMemoryRepository) Enable(ctx context.Context, userID uuid.UUID) error {
+	user, err := r.findByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	user.Enable()
+
+	return nil
+}
