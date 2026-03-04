@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
@@ -220,6 +221,79 @@ func (s *AuthTestSuite) TestAuthService_LoginDisabledUser() {
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, userDomain.ErrUserDisabled)
 	s.Require().Nil(tokens)
+}
+
+func (s *AuthTestSuite) TestAuthService_Refresh_Success() {
+	ctx := s.ctx
+
+	password := "!Secure123"
+	email := "refresh_success@example.com"
+	username := "user1"
+	firstname := "user"
+	lastname := "one"
+
+	err := s.service.Register(ctx, username, firstname, lastname, email, password)
+	s.Require().NoError(err)
+
+	tokens, err := s.service.Login(ctx, email, password)
+	s.Require().NoError(err)
+	s.Require().NotNil(tokens)
+
+	newTokens, err := s.service.Refresh(ctx, tokens.RefreshToken())
+
+	s.Require().NoError(err)
+	s.Require().NotNil(newTokens)
+
+	s.NotEqual(tokens.AccessToken(), newTokens.AccessToken())
+	s.NotEqual(tokens.RefreshToken(), newTokens.RefreshToken())
+}
+
+func (s *AuthTestSuite) TestAuthService_Refresh_InvalidToken() {
+	ctx := s.ctx
+
+	_, err := s.service.Refresh(ctx, "invalid_token")
+
+	s.Require().Error(err)
+}
+
+func (s *AuthTestSuite) TestAuthService_Refresh_TokenNotInRepo() {
+	ctx := s.ctx
+
+	userID := uuid.New()
+
+	refresh, err := s.tokenGen.GenerateRefresh(userID)
+	s.Require().NoError(err)
+
+	_, err = s.service.Refresh(ctx, refresh)
+
+	s.Require().Error(err)
+}
+
+func (s *AuthTestSuite) TestAuthService_Refresh_TokenRevoked() {
+	ctx := s.ctx
+
+	// register + login
+	err := s.service.Register(
+		ctx,
+		"test_user",
+		"John",
+		"Doe",
+		"john2@example.com",
+		"!Secure123",
+	)
+	s.Require().NoError(err)
+
+	tokens, err := s.service.Login(ctx, "john2@example.com", "!Secure123")
+	s.Require().NoError(err)
+
+	userID, err := s.tokenGen.ValidateRefresh(tokens.RefreshToken())
+	s.Require().NoError(err)
+
+	err = s.tokenRepo.Revoke(ctx, userID, tokens.RefreshToken())
+	s.Require().NoError(err)
+
+	_, err = s.service.Refresh(ctx, tokens.RefreshToken())
+	s.Require().Error(err)
 }
 
 func TestAuthServiceSuite(t *testing.T) {
