@@ -162,11 +162,41 @@ func (r *userRepository) GetByID(ctx context.Context, userID uuid.UUID) (*userDo
 }
 
 func (r *userRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
-	return false, nil
+	query := `
+		SELECT EXISTS(
+			SELECT 1
+			FROM users
+			WHERE email = $1
+		)
+	`
+
+	var exists bool
+
+	err := r.db.QueryRow(ctx, query, email).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check user exists by email: %w", err)
+	}
+
+	return exists, nil
 }
 
 func (r *userRepository) ExistsByUsername(ctx context.Context, username string) (bool, error) {
-	return false, nil
+	query := `
+		SELECT EXISTS(
+			SELECT 1
+			FROM users
+			WHERE username = $1
+		)
+	`
+
+	var exists bool
+
+	err := r.db.QueryRow(ctx, query, username).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check user exists by email: %w", err)
+	}
+
+	return exists, nil
 }
 
 func (r *userRepository) Disable(ctx context.Context, userUD uuid.UUID) error {
