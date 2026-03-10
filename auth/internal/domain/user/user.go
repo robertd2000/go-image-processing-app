@@ -208,3 +208,29 @@ func validatePasswordHash(hash string) error {
 
 	return nil
 }
+
+func NewUserFromDB(
+	id uuid.UUID,
+	username string,
+	firstName string,
+	lastName string,
+	email *string,
+	passwordHash string,
+	enabled bool,
+	createdAt time.Time,
+	modifiedAt *time.Time,
+	deletedAt *time.Time,
+) *User {
+	return &User{
+		id:           id,
+		username:     username,
+		firstName:    firstName,
+		lastName:     lastName,
+		email:        email,
+		passwordHash: passwordHash,
+		enabled:      enabled,
+		createdAt:    createdAt,
+		modifiedAt:   modifiedAt,
+		deletedAt:    deletedAt,
+	}
+}

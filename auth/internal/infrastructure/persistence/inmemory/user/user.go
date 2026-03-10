@@ -3,7 +3,6 @@ package usermem
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/google/uuid"
@@ -28,7 +27,7 @@ func (r *userInMemoryRepository) Create(_ context.Context, user *userDomain.User
 
 	existedUser, _ := r.findByEmail(context.Background(), user.Email())
 	if existedUser != nil {
-		return errors.New("user already exists")
+		return userDomain.ErrUserAlreadyExists
 	}
 
 	r.data[user.ID()] = user
@@ -41,7 +40,7 @@ func (r *userInMemoryRepository) Update(_ context.Context, user *userDomain.User
 
 	existedUser, _ := r.findByEmail(context.Background(), user.Email())
 	if existedUser != nil {
-		return errors.New("user already exists")
+		return userDomain.ErrUserAlreadyExists
 	}
 
 	r.data[user.ID()] = user
