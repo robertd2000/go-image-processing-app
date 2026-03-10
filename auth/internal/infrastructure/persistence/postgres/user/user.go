@@ -65,6 +65,21 @@ func (r *userRepository) Update(ctx context.Context, user *userDomain.User) erro
 }
 
 func (r *userRepository) Delete(ctx context.Context, userUD uuid.UUID) error {
+	query := `
+		UPDATE users
+		SET deleted_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+
+	cmd, err := r.db.Exec(ctx, query, userUD)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return userDomain.ErrUserNotFound
+	}
+
 	return nil
 }
 
