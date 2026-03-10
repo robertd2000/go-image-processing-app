@@ -249,10 +249,44 @@ func (r *userRepository) ExistsByUsername(ctx context.Context, username string) 
 }
 
 func (r *userRepository) Disable(ctx context.Context, userUD uuid.UUID) error {
+	query := `
+	UPDATE users
+	SET enabled = false,
+		modified_at = NOW()
+	WHERE id = 1$
+	AND deleted_at IS NULL
+	`
+
+	cmd, err := r.db.Exec(ctx, query, userUD)
+	if err != nil {
+		return fmt.Errorf("disable user: %w", err)
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return userDomain.ErrUserNotFound
+	}
+
 	return nil
 }
 
 func (r *userRepository) Enable(ctx context.Context, userUD uuid.UUID) error {
+	query := `
+	UPDATE users
+	SET enabled = true,
+		modified_at = NOW()
+	WHERE id = 1$
+	AND deleted_at IS NULL
+	`
+
+	cmd, err := r.db.Exec(ctx, query, userUD)
+	if err != nil {
+		return fmt.Errorf("enable user: %w", err)
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return userDomain.ErrUserNotFound
+	}
+
 	return nil
 }
 
