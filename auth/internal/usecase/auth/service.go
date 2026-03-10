@@ -30,7 +30,7 @@ func NewAuthService(userRepo userDomain.UserRepository, refreshRepo tokensDomain
 	}
 }
 
-func (s *authService) Register(ctx context.Context, username, fistname, lastname, email, password string) error {
+func (s *authService) Register(ctx context.Context, username, firstname, lastname, email, password string) error {
 	if err := validation.ValidateEmail(email); err != nil {
 		return err
 	}
@@ -42,24 +42,21 @@ func (s *authService) Register(ctx context.Context, username, fistname, lastname
 	if err := validation.ValidateUsername(username); err != nil {
 		return err
 	}
-
-	exists, err := s.userRepo.ExistsByEmail(ctx, email)
-	if err != nil {
-		return fmt.Errorf("error by finding user by email")
-	}
-	if exists {
-		return userDomain.ErrUserAlreadyExists
-	}
-
+	//
+	// exists, err := s.userRepo.ExistsByEmail(ctx, email)
+	// if err != nil {
+	// 	return fmt.Errorf("find user by email: %w", err)
+	// }
+	// if exists {
+	// 	return userDomain.ErrUserAlreadyExists
+	// }
+	//
 	hashed, err := s.hasher.Hash(password)
 	if err != nil {
-		if errors.Is(err, userDomain.ErrInvalidPasswordHash) {
-			return err
-		}
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	user, err := userDomain.CreateUser(username, fistname, lastname, &email, hashed)
+	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
 	if err != nil {
 		return err
 	}
