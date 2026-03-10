@@ -3,9 +3,12 @@ package userpg
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/dberrors"
@@ -66,15 +69,96 @@ func (r *userRepository) Delete(ctx context.Context, userUD uuid.UUID) error {
 }
 
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*userDomain.User, error) {
-	return nil, nil
+	query := `
+		SELECT
+			id,
+			username,
+			first_name,
+			last_name,
+			email,
+			password_hash,
+			enabled,
+			created_at,
+			modified_at,
+			deleted_at
+		FROM users
+		WHERE email = $1
+	`
+
+	row := r.db.QueryRow(ctx, query, email)
+
+	user, err := scanUser(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, userDomain.ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+
+	return user, nil
 }
 
 func (r *userRepository) GetByUsername(ctx context.Context, username string) (*userDomain.User, error) {
-	return nil, nil
+	query := `
+		SELECT
+			id,
+			username,
+			first_name,
+			last_name,
+			email,
+			password_hash,
+			enabled,
+			created_at,
+			modified_at,
+			deleted_at
+		FROM users
+		WHERE username = $1
+	`
+
+	row := r.db.QueryRow(ctx, query, username)
+
+	user, err := scanUser(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, userDomain.ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+
+	return user, nil
 }
 
 func (r *userRepository) GetByID(ctx context.Context, userID uuid.UUID) (*userDomain.User, error) {
-	return nil, nil
+	query := `
+		SELECT
+			id,
+			username,
+			first_name,
+			last_name,
+			email,
+			password_hash,
+			enabled,
+			created_at,
+			modified_at,
+			deleted_at
+		FROM users
+		WHERE id = $1
+	`
+
+	row := r.db.QueryRow(ctx, query, userID)
+
+	user, err := scanUser(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, userDomain.ErrUserNotFound
+		}
+
+		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+
+	return user, nil
 }
 
 func (r *userRepository) ExistsByEmail(ctx context.Context, email string) (bool, error) {
@@ -91,4 +175,48 @@ func (r *userRepository) Disable(ctx context.Context, userUD uuid.UUID) error {
 
 func (r *userRepository) Enable(ctx context.Context, userUD uuid.UUID) error {
 	return nil
+}
+
+func scanUser(row pgx.Row) (*userDomain.User, error) {
+	var (
+		id           uuid.UUID
+		username     string
+		firstName    string
+		lastName     string
+		email        *string
+		passwordHash string
+		enabled      bool
+		createdAt    time.Time
+		modifiedAt   *time.Time
+		deletedAt    *time.Time
+	)
+
+	err := row.Scan(
+		&id,
+		&username,
+		&firstName,
+		&lastName,
+		&email,
+		&passwordHash,
+		&enabled,
+		&createdAt,
+		&modifiedAt,
+		&deletedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return userDomain.NewUserFromDB(
+		id,
+		username,
+		firstName,
+		lastName,
+		email,
+		passwordHash,
+		enabled,
+		createdAt,
+		modifiedAt,
+		deletedAt,
+	), nil
 }
