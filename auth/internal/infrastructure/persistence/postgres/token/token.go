@@ -2,11 +2,13 @@ package tokenpg
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/dberrors"
 )
 
 type tokenRepository struct {
@@ -41,7 +43,35 @@ func (t tokenRepository) RevokeByToken(ctx context.Context, token string) error 
 
 // Save implements token.TokenRepository.
 func (t tokenRepository) Save(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
-	panic("unimplemented")
+	if userID == uuid.Nil {
+		return tokenDomain.ErrInvalidUserID
+	}
+
+	if token == "" {
+		return tokenDomain.ErrInvalidToken
+	}
+
+	_, err := t.db.Exec(ctx, `
+		INSERT INTO refresh_tokens (
+			user_id,
+			token_hash,
+			expires_at,
+			created_at
+		) VALUES ($1, $2, $3, NOW)
+	`, userID,
+		token,
+		expiresAt,
+	)
+
+	if err != nil {
+		if dberrors.IsUniqueViolation(err) {
+			return tokenDomain.ErrTokenAlreadyExists
+		}
+
+		return fmt.Errorf("save token: %w", err)
+	}
+
+	return nil
 }
 
 // Update implements token.TokenRepository.
