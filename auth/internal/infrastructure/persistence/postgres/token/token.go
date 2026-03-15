@@ -28,7 +28,23 @@ func (t tokenRepository) GetByToken(ctx context.Context, token string) (*tokenDo
 
 // IsValid implements token.TokenRepository.
 func (t tokenRepository) IsValid(ctx context.Context, userID uuid.UUID, token string) (bool, error) {
-	panic("unimplemented")
+	var count int
+
+	err := t.db.QueryRow(ctx, `
+		SELECT COUNT(1)
+		FROM refresh_tokens
+		WHERE user_id = $1
+		AND token_hash = $2
+		AND expires_at > NOW()
+	`,
+		userID,
+		token,
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("is token valid: %w", err)
+	}
+
+	return count > 0, nil
 }
 
 // Revoke implements token.TokenRepository.
