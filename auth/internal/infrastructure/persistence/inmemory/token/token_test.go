@@ -12,137 +12,143 @@ import (
 	inmemory "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/token"
 )
 
-func newValidTokens(t *testing.T, userID uuid.UUID, access string, exp time.Time) *tokenDomain.Tokens {
-	t.Helper()
+var refreshTTL = 1 * time.Minute
 
-	tokens, err := tokenDomain.NewTokens(
-		userID,
-		access,
-		"refresh-"+access,
-		exp,
-	)
-	require.NoError(t, err)
-	return tokens
+func newRepo() (tokenDomain.TokenRepository, context.Context) {
+	return inmemory.NewTokenRepository(), context.Background()
 }
 
-func TestTokenRepository_Save_And_IsValid(t *testing.T) {
-	ctx := context.Background()
-	repo := inmemory.NewTokenRepository()
+func TestTokenRepository_SaveAndIsValid(t *testing.T) {
+	repo, ctx := newRepo()
 
 	userID := uuid.New()
-	tokens := newValidTokens(t, userID, "access1", time.Now().Add(time.Hour))
+	token := "token1"
+	expiresAt := time.Now().Add(refreshTTL)
 
-	require.NoError(t, repo.Save(ctx, userID, tokens.AccessToken()))
+	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
 
-	ok, err := repo.IsValid(ctx, userID, tokens.AccessToken())
+	ok, err := repo.IsValid(ctx, userID, token)
 	require.NoError(t, err)
 	require.True(t, ok)
 }
 
-func TestTokenRepository_IsValid_NotFound(t *testing.T) {
-	ctx := context.Background()
-	repo := inmemory.NewTokenRepository()
-
-	ok, err := repo.IsValid(ctx, uuid.New(), "unknown")
-	require.NoError(t, err)
-	require.False(t, ok)
-}
-
-func TestTokenRepository_IsValid_WrongUser(t *testing.T) {
-	ctx := context.Background()
-	repo := inmemory.NewTokenRepository()
+func TestTokenRepository_IsValid(t *testing.T) {
+	repo, ctx := newRepo()
 
 	userID := uuid.New()
-	otherUser := uuid.New()
+	token := "token1"
+	expiresAt := time.Now().Add(refreshTTL)
 
-	tokens := newValidTokens(t, userID, "access1", time.Now().Add(time.Hour))
+	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
 
-	require.NoError(t, repo.Save(ctx, userID, tokens.AccessToken()))
+	tests := []struct {
+		name   string
+		userID uuid.UUID
+		token  string
+		valid  bool
+	}{
+		{
+			name:   "valid token",
+			userID: userID,
+			token:  token,
+			valid:  true,
+		},
+		{
+			name:   "unknown token",
+			userID: userID,
+			token:  "unknown",
+			valid:  false,
+		},
+		{
+			name:   "wrong user",
+			userID: uuid.New(),
+			token:  token,
+			valid:  false,
+		},
+	}
 
-	ok, err := repo.IsValid(ctx, otherUser, tokens.AccessToken())
-	require.NoError(t, err)
-	require.False(t, ok)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ok, err := repo.IsValid(ctx, tt.userID, tt.token)
+			require.NoError(t, err)
+			require.Equal(t, tt.valid, ok)
+		})
+	}
 }
 
 func TestTokenRepository_GetByToken(t *testing.T) {
-	ctx := context.Background()
-	repo := inmemory.NewTokenRepository()
+	repo, ctx := newRepo()
 
 	userID := uuid.New()
-	tokens := newValidTokens(t, userID, "access1", time.Now().Add(time.Hour))
+	token := "token1"
+	expiresAt := time.Now().Add(refreshTTL)
 
-	require.NoError(t, repo.Save(ctx, userID, tokens.AccessToken()))
+	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
 
-	got, err := repo.GetByToken(ctx, tokens.AccessToken())
-	require.NoError(t, err)
-	require.NotNil(t, got)
+	t.Run("success", func(t *testing.T) {
+		got, err := repo.GetByToken(ctx, token)
 
-	require.Equal(t, userID, got.UserID())
-	require.Equal(t, tokens.AccessToken(), got.AccessToken())
-}
+		require.NoError(t, err)
+		require.NotNil(t, got)
+		require.Equal(t, userID, got.UserID())
+		require.Equal(t, token, got.AccessToken())
+	})
 
-func TestTokenRepository_GetByToken_NotFound(t *testing.T) {
-	ctx := context.Background()
-	repo := inmemory.NewTokenRepository()
+	t.Run("not found", func(t *testing.T) {
+		got, err := repo.GetByToken(ctx, "unknown")
 
-	got, err := repo.GetByToken(ctx, "unknown")
-	require.Error(t, err)
-	require.Nil(t, got)
+		require.Error(t, err)
+		require.Nil(t, got)
+	})
 }
 
 func TestTokenRepository_Update(t *testing.T) {
-	ctx := context.Background()
-	repo := inmemory.NewTokenRepository()
+	repo, ctx := newRepo()
 
 	userID := uuid.New()
+	oldToken := "old"
+	newToken := "new"
+	expiresAt := time.Now().Add(refreshTTL)
 
-	oldTokens := newValidTokens(t, userID, "access1", time.Now().Add(time.Hour))
-	newTokens := newValidTokens(t, userID, "access2", time.Now().Add(time.Hour))
+	require.NoError(t, repo.Save(ctx, userID, oldToken, expiresAt))
 
-	require.NoError(t, repo.Save(ctx, userID, oldTokens.AccessToken()))
+	require.NoError(t, repo.Update(ctx, userID, oldToken, newToken))
 
-	require.NoError(t, repo.Update(
-		ctx,
-		userID,
-		oldTokens.AccessToken(),
-		newTokens.AccessToken(),
-	))
-
-	ok, err := repo.IsValid(ctx, userID, oldTokens.AccessToken())
+	ok, err := repo.IsValid(ctx, userID, oldToken)
 	require.NoError(t, err)
 	require.False(t, ok)
 
-	ok, err = repo.IsValid(ctx, userID, newTokens.AccessToken())
+	ok, err = repo.IsValid(ctx, userID, newToken)
 	require.NoError(t, err)
 	require.True(t, ok)
 }
 
 func TestTokenRepository_Revoke(t *testing.T) {
-	ctx := context.Background()
-	repo := inmemory.NewTokenRepository()
+	repo, ctx := newRepo()
 
 	userID := uuid.New()
-	tokens := newValidTokens(t, userID, "access1", time.Now().Add(time.Hour))
+	token := "token1"
+	expiresAt := time.Now().Add(refreshTTL)
 
-	require.NoError(t, repo.Save(ctx, userID, tokens.AccessToken()))
-	require.NoError(t, repo.Revoke(ctx, userID, tokens.AccessToken()))
+	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
+	require.NoError(t, repo.Revoke(ctx, userID, token))
 
-	ok, err := repo.IsValid(ctx, userID, tokens.AccessToken())
+	ok, err := repo.IsValid(ctx, userID, token)
 	require.NoError(t, err)
 	require.False(t, ok)
 }
 
 func TestTokenRepository_RevokeByToken(t *testing.T) {
-	ctx := context.Background()
-	repo := inmemory.NewTokenRepository()
+	repo, ctx := newRepo()
 
 	userID := uuid.New()
-	tokens := newValidTokens(t, userID, "access1", time.Now().Add(time.Hour))
+	token := "token1"
+	expiresAt := time.Now().Add(refreshTTL)
 
-	require.NoError(t, repo.Save(ctx, userID, tokens.AccessToken()))
-	require.NoError(t, repo.RevokeByToken(ctx, tokens.AccessToken()))
+	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
+	require.NoError(t, repo.RevokeByToken(ctx, token))
 
-	ok, err := repo.IsValid(ctx, userID, tokens.AccessToken())
+	ok, err := repo.IsValid(ctx, userID, token)
 	require.NoError(t, err)
 	require.False(t, ok)
 }

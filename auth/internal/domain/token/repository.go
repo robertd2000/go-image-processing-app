@@ -3,12 +3,13 @@ package token
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 type TokenRepository interface {
-	Save(ctx context.Context, userID uuid.UUID, token string) error
+	Save(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error
 	IsValid(ctx context.Context, userID uuid.UUID, token string) (bool, error)
 	Update(ctx context.Context, userID uuid.UUID, oldToken, newToken string) error
 	Revoke(ctx context.Context, userID uuid.UUID, token string) error
