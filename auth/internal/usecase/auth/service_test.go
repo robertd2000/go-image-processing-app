@@ -3,6 +3,7 @@ package auth_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
@@ -49,7 +50,15 @@ func (s *AuthTestSuite) SetupTest() {
 	s.passwordHasher = &security.FakeHasher{}
 	s.tokenHasher = &security.FakeTokenHasher{}
 
-	s.service = auth.NewAuthService(s.userRepo, s.tokenRepo, s.passwordHasher, s.tokenHasher, s.tokenGen)
+	s.service = auth.NewAuthService(
+		s.userRepo,
+		s.tokenRepo,
+		s.passwordHasher,
+		s.tokenHasher,
+		s.tokenGen,
+		10*time.Minute,
+		60*time.Minute,
+	)
 }
 
 func (s *AuthTestSuite) TestAuthService_Register_Success() {

@@ -22,7 +22,7 @@ func NewTokenRepository() tokenDomain.TokenRepository {
 	}
 }
 
-func (t *tokenInMemoryRepository) Save(ctx context.Context, userID uuid.UUID, token string) error {
+func (t *tokenInMemoryRepository) Save(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -30,8 +30,6 @@ func (t *tokenInMemoryRepository) Save(ctx context.Context, userID uuid.UUID, to
 	if existedToken != nil {
 		return tokenDomain.ErrTokenAlreadyExists
 	}
-
-	expiresAt := time.Now().Add(time.Hour)
 
 	tokens, err := tokenDomain.NewTokens(userID, token, token+"_refresh", expiresAt)
 	if err != nil {
