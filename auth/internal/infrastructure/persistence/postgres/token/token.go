@@ -125,5 +125,22 @@ func (t tokenRepository) Save(ctx context.Context, userID uuid.UUID, token strin
 
 // Update implements token.TokenRepository.
 func (t tokenRepository) Update(ctx context.Context, userID uuid.UUID, oldToken string, newToken string) error {
-	panic("unimplemented")
+	query := `
+		UPDATE refresh_tokens
+		SET (
+			token_hash = $3,
+		)
+		WHERE user_id = $1 AND token_hash = $2
+	`
+
+	_, err := t.db.Exec(ctx, query, userID, oldToken, newToken)
+	if err != nil {
+		if dberrors.IsUniqueViolation(err) {
+			return tokenDomain.ErrTokenAlreadyExists
+		}
+
+		return fmt.Errorf("update token: %w", err)
+	}
+
+	return nil
 }
