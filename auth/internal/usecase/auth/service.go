@@ -83,7 +83,10 @@ func (s *authService) Login(ctx context.Context, email string, password string) 
 
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		return nil, userDomain.ErrWrongCreadentials
+		if errors.Is(err, userDomain.ErrUserNotFound) {
+			return nil, userDomain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("get user by email: %w", err)
 	}
 
 	if !user.Enabled() {
@@ -125,17 +128,16 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*tokensDomain.Tokens, error) {
 	access, err := s.tokenGen.GenerateAccess(userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generate access token: %w", err)
 	}
 
 	refresh, err := s.tokenGen.GenerateRefresh(userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("generate refresh token: %w", err)
 	}
 
-	err = s.refreshRepo.Save(ctx, userID, refresh)
-	if err != nil {
-		return nil, err
+	if err := s.refreshRepo.Save(ctx, userID, refresh); err != nil {
+		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
 
 	tokens, err := tokensDomain.NewTokens(userID, access, refresh, time.Now().Add(time.Hour))
