@@ -23,23 +23,33 @@ func NewTokenRepository(db *pgxpool.Pool) tokenDomain.TokenRepository {
 
 // GetByToken implements token.TokenRepository.
 func (t tokenRepository) GetByToken(ctx context.Context, token string) (*tokenDomain.Tokens, error) {
-	panic("unimplemented")
+	query := `
+		SELECT * FROM refresh_tokens
+		WHERE token_hash = $1
+	`
+
+	var tokenEntity *tokenDomain.Tokens
+
+	err := t.db.QueryRow(ctx, query, token).Scan(tokenEntity)
+	if err != nil {
+		return nil, fmt.Errorf("get by token: %w", err)
+	}
+
+	return tokenEntity, nil
 }
 
 // IsValid implements token.TokenRepository.
 func (t tokenRepository) IsValid(ctx context.Context, userID uuid.UUID, token string) (bool, error) {
-	var count int
-
-	err := t.db.QueryRow(ctx, `
+	query := `
 		SELECT COUNT(1)
 		FROM refresh_tokens
 		WHERE user_id = $1
 		AND token_hash = $2
 		AND expires_at > NOW()
-	`,
-		userID,
-		token,
-	).Scan(&count)
+	`
+	var count int
+
+	err := t.db.QueryRow(ctx, query, userID, token).Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("is token valid: %w", err)
 	}
