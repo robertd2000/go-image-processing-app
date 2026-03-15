@@ -32,22 +32,24 @@ type (
 
 		service AuthService
 
-		hasher    port.PasswordHasher
-		userRepo  userDomain.UserRepository
-		tokenRepo tokensDomain.TokenRepository
-		tokenGen  port.TokenGenerator
+		userRepo       userDomain.UserRepository
+		tokenRepo      tokensDomain.TokenRepository
+		tokenGen       port.TokenGenerator
+		passwordHasher port.PasswordHasher
+		tokenHasher    port.TokenHasher
 	}
 )
 
 func (s *AuthTestSuite) SetupTest() {
 	s.ctx = context.Background()
 
-	s.hasher = &security.FakeHasher{}
 	s.tokenGen = jwt.NewInMemoryTokenGenerator()
 	s.userRepo = usermem.NewUserRepository()
 	s.tokenRepo = tokenmem.NewTokenRepository()
+	s.passwordHasher = &security.FakeHasher{}
+	s.tokenHasher = &security.FakeTokenHasher{}
 
-	s.service = auth.NewAuthService(s.userRepo, s.tokenRepo, s.hasher, s.tokenGen)
+	s.service = auth.NewAuthService(s.userRepo, s.tokenRepo, s.passwordHasher, s.tokenHasher, s.tokenGen)
 }
 
 func (s *AuthTestSuite) TestAuthService_Register_Success() {
@@ -131,7 +133,7 @@ func (s *AuthTestSuite) TestAuthService_LoginSuccess() {
 	firstname := "user"
 	lastname := "1"
 
-	hashed, err := s.hasher.Hash(password)
+	hashed, err := s.passwordHasher.Hash(password)
 	s.Require().NoError(err)
 
 	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
@@ -184,7 +186,7 @@ func (s *AuthTestSuite) TestAuthService_LoginWrongPassword() {
 	firstname := "user"
 	lastname := "1"
 
-	hashed, err := s.hasher.Hash(password)
+	hashed, err := s.passwordHasher.Hash(password)
 	s.Require().NoError(err)
 
 	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
@@ -205,7 +207,7 @@ func (s *AuthTestSuite) TestAuthService_LoginDisabledUser() {
 	firstname := "user"
 	lastname := "1"
 
-	hashed, err := s.hasher.Hash(password)
+	hashed, err := s.passwordHasher.Hash(password)
 	s.Require().NoError(err)
 
 	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
@@ -272,7 +274,6 @@ func (s *AuthTestSuite) TestAuthService_Refresh_TokenNotInRepo() {
 func (s *AuthTestSuite) TestAuthService_Refresh_TokenRevoked() {
 	ctx := s.ctx
 
-	// register + login
 	err := s.service.Register(
 		ctx,
 		"test_user",
@@ -289,7 +290,9 @@ func (s *AuthTestSuite) TestAuthService_Refresh_TokenRevoked() {
 	userID, err := s.tokenGen.ValidateRefresh(tokens.RefreshToken())
 	s.Require().NoError(err)
 
-	err = s.tokenRepo.Revoke(ctx, userID, tokens.RefreshToken())
+	hash := s.tokenHasher.Hash(tokens.RefreshToken())
+
+	err = s.tokenRepo.Revoke(ctx, userID, hash)
 	s.Require().NoError(err)
 
 	_, err = s.service.Refresh(ctx, tokens.RefreshToken())
