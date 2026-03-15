@@ -50,9 +50,9 @@ func (t tokenRepository) IsValid(ctx context.Context, userID uuid.UUID, token st
 // Revoke implements token.TokenRepository.
 func (t tokenRepository) Revoke(ctx context.Context, userID uuid.UUID, token string) error {
 	_, err := t.db.Exec(ctx, `
-	DELETE FROM refresh_tokens
-	WHERE userID = $1
-	AND token_hash = $2
+		DELETE FROM refresh_tokens
+		WHERE userID = $1
+		AND token_hash = $2
 	`,
 		userID,
 		token,
@@ -66,7 +66,18 @@ func (t tokenRepository) Revoke(ctx context.Context, userID uuid.UUID, token str
 
 // RevokeByToken implements token.TokenRepository.
 func (t tokenRepository) RevokeByToken(ctx context.Context, token string) error {
-	panic("unimplemented")
+	_, err := t.db.Exec(ctx, `
+		DELETE FROM refresh_tokens
+		AND token_hash = $1
+		AND expires_at > NOW()
+	`,
+		token,
+	)
+	if err != nil {
+		return fmt.Errorf("revoke token: %w", err)
+	}
+
+	return nil
 }
 
 // Save implements token.TokenRepository.
