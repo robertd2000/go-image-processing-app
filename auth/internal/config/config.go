@@ -1,3 +1,4 @@
+// Package config
 package config
 
 import (
@@ -70,7 +71,6 @@ type LogConfig struct {
 }
 
 func Load() (*Config, error) {
-
 	v := viper.New()
 
 	v.SetConfigName(getConfigPath(os.Getenv("APP_ENV")))
@@ -103,7 +103,6 @@ func Load() (*Config, error) {
 }
 
 func getConfigPath(env string) string {
-
 	switch env {
 
 	case "docker":
