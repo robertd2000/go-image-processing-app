@@ -13,6 +13,7 @@ import (
 	usermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/dto"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/port"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -21,8 +22,8 @@ import (
 type (
 	AuthService interface {
 		Register(ctx context.Context, username, fistname, lastname, email, password string) error
-		Login(ctx context.Context, email string, password string) (*tokensDomain.Tokens, error)
-		Refresh(ctx context.Context, refreshToken string) (*tokensDomain.Tokens, error)
+		Login(ctx context.Context, email string, password string) (*dto.TokenPair, error)
+		Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error)
 		Logout(ctx context.Context, refreshToken string) error
 	}
 
@@ -154,8 +155,8 @@ func (s *AuthTestSuite) TestAuthService_LoginSuccess() {
 	s.Require().NoError(err)
 	s.Require().NotNil(tokens)
 
-	s.NotEmpty(tokens.AccessToken())
-	s.NotEmpty(tokens.RefreshToken())
+	s.NotEmpty(tokens.AccessToken)
+	s.NotEmpty(tokens.RefreshToken)
 }
 
 func (s *AuthTestSuite) TestAuthService_LoginUserNotExists() {
@@ -250,13 +251,13 @@ func (s *AuthTestSuite) TestAuthService_Refresh_Success() {
 	s.Require().NoError(err)
 	s.Require().NotNil(tokens)
 
-	newTokens, err := s.service.Refresh(ctx, tokens.RefreshToken())
+	newTokens, err := s.service.Refresh(ctx, tokens.RefreshToken)
 
 	s.Require().NoError(err)
 	s.Require().NotNil(newTokens)
 
-	s.NotEqual(tokens.AccessToken(), newTokens.AccessToken())
-	s.NotEqual(tokens.RefreshToken(), newTokens.RefreshToken())
+	s.NotEqual(tokens.AccessToken, newTokens.AccessToken)
+	s.NotEqual(tokens.RefreshToken, newTokens.RefreshToken)
 }
 
 func (s *AuthTestSuite) TestAuthService_Refresh_InvalidToken() {
@@ -296,15 +297,12 @@ func (s *AuthTestSuite) TestAuthService_Refresh_TokenRevoked() {
 	tokens, err := s.service.Login(ctx, "john2@example.com", "!Secure123")
 	s.Require().NoError(err)
 
-	userID, err := s.tokenGen.ValidateRefresh(tokens.RefreshToken())
+	hash := s.tokenHasher.Hash(tokens.RefreshToken)
+
+	err = s.tokenRepo.Revoke(ctx, hash)
 	s.Require().NoError(err)
 
-	hash := s.tokenHasher.Hash(tokens.RefreshToken())
-
-	err = s.tokenRepo.Revoke(ctx, userID, hash)
-	s.Require().NoError(err)
-
-	_, err = s.service.Refresh(ctx, tokens.RefreshToken())
+	_, err = s.service.Refresh(ctx, tokens.RefreshToken)
 	s.Require().Error(err)
 }
 
@@ -324,13 +322,13 @@ func (s *AuthTestSuite) TestAuthService_Logout_Success() {
 	tokens, err := s.service.Login(ctx, "logout@example.com", "!Secure123")
 	s.Require().NoError(err)
 
-	err = s.service.Logout(ctx, tokens.RefreshToken())
+	err = s.service.Logout(ctx, tokens.RefreshToken)
 	s.Require().NoError(err)
 
-	userID, err := s.tokenGen.ValidateRefresh(tokens.RefreshToken())
+	userID, err := s.tokenGen.ValidateRefresh(tokens.RefreshToken)
 	s.Require().NoError(err)
 
-	ok, err := s.tokenRepo.IsValid(ctx, userID, tokens.RefreshToken())
+	ok, err := s.tokenRepo.IsValid(ctx, userID, tokens.RefreshToken)
 	s.Require().NoError(err)
 	s.False(ok)
 }
@@ -372,10 +370,10 @@ func (s *AuthTestSuite) TestAuthService_Logout_AlreadyRevoked() {
 	tokens, err := s.service.Login(ctx, "logout2@example.com", "!Secure123")
 	s.Require().NoError(err)
 
-	err = s.service.Logout(ctx, tokens.RefreshToken())
+	err = s.service.Logout(ctx, tokens.RefreshToken)
 	s.Require().NoError(err)
 
-	err = s.service.Logout(ctx, tokens.RefreshToken())
+	err = s.service.Logout(ctx, tokens.RefreshToken)
 	s.Require().NoError(err)
 }
 

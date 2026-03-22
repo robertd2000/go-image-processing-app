@@ -31,7 +31,7 @@ func (t *tokenInMemoryRepository) Save(ctx context.Context, userID uuid.UUID, to
 		return tokenDomain.ErrTokenAlreadyExists
 	}
 
-	tokens, err := tokenDomain.NewTokens(userID, token, token+"_refresh", expiresAt)
+	tokens, err := tokenDomain.NewTokens(userID, token+"_refresh", expiresAt)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,6 @@ func (t *tokenInMemoryRepository) Update(ctx context.Context, userID uuid.UUID, 
 
 	newEntity := tokenDomain.RestoreTokens(
 		userID,
-		newToken,
 		tokens.RefreshToken(),
 		tokens.ExpiresAt(),
 		tokens.CreatedAt(),
@@ -102,26 +101,7 @@ func (t *tokenInMemoryRepository) Update(ctx context.Context, userID uuid.UUID, 
 	return nil
 }
 
-func (t *tokenInMemoryRepository) Revoke(ctx context.Context, userID uuid.UUID, token string) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	tokens, err := t.getByToken(ctx, token)
-	if err != nil {
-		return err
-	}
-
-	if tokens.UserID() != userID {
-		return tokenDomain.ErrTokenNotFound
-	}
-
-	now := time.Now().UTC()
-	tokens.Revoke(now)
-
-	return nil
-}
-
-func (t *tokenInMemoryRepository) RevokeByToken(ctx context.Context, token string) error {
+func (t *tokenInMemoryRepository) Revoke(ctx context.Context, token string) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 

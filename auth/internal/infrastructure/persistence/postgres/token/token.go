@@ -66,24 +66,7 @@ func (t tokenRepository) IsValid(ctx context.Context, userID uuid.UUID, token st
 	return exists, nil
 }
 
-// Revoke implements token.TokenRepository.
-func (t tokenRepository) Revoke(ctx context.Context, userID uuid.UUID, token string) error {
-	query := `
-		UPDATE refresh_tokens
-		SET revoked_at = NOW()
-		WHERE user_id = $1
-		AND token_hash = $2
-	`
-	_, err := t.db.Exec(ctx, query, userID, token)
-	if err != nil {
-		return fmt.Errorf("revoke token: %w", err)
-	}
-
-	return nil
-}
-
-// RevokeByToken implements token.TokenRepository.
-func (t tokenRepository) RevokeByToken(ctx context.Context, token string) error {
+func (t tokenRepository) Revoke(ctx context.Context, token string) error {
 	query := `
 		UPDATE refresh_tokens
 		SET revoked_at = NOW()
@@ -173,5 +156,5 @@ func scanToken(row pgx.Row) (*tokenDomain.Tokens, error) {
 		return nil, err
 	}
 
-	return tokenDomain.NewTokens(userID, "", refreshToken, expiresAt)
+	return tokenDomain.NewTokens(userID, refreshToken, expiresAt)
 }

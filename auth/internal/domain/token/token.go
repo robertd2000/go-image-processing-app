@@ -18,7 +18,6 @@ var (
 
 type Tokens struct {
 	userID       uuid.UUID
-	accessToken  string
 	refreshToken string
 	expiresAt    time.Time
 	createdAt    time.Time
@@ -27,16 +26,11 @@ type Tokens struct {
 
 func NewTokens(
 	userID uuid.UUID,
-	accessToken string,
 	refreshToken string,
 	expiresAt time.Time,
 ) (*Tokens, error) {
 	if userID == uuid.Nil {
 		return nil, ErrInvalidUserID
-	}
-
-	if err := validateToken(accessToken); err != nil {
-		return nil, err
 	}
 
 	if err := validateToken(refreshToken); err != nil {
@@ -45,7 +39,6 @@ func NewTokens(
 
 	return &Tokens{
 		userID:       userID,
-		accessToken:  accessToken,
 		refreshToken: refreshToken,
 		expiresAt:    expiresAt,
 		createdAt:    time.Now(),
@@ -54,7 +47,6 @@ func NewTokens(
 
 func RestoreTokens(
 	userID uuid.UUID,
-	accessToken string,
 	refreshToken string,
 	expiresAt time.Time,
 	createdAt time.Time,
@@ -62,7 +54,6 @@ func RestoreTokens(
 ) *Tokens {
 	return &Tokens{
 		userID:       userID,
-		accessToken:  accessToken,
 		refreshToken: refreshToken,
 		expiresAt:    expiresAt,
 		createdAt:    createdAt,
@@ -72,10 +63,6 @@ func RestoreTokens(
 
 func (t *Tokens) UserID() uuid.UUID {
 	return t.userID
-}
-
-func (t *Tokens) AccessToken() string {
-	return t.accessToken
 }
 
 func (t *Tokens) RefreshToken() string {

@@ -33,14 +33,6 @@ func TestNewTokens(t *testing.T) {
 			wantErr:      false,
 		},
 		{
-			name:         "empty access token",
-			userID:       userID,
-			accessToken:  "",
-			refreshToken: "refresh123",
-			expiresAt:    expires,
-			wantErr:      true,
-		},
-		{
 			name:         "empty refresh token",
 			userID:       userID,
 			accessToken:  "access123",
@@ -70,7 +62,6 @@ func TestNewTokens(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := token.NewTokens(
 				tt.userID,
-				tt.accessToken,
 				tt.refreshToken,
 				tt.expiresAt,
 			)
@@ -85,7 +76,6 @@ func TestNewTokens(t *testing.T) {
 			require.NotNil(t, got)
 
 			assert.Equal(t, tt.userID, got.UserID())
-			assert.Equal(t, tt.accessToken, got.AccessToken())
 			assert.Equal(t, tt.refreshToken, got.RefreshToken())
 
 			assert.False(t, got.IsRevoked())

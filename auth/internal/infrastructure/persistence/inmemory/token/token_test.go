@@ -91,7 +91,6 @@ func TestTokenRepository_GetByToken(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, got)
 		require.Equal(t, userID, got.UserID())
-		require.Equal(t, token, got.AccessToken())
 	})
 
 	t.Run("not found", func(t *testing.T) {
@@ -131,7 +130,7 @@ func TestTokenRepository_Revoke(t *testing.T) {
 	expiresAt := time.Now().Add(refreshTTL)
 
 	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
-	require.NoError(t, repo.Revoke(ctx, userID, token))
+	require.NoError(t, repo.Revoke(ctx, token))
 
 	ok, err := repo.IsValid(ctx, userID, token)
 	require.NoError(t, err)
@@ -146,7 +145,7 @@ func TestTokenRepository_RevokeByToken(t *testing.T) {
 	expiresAt := time.Now().Add(refreshTTL)
 
 	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
-	require.NoError(t, repo.RevokeByToken(ctx, token))
+	require.NoError(t, repo.Revoke(ctx, token))
 
 	ok, err := repo.IsValid(ctx, userID, token)
 	require.NoError(t, err)
