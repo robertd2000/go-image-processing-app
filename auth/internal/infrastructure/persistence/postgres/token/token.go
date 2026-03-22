@@ -23,15 +23,15 @@ func NewTokenRepository(db *pgxpool.Pool) tokenDomain.TokenRepository {
 	}
 }
 
-// GetByToken implements token.TokenRepository.
-func (t tokenRepository) GetByToken(ctx context.Context, token string) (*tokenDomain.Tokens, error) {
+// GetByHash implements token.TokenRepository.
+func (t tokenRepository) GetByHash(ctx context.Context, hash string) (*tokenDomain.Tokens, error) {
 	query := `
 		SELECT user_id, token_hash, expires_at, created_at, revoked_at
 		FROM refresh_tokens
 		WHERE token_hash = $1
 	`
 
-	row := t.db.QueryRow(ctx, query, token)
+	row := t.db.QueryRow(ctx, query, hash)
 
 	tokenEntity, err := scanToken(row)
 	if err != nil {

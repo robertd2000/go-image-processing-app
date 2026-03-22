@@ -86,7 +86,7 @@ func TestTokenRepository_GetByToken(t *testing.T) {
 	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
 
 	t.Run("success", func(t *testing.T) {
-		got, err := repo.GetByToken(ctx, token)
+		got, err := repo.GetByHash(ctx, token)
 
 		require.NoError(t, err)
 		require.NotNil(t, got)
@@ -94,7 +94,7 @@ func TestTokenRepository_GetByToken(t *testing.T) {
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		got, err := repo.GetByToken(ctx, "unknown")
+		got, err := repo.GetByHash(ctx, "unknown")
 
 		require.Error(t, err)
 		require.Nil(t, got)

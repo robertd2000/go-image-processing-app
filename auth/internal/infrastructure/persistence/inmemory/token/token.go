@@ -116,14 +116,14 @@ func (t *tokenInMemoryRepository) Revoke(ctx context.Context, token string) erro
 	return nil
 }
 
-func (t *tokenInMemoryRepository) GetByToken(ctx context.Context, token string) (*tokenDomain.Tokens, error) {
+func (t *tokenInMemoryRepository) GetByHash(ctx context.Context, hash string) (*tokenDomain.Tokens, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	return t.getByToken(ctx, token)
+	return t.getByToken(ctx, hash)
 }
 
-func (t *tokenInMemoryRepository) getByToken(ctx context.Context, token string) (*tokenDomain.Tokens, error) {
+func (t *tokenInMemoryRepository) getByToken(_ context.Context, token string) (*tokenDomain.Tokens, error) {
 	tokens, exists := t.data[token]
 	if !exists {
 		return nil, tokenDomain.ErrTokenNotFound

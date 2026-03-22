@@ -116,7 +116,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 	now := time.Now()
 
 	hash := s.tokenHasher.Hash(refreshToken)
-	token, err := s.refreshRepo.GetByToken(ctx, hash)
+	token, err := s.refreshRepo.GetByHash(ctx, hash)
 	if err != nil {
 		return nil, err
 	}

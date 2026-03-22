@@ -14,7 +14,7 @@ type TokenRepository interface {
 	Update(ctx context.Context, userID uuid.UUID, oldToken, newToken string) error
 	Revoke(ctx context.Context, token string) error
 	// RevokeByToken(ctx context.Context, token string) error
-	GetByToken(ctx context.Context, token string) (*Tokens, error)
+	GetByHash(ctx context.Context, token string) (*Tokens, error)
 }
 
 type TokenGenerator interface {
