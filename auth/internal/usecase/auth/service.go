@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/dto"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/port"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/validation"
 )
@@ -86,7 +87,7 @@ func (s *authService) Register(ctx context.Context, username, firstname, lastnam
 	return nil
 }
 
-func (s *authService) Login(ctx context.Context, email string, password string) (*tokensDomain.Tokens, error) {
+func (s *authService) Login(ctx context.Context, email string, password string) (*dto.TokenPair, error) {
 	if err := validation.ValidateEmail(email); err != nil {
 		return nil, err
 	}
@@ -111,35 +112,40 @@ func (s *authService) Login(ctx context.Context, email string, password string) 
 	return s.generateTokens(ctx, user.ID())
 }
 
-func (s *authService) Refresh(ctx context.Context, refreshToken string) (*tokensDomain.Tokens, error) {
-	userID, err := s.tokenGen.ValidateRefresh(refreshToken)
-	if err != nil {
-		return nil, err
-	}
+func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error) {
+	now := time.Now()
 
 	hash := s.tokenHasher.Hash(refreshToken)
-
-	valid, err := s.refreshRepo.IsValid(ctx, userID, hash)
+	token, err := s.refreshRepo.GetByToken(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
-	if !valid {
+
+	if token == nil {
 		return nil, tokensDomain.ErrInvalidToken
 	}
 
-	if err := s.refreshRepo.Revoke(ctx, userID, hash); err != nil {
+	if token.IsRevoked() {
+		return nil, tokensDomain.ErrInvalidToken
+	}
+
+	if token.ExpiresAt().Before(now) {
+		return nil, tokensDomain.ErrInvalidToken
+	}
+
+	if err := s.refreshRepo.Revoke(ctx, hash); err != nil {
 		return nil, err
 	}
 
-	return s.generateTokens(ctx, userID)
+	return s.generateTokens(ctx, token.UserID())
 }
 
 func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 	hash := s.tokenHasher.Hash(refreshToken)
-	return s.refreshRepo.RevokeByToken(ctx, hash)
+	return s.refreshRepo.Revoke(ctx, hash)
 }
 
-func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*tokensDomain.Tokens, error) {
+func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*dto.TokenPair, error) {
 	access, err := s.tokenGen.GenerateAccess(userID)
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
@@ -151,16 +157,20 @@ func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*to
 	}
 
 	hash := s.tokenHasher.Hash(refresh)
-	expiresAt := time.Now().Add(s.refreshTTL)
+	now := time.Now()
+	expiresAt := now.Add(s.refreshTTL)
 
 	if err := s.refreshRepo.Save(ctx, userID, hash, expiresAt); err != nil {
 		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
 
-	tokens, err := tokensDomain.NewTokens(userID, access, refresh, time.Now().Add(s.accessTTL))
+	tokens, err := tokensDomain.NewTokens(userID, refresh, now.Add(s.accessTTL))
 	if err != nil {
 		return nil, err
 	}
 
-	return tokens, nil
+	return &dto.TokenPair{
+		AccessToken:  access,
+		RefreshToken: tokens.RefreshToken(),
+	}, nil
 }
