@@ -151,13 +151,14 @@ func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*to
 	}
 
 	hash := s.tokenHasher.Hash(refresh)
-	expiresAt := time.Now().Add(s.refreshTTL)
+	now := time.Now()
+	expiresAt := now.Add(s.refreshTTL)
 
 	if err := s.refreshRepo.Save(ctx, userID, hash, expiresAt); err != nil {
 		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
 
-	tokens, err := tokensDomain.NewTokens(userID, access, refresh, time.Now().Add(s.accessTTL))
+	tokens, err := tokensDomain.NewTokens(userID, access, refresh, now.Add(s.accessTTL))
 	if err != nil {
 		return nil, err
 	}
