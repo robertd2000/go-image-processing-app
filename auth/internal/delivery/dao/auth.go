@@ -4,26 +4,40 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/dto"
 )
 
-type UserInput struct {
-	Firstname string `json:"firstname" binding:"required" example:"John"`
-	Lastname  string `json:"lastname" binding:"required" example:"Doe"`
-	Username  string `json:"username" binding:"required" example:"user"`
-	Email     string `json:"email" binding:"required,email" example:"user@example.com" format:"email"`
-	Password  string `json:"password" binding:"required,min=8" example:"P@ssw0rd" minLength:"8"`
+type LoginRequest struct {
+	Email    string `json:"email" example:"test@mail.com"`
+	Password string `json:"password" example:"123456"`
 }
 
-type RefreshInput struct {
-	Token string `json:"token" binding:"required,min=200" minLength:"200"`
+type RegisterRequest struct {
+	Username  string `json:"username" example:"john"`
+	Firstname string `json:"firstname" example:"John"`
+	Lastname  string `json:"lastname" example:"Doe"`
+	Email     string `json:"email" example:"test@mail.com"`
+	Password  string `json:"password" example:"123456"`
 }
 
-type RefreshDAO struct {
-	RefreshToken string `json:"access_token" binding:"required,min=200" minLength:"200"`
-	AccessToken  string `json:"refresh_token" binding:"required,min=200" minLength:"200"`
+type RefreshRequest struct {
+	Token string `json:"refresh_token" example:"abc123"`
 }
 
-func NewRefreshDAO(accessRefresh *dto.TokenPair) RefreshDAO {
-	return RefreshDAO{
+type TokenResponse struct {
+	AccessToken  string `json:"access_token" example:"jwt_token"`
+	RefreshToken string `json:"refresh_token" example:"refresh_token"`
+}
+
+func NewRefreshDAO(accessRefresh *dto.TokenPair) TokenResponse {
+	return TokenResponse{
 		AccessToken:  accessRefresh.AccessToken,
 		RefreshToken: accessRefresh.RefreshToken,
 	}
+}
+
+type ErrorResponse struct {
+	Error ErrorBody `json:"error"`
+}
+
+type ErrorBody struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
 }
