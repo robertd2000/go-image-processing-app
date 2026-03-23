@@ -144,6 +144,15 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 
 func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 	hash := s.tokenHasher.Hash(refreshToken)
+
+	token, err := s.refreshRepo.GetByHash(ctx, hash)
+	if err != nil {
+		return err
+	}
+	if token == nil {
+		return nil
+	}
+
 	return s.refreshRepo.Revoke(ctx, hash)
 }
 
