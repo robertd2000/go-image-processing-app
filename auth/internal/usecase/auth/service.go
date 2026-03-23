@@ -15,6 +15,8 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/validation"
 )
 
+var sessionLimit = 5
+
 type authService struct {
 	userRepo    userDomain.UserRepository
 	refreshRepo tokensDomain.TokenRepository
@@ -116,7 +118,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 	now := time.Now()
 
 	hash := s.tokenHasher.Hash(refreshToken)
-	token, err := s.refreshRepo.GetByToken(ctx, hash)
+	token, err := s.refreshRepo.GetByHash(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -142,6 +144,15 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 
 func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 	hash := s.tokenHasher.Hash(refreshToken)
+
+	token, err := s.refreshRepo.GetByHash(ctx, hash)
+	if err != nil {
+		return err
+	}
+	if token == nil {
+		return nil
+	}
+
 	return s.refreshRepo.Revoke(ctx, hash)
 }
 
@@ -160,7 +171,12 @@ func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*dt
 	now := time.Now()
 	expiresAt := now.Add(s.refreshTTL)
 
-	if err := s.refreshRepo.Save(ctx, userID, hash, expiresAt); err != nil {
+	token, err := tokensDomain.NewTokens(userID, hash, expiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("create refresh token: %w", err)
+	}
+
+	if err := s.refreshRepo.Create(ctx, token, sessionLimit); err != nil {
 		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
 

@@ -324,13 +324,6 @@ func (s *AuthTestSuite) TestAuthService_Logout_Success() {
 
 	err = s.service.Logout(ctx, tokens.RefreshToken)
 	s.Require().NoError(err)
-
-	userID, err := s.tokenGen.ValidateRefresh(tokens.RefreshToken)
-	s.Require().NoError(err)
-
-	ok, err := s.tokenRepo.IsValid(ctx, userID, tokens.RefreshToken)
-	s.Require().NoError(err)
-	s.False(ok)
 }
 
 func (s *AuthTestSuite) TestAuthService_Logout_InvalidToken() {

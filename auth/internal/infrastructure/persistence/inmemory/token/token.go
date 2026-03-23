@@ -22,21 +22,21 @@ func NewTokenRepository() tokenDomain.TokenRepository {
 	}
 }
 
-func (t *tokenInMemoryRepository) Save(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
+func (r *tokenInMemoryRepository) Create(ctx context.Context, token *tokenDomain.Tokens, limit int) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	existedToken, _ := t.getByToken(ctx, token)
+	existedToken, _ := r.getByToken(ctx, token.RefreshToken())
 	if existedToken != nil {
 		return tokenDomain.ErrTokenAlreadyExists
 	}
 
-	tokens, err := tokenDomain.NewTokens(userID, token+"_refresh", expiresAt)
+	tokens, err := tokenDomain.NewTokens(token.UserID(), token.RefreshToken()+"_refresh", token.ExpiresAt())
 	if err != nil {
 		return err
 	}
 
-	t.data[token] = tokens
+	r.data[token.RefreshToken()] = tokens
 
 	return nil
 }
@@ -116,14 +116,14 @@ func (t *tokenInMemoryRepository) Revoke(ctx context.Context, token string) erro
 	return nil
 }
 
-func (t *tokenInMemoryRepository) GetByToken(ctx context.Context, token string) (*tokenDomain.Tokens, error) {
+func (t *tokenInMemoryRepository) GetByHash(ctx context.Context, hash string) (*tokenDomain.Tokens, error) {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	return t.getByToken(ctx, token)
+	return t.getByToken(ctx, hash)
 }
 
-func (t *tokenInMemoryRepository) getByToken(ctx context.Context, token string) (*tokenDomain.Tokens, error) {
+func (t *tokenInMemoryRepository) getByToken(_ context.Context, token string) (*tokenDomain.Tokens, error) {
 	tokens, exists := t.data[token]
 	if !exists {
 		return nil, tokenDomain.ErrTokenNotFound

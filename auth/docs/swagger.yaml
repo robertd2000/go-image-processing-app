@@ -1,0 +1,141 @@
+basePath: /api/v1
+definitions:
+  dao.ErrorBody:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+    type: object
+  dao.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/dao.ErrorBody'
+    type: object
+  dao.LoginRequest:
+    properties:
+      email:
+        example: test@mail.com
+        type: string
+      password:
+        example: "123456"
+        type: string
+    type: object
+  dao.RefreshRequest:
+    properties:
+      refresh_token:
+        example: abc123
+        type: string
+    type: object
+  dao.RegisterRequest:
+    properties:
+      email:
+        example: test@mail.com
+        type: string
+      firstname:
+        example: John
+        type: string
+      lastname:
+        example: Doe
+        type: string
+      password:
+        example: "123456"
+        type: string
+      username:
+        example: john
+        type: string
+    type: object
+  dao.TokenResponse:
+    properties:
+      access_token:
+        example: jwt_token
+        type: string
+      refresh_token:
+        example: refresh_token
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Auth service for image processing app
+  title: Auth Service API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return tokens
+      parameters:
+      - description: Login data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/dao.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dao.TokenResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dao.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/dao.ErrorResponse'
+      summary: Login user
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Refresh token
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/dao.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Logout user
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Register data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/dao.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dao.ErrorResponse'
+      summary: Register user
+      tags:
+      - auth
+swagger: "2.0"
