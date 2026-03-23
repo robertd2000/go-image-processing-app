@@ -24,14 +24,14 @@ func NewTokenRepository(db *pgxpool.Pool) tokenDomain.TokenRepository {
 }
 
 // GetByHash implements token.TokenRepository.
-func (t tokenRepository) GetByHash(ctx context.Context, hash string) (*tokenDomain.Tokens, error) {
+func (r tokenRepository) GetByHash(ctx context.Context, hash string) (*tokenDomain.Tokens, error) {
 	query := `
 		SELECT user_id, token_hash, expires_at, created_at, revoked_at
 		FROM refresh_tokens
 		WHERE token_hash = $1
 	`
 
-	row := t.db.QueryRow(ctx, query, hash)
+	row := r.db.QueryRow(ctx, query, hash)
 
 	tokenEntity, err := scanToken(row)
 	if err != nil {
@@ -45,7 +45,7 @@ func (t tokenRepository) GetByHash(ctx context.Context, hash string) (*tokenDoma
 }
 
 // IsValid implements token.TokenRepository.
-func (t tokenRepository) IsValid(ctx context.Context, userID uuid.UUID, token string) (bool, error) {
+func (r tokenRepository) IsValid(ctx context.Context, userID uuid.UUID, token string) (bool, error) {
 	query := `
 		SELECT EXISTS (
 			SELECT 1
@@ -58,7 +58,7 @@ func (t tokenRepository) IsValid(ctx context.Context, userID uuid.UUID, token st
 	`
 	var exists bool
 
-	err := t.db.QueryRow(ctx, query, userID, token).Scan(&exists)
+	err := r.db.QueryRow(ctx, query, userID, token).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("is token valid: %w", err)
 	}
@@ -85,25 +85,27 @@ func (t tokenRepository) Revoke(ctx context.Context, token string) error {
 }
 
 // Create implements token.TokenRepository.
-func (t tokenRepository) Create(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
-	if userID == uuid.Nil {
+func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, limit int) error {
+	if token.UserID() == uuid.Nil {
 		return tokenDomain.ErrInvalidUserID
 	}
 
-	if token == "" {
+	if token == nil {
 		return tokenDomain.ErrInvalidToken
 	}
 
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
 	query := `
-		INSERT INTO refresh_tokens (
-			user_id,
-			token_hash,
-			expires_at,
-			created_at
-		) VALUES ($1, $2, $3, NOW())
+		INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at)
+        VALUES ($1, $2, $3, $4)
 	`
 
-	_, err := t.db.Exec(ctx, query, userID, token, expiresAt)
+	_, err = r.db.Exec(ctx, query, token.UserID(), token.RefreshToken(), token.CreatedAt(), token.ExpiresAt())
 	if err != nil {
 		if dberrors.IsUniqueViolation(err) {
 			return tokenDomain.ErrTokenAlreadyExists
@@ -112,11 +114,25 @@ func (t tokenRepository) Create(ctx context.Context, userID uuid.UUID, token str
 		return fmt.Errorf("save token: %w", err)
 	}
 
-	return nil
+	_, err = tx.Exec(ctx, `
+        DELETE FROM refresh_tokens
+        WHERE user_id = $1
+        AND id NOT IN (
+            SELECT id FROM refresh_tokens
+            WHERE user_id = $1
+            ORDER BY created_at DESC
+            LIMIT $2
+        )
+    `, token.UserID, limit)
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
 }
 
 // Update implements token.TokenRepository.
-func (t tokenRepository) Update(ctx context.Context, userID uuid.UUID, oldToken string, newToken string) error {
+func (r tokenRepository) Update(ctx context.Context, userID uuid.UUID, oldToken string, newToken string) error {
 	query := `
 		UPDATE refresh_tokens
 		SET token_hash = $3
@@ -124,7 +140,7 @@ func (t tokenRepository) Update(ctx context.Context, userID uuid.UUID, oldToken 
 		AND token_hash = $2
 	`
 
-	cmd, err := t.db.Exec(ctx, query, userID, oldToken, newToken)
+	cmd, err := r.db.Exec(ctx, query, userID, oldToken, newToken)
 	if err != nil {
 		if dberrors.IsUniqueViolation(err) {
 			return tokenDomain.ErrTokenAlreadyExists

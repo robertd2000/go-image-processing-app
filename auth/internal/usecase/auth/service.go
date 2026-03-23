@@ -15,6 +15,8 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/validation"
 )
 
+var sessionLimit = 5
+
 type authService struct {
 	userRepo    userDomain.UserRepository
 	refreshRepo tokensDomain.TokenRepository
@@ -160,7 +162,12 @@ func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*dt
 	now := time.Now()
 	expiresAt := now.Add(s.refreshTTL)
 
-	if err := s.refreshRepo.Create(ctx, userID, hash, expiresAt); err != nil {
+	token, err := tokensDomain.NewTokens(userID, hash, expiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("create refresh token: %w", err)
+	}
+
+	if err := s.refreshRepo.Create(ctx, token, sessionLimit); err != nil {
 		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
 

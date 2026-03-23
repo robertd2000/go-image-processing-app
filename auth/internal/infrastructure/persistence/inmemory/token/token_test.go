@@ -22,23 +22,25 @@ func TestTokenRepository_SaveAndIsValid(t *testing.T) {
 	repo, ctx := newRepo()
 
 	userID := uuid.New()
-	token := "token1"
+	tokenHash := "token1"
 	expiresAt := time.Now().Add(refreshTTL)
+	token, _ := tokenDomain.NewTokens(userID, tokenHash, expiresAt)
 
-	require.NoError(t, repo.Create(ctx, userID, token, expiresAt))
+	require.NoError(t, repo.Create(ctx, token, 5))
 }
 
 func TestTokenRepository_GetByToken(t *testing.T) {
 	repo, ctx := newRepo()
 
 	userID := uuid.New()
-	token := "token1"
+	tokenHash := "token1"
 	expiresAt := time.Now().Add(refreshTTL)
+	token, _ := tokenDomain.NewTokens(userID, tokenHash, expiresAt)
 
-	require.NoError(t, repo.Create(ctx, userID, token, expiresAt))
+	require.NoError(t, repo.Create(ctx, token, 5))
 
 	t.Run("success", func(t *testing.T) {
-		got, err := repo.GetByHash(ctx, token)
+		got, err := repo.GetByHash(ctx, tokenHash)
 
 		require.NoError(t, err)
 		require.NotNil(t, got)
@@ -61,7 +63,9 @@ func TestTokenRepository_Update(t *testing.T) {
 	newToken := "new"
 	expiresAt := time.Now().Add(refreshTTL)
 
-	require.NoError(t, repo.Create(ctx, userID, oldToken, expiresAt))
+	token, _ := tokenDomain.NewTokens(userID, oldToken, expiresAt)
+
+	require.NoError(t, repo.Create(ctx, token, 5))
 
 	require.NoError(t, repo.Update(ctx, userID, oldToken, newToken))
 }
@@ -70,20 +74,23 @@ func TestTokenRepository_Revoke(t *testing.T) {
 	repo, ctx := newRepo()
 
 	userID := uuid.New()
-	token := "token1"
+	tokenHash := "token1"
 	expiresAt := time.Now().Add(refreshTTL)
 
-	require.NoError(t, repo.Create(ctx, userID, token, expiresAt))
-	require.NoError(t, repo.Revoke(ctx, token))
+	token, _ := tokenDomain.NewTokens(userID, tokenHash, expiresAt)
+
+	require.NoError(t, repo.Create(ctx, token, 5))
+	require.NoError(t, repo.Revoke(ctx, tokenHash))
 }
 
 func TestTokenRepository_RevokeByToken(t *testing.T) {
 	repo, ctx := newRepo()
 
 	userID := uuid.New()
-	token := "token1"
+	tokenHash := "token1"
 	expiresAt := time.Now().Add(refreshTTL)
 
-	require.NoError(t, repo.Create(ctx, userID, token, expiresAt))
-	require.NoError(t, repo.Revoke(ctx, token))
+	token, _ := tokenDomain.NewTokens(userID, tokenHash, expiresAt)
+	require.NoError(t, repo.Create(ctx, token, 5))
+	require.NoError(t, repo.Revoke(ctx, tokenHash))
 }
