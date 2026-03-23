@@ -63,7 +63,7 @@ func TestSHA1Hasher_Check(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := security.NewSHA1Hasher(tt.salt)
-			got := h.Check(tt.plain, tt.hash)
+			got := h.Compare(tt.plain, tt.hash)
 
 			if got != tt.want {
 				t.Errorf("Check() = %v, want %v", got, tt.want)

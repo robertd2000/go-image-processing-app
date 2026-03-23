@@ -26,7 +26,7 @@ func (h *SHA1Hasher) Hash(password string) (string, error) {
 	return fmt.Sprintf("%x", hash.Sum([]byte(h.salt))), nil
 }
 
-func (h *SHA1Hasher) Check(plain, hash string) bool {
+func (h *SHA1Hasher) Compare(plain, hash string) bool {
 	expectedHash, err := h.Hash(plain)
 	if err != nil {
 		return false
