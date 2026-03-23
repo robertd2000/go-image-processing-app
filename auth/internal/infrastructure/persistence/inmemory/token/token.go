@@ -22,7 +22,7 @@ func NewTokenRepository() tokenDomain.TokenRepository {
 	}
 }
 
-func (t *tokenInMemoryRepository) Save(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
+func (t *tokenInMemoryRepository) Create(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 

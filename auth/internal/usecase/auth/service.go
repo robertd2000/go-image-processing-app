@@ -160,7 +160,7 @@ func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*dt
 	now := time.Now()
 	expiresAt := now.Add(s.refreshTTL)
 
-	if err := s.refreshRepo.Save(ctx, userID, hash, expiresAt); err != nil {
+	if err := s.refreshRepo.Create(ctx, userID, hash, expiresAt); err != nil {
 		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
 

@@ -70,18 +70,22 @@ func (t tokenRepository) Revoke(ctx context.Context, token string) error {
 	query := `
 		UPDATE refresh_tokens
 		SET revoked_at = NOW()
-		WHERE token_hash = $1
+		WHERE token_hash = $1 AND revoked_at IS NULL
 	`
-	_, err := t.db.Exec(ctx, query, token)
+	cmd, err := t.db.Exec(ctx, query, token)
 	if err != nil {
 		return fmt.Errorf("revoke token: %w", err)
+	}
+
+	if cmd.RowsAffected() != 1 {
+		return fmt.Errorf("revoke token: rowsAffected is 0")
 	}
 
 	return nil
 }
 
-// Save implements token.TokenRepository.
-func (t tokenRepository) Save(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
+// Create implements token.TokenRepository.
+func (t tokenRepository) Create(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error {
 	if userID == uuid.Nil {
 		return tokenDomain.ErrInvalidUserID
 	}

@@ -25,55 +25,7 @@ func TestTokenRepository_SaveAndIsValid(t *testing.T) {
 	token := "token1"
 	expiresAt := time.Now().Add(refreshTTL)
 
-	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
-
-	ok, err := repo.IsValid(ctx, userID, token)
-	require.NoError(t, err)
-	require.True(t, ok)
-}
-
-func TestTokenRepository_IsValid(t *testing.T) {
-	repo, ctx := newRepo()
-
-	userID := uuid.New()
-	token := "token1"
-	expiresAt := time.Now().Add(refreshTTL)
-
-	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
-
-	tests := []struct {
-		name   string
-		userID uuid.UUID
-		token  string
-		valid  bool
-	}{
-		{
-			name:   "valid token",
-			userID: userID,
-			token:  token,
-			valid:  true,
-		},
-		{
-			name:   "unknown token",
-			userID: userID,
-			token:  "unknown",
-			valid:  false,
-		},
-		{
-			name:   "wrong user",
-			userID: uuid.New(),
-			token:  token,
-			valid:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ok, err := repo.IsValid(ctx, tt.userID, tt.token)
-			require.NoError(t, err)
-			require.Equal(t, tt.valid, ok)
-		})
-	}
+	require.NoError(t, repo.Create(ctx, userID, token, expiresAt))
 }
 
 func TestTokenRepository_GetByToken(t *testing.T) {
@@ -83,7 +35,7 @@ func TestTokenRepository_GetByToken(t *testing.T) {
 	token := "token1"
 	expiresAt := time.Now().Add(refreshTTL)
 
-	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
+	require.NoError(t, repo.Create(ctx, userID, token, expiresAt))
 
 	t.Run("success", func(t *testing.T) {
 		got, err := repo.GetByHash(ctx, token)
@@ -109,17 +61,9 @@ func TestTokenRepository_Update(t *testing.T) {
 	newToken := "new"
 	expiresAt := time.Now().Add(refreshTTL)
 
-	require.NoError(t, repo.Save(ctx, userID, oldToken, expiresAt))
+	require.NoError(t, repo.Create(ctx, userID, oldToken, expiresAt))
 
 	require.NoError(t, repo.Update(ctx, userID, oldToken, newToken))
-
-	ok, err := repo.IsValid(ctx, userID, oldToken)
-	require.NoError(t, err)
-	require.False(t, ok)
-
-	ok, err = repo.IsValid(ctx, userID, newToken)
-	require.NoError(t, err)
-	require.True(t, ok)
 }
 
 func TestTokenRepository_Revoke(t *testing.T) {
@@ -129,12 +73,8 @@ func TestTokenRepository_Revoke(t *testing.T) {
 	token := "token1"
 	expiresAt := time.Now().Add(refreshTTL)
 
-	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
+	require.NoError(t, repo.Create(ctx, userID, token, expiresAt))
 	require.NoError(t, repo.Revoke(ctx, token))
-
-	ok, err := repo.IsValid(ctx, userID, token)
-	require.NoError(t, err)
-	require.False(t, ok)
 }
 
 func TestTokenRepository_RevokeByToken(t *testing.T) {
@@ -144,10 +84,6 @@ func TestTokenRepository_RevokeByToken(t *testing.T) {
 	token := "token1"
 	expiresAt := time.Now().Add(refreshTTL)
 
-	require.NoError(t, repo.Save(ctx, userID, token, expiresAt))
+	require.NoError(t, repo.Create(ctx, userID, token, expiresAt))
 	require.NoError(t, repo.Revoke(ctx, token))
-
-	ok, err := repo.IsValid(ctx, userID, token)
-	require.NoError(t, err)
-	require.False(t, ok)
 }

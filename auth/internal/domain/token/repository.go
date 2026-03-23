@@ -9,8 +9,7 @@ import (
 )
 
 type TokenRepository interface {
-	Save(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error
-	IsValid(ctx context.Context, userID uuid.UUID, token string) (bool, error)
+	Create(ctx context.Context, userID uuid.UUID, token string, expiresAt time.Time) error
 	Update(ctx context.Context, userID uuid.UUID, oldToken, newToken string) error
 	Revoke(ctx context.Context, token string) error
 	// RevokeByToken(ctx context.Context, token string) error
