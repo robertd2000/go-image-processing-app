@@ -79,10 +79,21 @@ topics:
 # BOOTSTRAP (поднять всё + миграции + топики)
 # =========================================
 
+wait-db:
+	@echo "Waiting for Postgres..."
+	until docker exec postgres-auth pg_isready -U ${AUTH_DB_USER}; do sleep 2; done
+	until docker exec postgres-image pg_isready -U ${IMAGE_DB_USER}; do sleep 2; done
+
+wait-kafka:
+	@echo "Waiting for Kafka..."
+	until docker exec kafka bash -c "kafka-topics --bootstrap-server kafka:9092 --list" >/dev/null 2>&1; do \
+		sleep 3; \
+	done
+	
 bootstrap:
 	make up
-	@echo "Waiting 5s for Postgres and Kafka..."
-	sleep 5
+	make wait-db
+	make wait-kafka
 	make auth-migrate-up
 	make image-migrate-up
 	make topics

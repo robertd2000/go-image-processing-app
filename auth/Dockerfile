@@ -11,6 +11,9 @@ RUN go build -o /app/bin/app cmd/main.go
 
 # Stage 2: Runtime
 FROM alpine:latest
+
+RUN apk add --no-cache tini
+
 WORKDIR /app
 COPY --from=builder /app/bin/app .
 EXPOSE 8080

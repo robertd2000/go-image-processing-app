@@ -12,9 +12,9 @@ CREATE TABLE users (
     modified_at     TIMESTAMPTZ,
     deleted_at      TIMESTAMPTZ,
 
-    created_by      BIGINT,
-    modified_by     BIGINT,
-    deleted_by      BIGINT
+    created_by      UUID,
+    modified_by     UUID,
+    deleted_by      UUID
 );
 
 CREATE INDEX idx_users_email ON users(email);

@@ -107,7 +107,7 @@ func (s *authService) Login(ctx context.Context, email string, password string) 
 		return nil, userDomain.ErrUserDisabled
 	}
 
-	if !s.passwordHasher.Compare(user.PasswordHash(), password) {
+	if !s.passwordHasher.Compare(password, user.PasswordHash()) {
 		return nil, userDomain.ErrWrongCreadentials
 	}
 

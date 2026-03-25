@@ -46,6 +46,7 @@ func (r *userRepository) Create(ctx context.Context, user *userDomain.User) erro
 		user.FirstName(),
 		user.LastName(),
 		user.Email(),
+		user.PasswordHash(),
 		user.Enabled(),
 		user.CreatedAt(),
 	)

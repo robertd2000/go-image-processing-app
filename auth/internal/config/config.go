@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -16,9 +17,9 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port    string
-	RunMode string
-	Domain  string
+	Port    string `mapstructure:"SERVER_PORT"`
+	RunMode string `mapstructure:"SERVER_RUN_MODE"`
+	Domain  string `mapstructure:"SERVER_DOMAIN"`
 }
 
 type PostgresConfig struct {
@@ -43,9 +44,9 @@ func (p PostgresConfig) DSN() string {
 }
 
 type JWTConfig struct {
-	Secret        string
-	AccessTTLMin  int
-	RefreshTTLMin int
+	Secret        string `mapstructure:"JWT_SECRET"`
+	AccessTTLMin  int    `mapstructure:"JWT_ACCESS_TTL_MIN"`
+	RefreshTTLMin int    `mapstructure:"JWT_REFRESH_TTL_MIN"`
 }
 
 type LogConfig struct {
@@ -66,12 +67,15 @@ func Load() (*Config, error) {
 	v.AddConfigPath(".")
 	v.AddConfigPath("./config")
 
-	v.SetEnvPrefix("APP")
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
+	// config файл теперь опциональный
 	if err := v.ReadInConfig(); err != nil {
-		return nil, fmt.Errorf("read config: %w", err)
+		var notFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &notFound) {
+			return nil, fmt.Errorf("read config: %w", err)
+		}
 	}
 
 	var cfg Config
@@ -80,7 +84,21 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
-	// PORT override (Heroku / Docker)
+	// 🔥 ЖЁСТКО прокидываем env (убираем магию Viper)
+	cfg.JWT.Secret = os.Getenv("JWT_SECRET")
+
+	cfg.Postgres = PostgresConfig{
+		Host:     os.Getenv("AUTH_DB_HOST"),
+		Port:     os.Getenv("AUTH_DB_PORT"),
+		User:     os.Getenv("AUTH_DB_USER"),
+		Password: os.Getenv("AUTH_DB_PASS"),
+		DBName:   os.Getenv("AUTH_DB_NAME"),
+		SSLMode:  os.Getenv("AUTH_DB_SSL_MODE"),
+	}
+
+	cfg.Server.Port = os.Getenv("SERVER_PORT")
+
+	// PORT override (docker/platform)
 	if port := os.Getenv("PORT"); port != "" {
 		cfg.Server.Port = port
 	}
@@ -93,7 +111,6 @@ func Load() (*Config, error) {
 
 	return &cfg, nil
 }
-
 func normalizePort(p string) string {
 	if p == "" {
 		return ":8080"

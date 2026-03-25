@@ -22,7 +22,7 @@ func SetupRouter(r *gin.Engine, cfg *config.Config, db *pgxpool.Pool, logger *za
 	tokenRepo := tokenpg.NewTokenRepository(db)
 
 	tokenGen := jwt.NewJWTGenerator([]byte(cfg.JWT.Secret))
-	hasher := security.NewSHA1Hasher("salt")
+	hasher := security.NewHasher()
 	tokenHasher := &security.TokenHasher{}
 
 	authSvc := auth.NewAuthService(userRepo, tokenRepo, hasher, tokenHasher, tokenGen, time.Duration(cfg.JWT.AccessTTLMin), time.Duration(cfg.JWT.RefreshTTLMin))
