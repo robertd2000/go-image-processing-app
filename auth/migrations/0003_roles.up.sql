@@ -6,10 +6,10 @@ CREATE TABLE roles (
     modified_at TIMESTAMPTZ,
     deleted_at  TIMESTAMPTZ,
 
-    created_by  BIGINT,
-    modified_by BIGINT,
-    deleted_by  BIGINT
+    created_by      UUID,
+    modified_by     UUID,
+    deleted_by      UUID
 );
 
-INSERT INTO roles (name, created_by)
-VALUES ('ADMIN', 1), ('USER', 1);
+INSERT INTO roles (name)
+VALUES ('ADMIN'), ('USER');

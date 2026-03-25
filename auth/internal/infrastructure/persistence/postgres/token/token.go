@@ -123,7 +123,7 @@ func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, 
             ORDER BY created_at DESC
             LIMIT $2
         )
-    `, token.UserID, limit)
+    `, token.UserID(), limit)
 	if err != nil {
 		return err
 	}

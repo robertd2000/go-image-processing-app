@@ -149,6 +149,7 @@ func (h *authHandler) refresh(c *gin.Context) {
 
 func mapError(err error) (int, string, string) {
 	switch {
+	// AUTH
 	case errors.Is(err, userDomain.ErrWrongCreadentials):
 		return http.StatusUnauthorized, "INVALID_CREDENTIALS", "email or password is wrong"
 
@@ -158,6 +159,34 @@ func mapError(err error) (int, string, string) {
 	case errors.Is(err, tokenDomain.ErrInvalidToken):
 		return http.StatusUnauthorized, "INVALID_TOKEN", "invalid token"
 
+	// USER
+	case errors.Is(err, userDomain.ErrUserNotFound):
+		return http.StatusNotFound, "USER_NOT_FOUND", "user not found"
+
+	case errors.Is(err, userDomain.ErrUserAlreadyExists):
+		return http.StatusConflict, "USER_ALREADY_EXISTS", "user already exists"
+
+	// VALIDATION
+	case errors.Is(err, userDomain.ErrInvalidEmail):
+		return http.StatusBadRequest, "INVALID_EMAIL", "invalid email"
+
+	case errors.Is(err, userDomain.ErrInvalidUsername):
+		return http.StatusBadRequest, "INVALID_USERNAME", "invalid username"
+
+	case errors.Is(err, userDomain.ErrInvalidPassword):
+		return http.StatusBadRequest, "INVALID_PASSWORD", "invalid password"
+
+	case errors.Is(err, userDomain.ErrInvalidPasswordHash):
+		return http.StatusInternalServerError, "INVALID_PASSWORD_HASH", "internal error"
+
+	// ROLES
+	case errors.Is(err, userDomain.ErrRoleAlreadyAssigned):
+		return http.StatusConflict, "ROLE_ALREADY_ASSIGNED", "role already assigned"
+
+	case errors.Is(err, userDomain.ErrRoleNotAssigned):
+		return http.StatusNotFound, "ROLE_NOT_ASSIGNED", "role not assigned"
+
+	// DEFAULT
 	default:
 		return http.StatusInternalServerError, "INTERNAL_ERROR", "something went wrong"
 	}

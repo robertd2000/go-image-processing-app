@@ -19,7 +19,7 @@ func TestSHA1Hasher_Check(t *testing.T) {
 			salt:  "mysalt",
 			plain: "password123",
 			hash: func() string {
-				h := security.NewSHA1Hasher("mysalt")
+				h := security.NewHasher()
 				v, _ := h.Hash("password123")
 				return v
 			}(),
@@ -30,18 +30,7 @@ func TestSHA1Hasher_Check(t *testing.T) {
 			salt:  "mysalt",
 			plain: "wrongpassword",
 			hash: func() string {
-				h := security.NewSHA1Hasher("mysalt")
-				v, _ := h.Hash("password123")
-				return v
-			}(),
-			want: false,
-		},
-		{
-			name:  "invalid salt",
-			salt:  "othersalt",
-			plain: "password123",
-			hash: func() string {
-				h := security.NewSHA1Hasher("mysalt")
+				h := security.NewHasher()
 				v, _ := h.Hash("password123")
 				return v
 			}(),
@@ -52,7 +41,7 @@ func TestSHA1Hasher_Check(t *testing.T) {
 			salt:  "mysalt",
 			plain: "",
 			hash: func() string {
-				h := security.NewSHA1Hasher("mysalt")
+				h := security.NewHasher()
 				v, _ := h.Hash("")
 				return v
 			}(),
@@ -62,7 +51,7 @@ func TestSHA1Hasher_Check(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := security.NewSHA1Hasher(tt.salt)
+			h := security.NewHasher()
 			got := h.Compare(tt.plain, tt.hash)
 
 			if got != tt.want {
