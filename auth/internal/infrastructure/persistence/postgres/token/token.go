@@ -105,7 +105,7 @@ func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, 
         VALUES ($1, $2, $3, $4)
 	`
 
-	_, err = r.db.Exec(ctx, query, token.UserID(), token.RefreshToken(), token.CreatedAt(), token.ExpiresAt())
+	_, err = tx.Exec(ctx, query, token.UserID(), token.RefreshToken(), token.CreatedAt(), token.ExpiresAt())
 	if err != nil {
 		if dberrors.IsUniqueViolation(err) {
 			return tokenDomain.ErrTokenAlreadyExists
@@ -115,15 +115,15 @@ func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, 
 	}
 
 	_, err = tx.Exec(ctx, `
-        DELETE FROM refresh_tokens
-        WHERE user_id = $1
-        AND id NOT IN (
-            SELECT id FROM refresh_tokens
-            WHERE user_id = $1
-            ORDER BY created_at DESC
-            LIMIT $2
-        )
-    `, token.UserID(), limit)
+	    DELETE FROM refresh_tokens
+	    WHERE user_id = $1
+	    AND id NOT IN (
+	        SELECT id FROM refresh_tokens
+	        WHERE user_id = $1
+	        ORDER BY created_at DESC
+	        LIMIT $2
+	    )
+	`, token.UserID(), limit)
 	if err != nil {
 		return err
 	}

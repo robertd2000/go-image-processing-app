@@ -135,7 +135,7 @@ func (h *authHandler) refresh(c *gin.Context) {
 
 	token, err := h.authSvc.Refresh(c.Request.Context(), input.Token)
 	if err != nil {
-		h.logger.Error("login failed", zap.Error(err))
+		h.logger.Error("refresh failed", zap.Error(err))
 
 		status, code, msg := mapError(err)
 		respondError(c, status, code, msg)

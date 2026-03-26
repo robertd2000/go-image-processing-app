@@ -110,7 +110,6 @@ func (s *authService) Login(ctx context.Context, email string, password string) 
 	if !s.passwordHasher.Compare(password, user.PasswordHash()) {
 		return nil, userDomain.ErrWrongCreadentials
 	}
-
 	return s.generateTokens(ctx, user.ID())
 }
 
@@ -122,6 +121,9 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(token)
+	fmt.Println(token.IsRevoked())
+	fmt.Println(token.ExpiresAt().Before(now))
 
 	if token == nil {
 		return nil, tokensDomain.ErrInvalidToken
@@ -168,9 +170,12 @@ func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*dt
 	}
 
 	hash := s.tokenHasher.Hash(refresh)
+
 	now := time.Now()
 	expiresAt := now.Add(s.refreshTTL)
-
+	fmt.Println("NOW:", now)
+	fmt.Println("EXPIRES:", expiresAt)
+	fmt.Println("TTL:", s.refreshTTL)
 	token, err := tokensDomain.NewTokens(userID, hash, expiresAt)
 	if err != nil {
 		return nil, fmt.Errorf("create refresh token: %w", err)
@@ -180,13 +185,13 @@ func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*dt
 		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
 
-	tokens, err := tokensDomain.NewTokens(userID, refresh, now.Add(s.accessTTL))
-	if err != nil {
-		return nil, err
-	}
+	// tokens, err := tokensDomain.NewTokens(userID, refresh, now.Add(s.refreshTTL))
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	return &dto.TokenPair{
 		AccessToken:  access,
-		RefreshToken: tokens.RefreshToken(),
+		RefreshToken: refresh,
 	}, nil
 }
