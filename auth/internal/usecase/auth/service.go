@@ -44,6 +44,8 @@ func NewAuthService(
 		tokenGen:       tokenGen,
 		passwordHasher: passwordHasher,
 		tokenHasher:    tokenHasher,
+		accessTTL:      accessTTL,
+		refreshTTL:     refreshTTL,
 	}
 }
 
@@ -121,9 +123,6 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(token)
-	fmt.Println(token.IsRevoked())
-	fmt.Println(token.ExpiresAt().Before(now))
 
 	if token == nil {
 		return nil, tokensDomain.ErrInvalidToken
@@ -170,12 +169,9 @@ func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*dt
 	}
 
 	hash := s.tokenHasher.Hash(refresh)
-
 	now := time.Now()
 	expiresAt := now.Add(s.refreshTTL)
-	fmt.Println("NOW:", now)
-	fmt.Println("EXPIRES:", expiresAt)
-	fmt.Println("TTL:", s.refreshTTL)
+
 	token, err := tokensDomain.NewTokens(userID, hash, expiresAt)
 	if err != nil {
 		return nil, fmt.Errorf("create refresh token: %w", err)

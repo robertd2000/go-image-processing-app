@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -70,7 +71,6 @@ func Load() (*Config, error) {
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	// config файл теперь опциональный
 	if err := v.ReadInConfig(); err != nil {
 		var notFound viper.ConfigFileNotFoundError
 		if !errors.As(err, &notFound) {
@@ -84,8 +84,9 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
-	// 🔥 ЖЁСТКО прокидываем env (убираем магию Viper)
 	cfg.JWT.Secret = os.Getenv("JWT_SECRET")
+	cfg.JWT.AccessTTLMin = mustInt(os.Getenv("JWT_ACCESS_TTL_MIN"))
+	cfg.JWT.RefreshTTLMin = mustInt(os.Getenv("JWT_REFRESH_TTL_MIN"))
 
 	cfg.Postgres = PostgresConfig{
 		Host:     os.Getenv("AUTH_DB_HOST"),
@@ -111,6 +112,7 @@ func Load() (*Config, error) {
 
 	return &cfg, nil
 }
+
 func normalizePort(p string) string {
 	if p == "" {
 		return ":8080"
@@ -135,4 +137,9 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("postgres dbname is required")
 	}
 	return nil
+}
+
+func mustInt(s string) int {
+	v, _ := strconv.Atoi(s)
+	return v
 }
