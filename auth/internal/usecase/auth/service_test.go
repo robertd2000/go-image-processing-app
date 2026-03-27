@@ -297,11 +297,16 @@ func (s *AuthTestSuite) TestAuthService_Refresh_TokenRevoked() {
 	tokens, err := s.service.Login(ctx, "john2@example.com", "!Secure123")
 	s.Require().NoError(err)
 
-	hash := s.tokenHasher.Hash(tokens.RefreshToken)
-
-	err = s.tokenRepo.Revoke(ctx, hash)
+	// Extract the token entity from the repository to get its ID
+	hashedRefreshToken := s.tokenHasher.Hash(tokens.RefreshToken)
+	refreshTokenEntity, err := s.tokenRepo.GetByHash(ctx, hashedRefreshToken)
 	s.Require().NoError(err)
 
+	err = s.tokenRepo.Revoke(ctx, refreshTokenEntity.ID())
+	_, err = s.service.Refresh(ctx, tokens.RefreshToken)
+
+	s.Require().Error(err)
+	s.Require().ErrorIs(err, tokensDomain.ErrInvalidToken)
 	_, err = s.service.Refresh(ctx, tokens.RefreshToken)
 	s.Require().Error(err)
 }

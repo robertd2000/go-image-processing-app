@@ -26,7 +26,15 @@ func NewTokenRepository(db *pgxpool.Pool) tokenDomain.TokenRepository {
 // GetByHash implements token.TokenRepository.
 func (r tokenRepository) GetByHash(ctx context.Context, hash string) (*tokenDomain.Tokens, error) {
 	query := `
-		SELECT user_id, token_hash, expires_at, created_at, revoked_at
+		SELECT 
+			id,
+			user_id,
+			token_hash,
+			family_id,
+			parent_id,
+			expires_at,
+			created_at,
+			revoked_at
 		FROM refresh_tokens
 		WHERE token_hash = $1
 	`
@@ -66,19 +74,37 @@ func (r tokenRepository) IsValid(ctx context.Context, userID uuid.UUID, token st
 	return exists, nil
 }
 
-func (t tokenRepository) Revoke(ctx context.Context, token string) error {
+func (t tokenRepository) Revoke(ctx context.Context, tokenID uuid.UUID) error {
 	query := `
 		UPDATE refresh_tokens
 		SET revoked_at = NOW()
-		WHERE token_hash = $1 AND revoked_at IS NULL
+		WHERE id = $1 AND revoked_at IS NULL
 	`
-	cmd, err := t.db.Exec(ctx, query, token)
+	cmd, err := t.db.Exec(ctx, query, tokenID)
 	if err != nil {
 		return fmt.Errorf("revoke token: %w", err)
 	}
 
 	if cmd.RowsAffected() != 1 {
 		return fmt.Errorf("revoke token: rowsAffected is 0")
+	}
+
+	return nil
+}
+
+func (t tokenRepository) RevokeFamily(ctx context.Context, familyID uuid.UUID) error {
+	if familyID == uuid.Nil {
+		return nil // No family ID means nothing to revoke
+	}
+
+	query := `
+		UPDATE refresh_tokens
+		SET revoked_at = NOW()
+		WHERE family_id = $1 AND revoked_at IS NULL
+	`
+	_, err := t.db.Exec(ctx, query, familyID)
+	if err != nil {
+		return fmt.Errorf("revoke token family: %w", err)
 	}
 
 	return nil
@@ -155,18 +181,77 @@ func (r tokenRepository) Update(ctx context.Context, userID uuid.UUID, oldToken 
 	return nil
 }
 
+func (r tokenRepository) Rotate(
+	ctx context.Context,
+	oldToken *tokenDomain.Tokens,
+	newToken *tokenDomain.Tokens,
+) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. revoke old token (only if not already revoked)
+	cmd, err := tx.Exec(ctx, `
+		UPDATE refresh_tokens
+		SET revoked_at = NOW()
+		WHERE id = $1 AND revoked_at IS NULL
+	`, oldToken.ID())
+	if err != nil {
+		return fmt.Errorf("revoke old token: %w", err)
+	}
+
+	if cmd.RowsAffected() != 1 {
+		return fmt.Errorf("revoke old token: already revoked or not found")
+	}
+
+	// 2. insert new token
+	_, err = tx.Exec(ctx, `
+		INSERT INTO refresh_tokens (
+			id,
+			user_id,
+			token_hash,
+			family_id,
+			parent_id,
+			created_at,
+			expires_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+	`,
+		newToken.ID(),
+		newToken.UserID(),
+		newToken.RefreshToken(),
+		newToken.FamilyID(),
+		newToken.ParentID(),
+		newToken.CreatedAt(),
+		newToken.ExpiresAt(),
+	)
+	if err != nil {
+		return fmt.Errorf("insert new token: %w", err)
+	}
+
+	return tx.Commit(ctx)
+}
+
 func scanToken(row pgx.Row) (*tokenDomain.Tokens, error) {
 	var (
-		userID       uuid.UUID
-		refreshToken string
-		expiresAt    time.Time
-		createdAt    time.Time
-		revokedAt    *time.Time
+		id        uuid.UUID
+		userID    uuid.UUID
+		hash      string
+		familyID  uuid.UUID
+		parentID  *uuid.UUID
+		expiresAt time.Time
+		createdAt time.Time
+		revokedAt *time.Time
 	)
 
 	err := row.Scan(
+		&id,
 		&userID,
-		&refreshToken,
+		&hash,
+		&familyID,
+		&parentID,
 		&expiresAt,
 		&createdAt,
 		&revokedAt,
@@ -175,5 +260,14 @@ func scanToken(row pgx.Row) (*tokenDomain.Tokens, error) {
 		return nil, err
 	}
 
-	return tokenDomain.NewTokens(userID, refreshToken, expiresAt)
+	return tokenDomain.RestoreTokens(
+		id,
+		userID,
+		hash,
+		expiresAt,
+		createdAt,
+		revokedAt,
+		familyID,
+		parentID,
+	), nil
 }

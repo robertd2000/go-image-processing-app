@@ -18,17 +18,22 @@ var (
 )
 
 type Tokens struct {
+	id           uuid.UUID
 	userID       uuid.UUID
 	refreshToken string
 	expiresAt    time.Time
 	createdAt    time.Time
 	revokedAt    *time.Time
+	parentID     *uuid.UUID // Optional: ID of the parent token for family revocation
+	familyID     uuid.UUID
 }
 
 func NewTokens(
 	userID uuid.UUID,
 	refreshToken string,
 	expiresAt time.Time,
+	familyID uuid.UUID,
+	parentID *uuid.UUID,
 ) (*Tokens, error) {
 	if userID == uuid.Nil {
 		return nil, ErrInvalidUserID
@@ -43,23 +48,35 @@ func NewTokens(
 		refreshToken: refreshToken,
 		expiresAt:    expiresAt,
 		createdAt:    time.Now(),
+		familyID:     familyID,
+		parentID:     parentID,
 	}, nil
 }
 
 func RestoreTokens(
+	id uuid.UUID,
 	userID uuid.UUID,
 	refreshToken string,
 	expiresAt time.Time,
 	createdAt time.Time,
 	revokedAt *time.Time,
+	familyID uuid.UUID,
+	parentID *uuid.UUID,
 ) *Tokens {
 	return &Tokens{
+		id:           id,
 		userID:       userID,
 		refreshToken: refreshToken,
 		expiresAt:    expiresAt,
 		createdAt:    createdAt,
 		revokedAt:    revokedAt,
+		familyID:     familyID,
+		parentID:     parentID,
 	}
+}
+
+func (t *Tokens) ID() uuid.UUID {
+	return t.id
 }
 
 func (t *Tokens) UserID() uuid.UUID {
@@ -72,6 +89,10 @@ func (t *Tokens) RefreshToken() string {
 
 func (t *Tokens) IsRevoked() bool {
 	return t.revokedAt != nil
+}
+
+func (t *Tokens) RevokedAt() *time.Time {
+	return t.revokedAt
 }
 
 func (t *Tokens) IsExpired(now time.Time) bool {
@@ -91,6 +112,22 @@ func (t *Tokens) ExpiresAt() time.Time {
 
 func (t *Tokens) CreatedAt() time.Time {
 	return t.createdAt
+}
+
+func (t *Tokens) FamilyID() uuid.UUID {
+	return t.familyID
+}
+
+func (t *Tokens) SetFamilyID(familyID uuid.UUID) {
+	t.familyID = familyID
+}
+
+func (t *Tokens) ParentID() *uuid.UUID {
+	return t.parentID
+}
+
+func (t *Tokens) SetParentID(parentID uuid.UUID) {
+	t.parentID = &parentID
 }
 
 func validateToken(token string) error {

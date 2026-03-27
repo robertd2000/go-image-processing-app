@@ -100,15 +100,14 @@ func (s *authService) Login(ctx context.Context, email string, password string) 
 	if !s.passwordHasher.Compare(password, user.PasswordHash()) {
 		return nil, userDomain.ErrWrongCreadentials
 	}
+
 	return s.generateTokenPair(ctx, user.ID())
 }
 
 func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error) {
 	now := time.Now()
 
-	// Cache the hash result for this request
-	var hash string
-	hash = s.tokenHasher.Hash(refreshToken)
+	hash := s.tokenHasher.Hash(refreshToken)
 
 	token, err := s.refreshRepo.GetByHash(ctx, hash)
 	if err != nil {
@@ -120,6 +119,9 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 	}
 
 	if token.IsRevoked() {
+		if err := s.refreshRepo.RevokeFamily(ctx, token.FamilyID()); err != nil {
+			return nil, err
+		}
 		return nil, tokensDomain.ErrInvalidToken
 	}
 
@@ -127,18 +129,39 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 		return nil, tokensDomain.ErrExpiredToken
 	}
 
-	// Generate and store new tokens before revoking the old one
-	newTokens, err := s.generateTokenPair(ctx, token.UserID())
+	access, err := s.tokenGen.GenerateAccess(token.UserID())
 	if err != nil {
 		return nil, err
 	}
 
-	// Use the cached hash for revocation as well
-	if err := s.refreshRepo.Revoke(ctx, hash); err != nil {
+	refresh, err := s.tokenGen.GenerateRefresh(token.UserID())
+	if err != nil {
 		return nil, err
 	}
 
-	return newTokens, nil
+	hashNew := s.tokenHasher.Hash(refresh)
+
+	parentID := token.ID()
+
+	newToken, err := tokensDomain.NewTokens(
+		token.UserID(),
+		hashNew,
+		now.Add(s.refreshTTL),
+		token.FamilyID(),
+		&parentID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.refreshRepo.Rotate(ctx, token, newToken); err != nil {
+		return nil, err
+	}
+
+	return &dto.TokenPair{
+		AccessToken:  access,
+		RefreshToken: refresh,
+	}, nil
 }
 
 func (s *authService) Logout(ctx context.Context, refreshToken string) error {
@@ -152,7 +175,7 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 		return nil
 	}
 
-	return s.refreshRepo.Revoke(ctx, hash)
+	return s.refreshRepo.Revoke(ctx, token.ID())
 }
 
 func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (*dto.TokenPair, error) {
@@ -174,7 +197,10 @@ func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (
 	now := time.Now()
 	expiresAt := now.Add(s.refreshTTL)
 
-	token, err := tokensDomain.NewTokens(userID, refreshHash, expiresAt)
+	familyID := uuid.New()
+	var parentID *uuid.UUID
+
+	token, err := tokensDomain.NewTokens(userID, refreshHash, expiresAt, familyID, parentID)
 	if err != nil {
 		return nil, fmt.Errorf("create refresh token: %w", err)
 	}

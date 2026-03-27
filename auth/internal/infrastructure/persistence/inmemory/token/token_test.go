@@ -18,79 +18,103 @@ func newRepo() (tokenDomain.TokenRepository, context.Context) {
 	return inmemory.NewTokenRepository(), context.Background()
 }
 
-func TestTokenRepository_SaveAndIsValid(t *testing.T) {
+func TestTokenRepository_CreateAndGet(t *testing.T) {
 	repo, ctx := newRepo()
 
 	userID := uuid.New()
+	familyID := uuid.New()
+
 	tokenHash := "token1"
 	expiresAt := time.Now().Add(refreshTTL)
-	token, _ := tokenDomain.NewTokens(userID, tokenHash, expiresAt)
+
+	token, err := tokenDomain.NewTokens(userID, tokenHash, expiresAt, familyID, nil)
+	require.NoError(t, err)
 
 	require.NoError(t, repo.Create(ctx, token, 5))
+
+	got, err := repo.GetByHash(ctx, tokenHash)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	require.Equal(t, userID, got.UserID())
+	require.Equal(t, familyID, got.FamilyID())
+	require.True(t, got.ExpiresAt().After(time.Now()))
 }
 
-func TestTokenRepository_GetByToken(t *testing.T) {
+func TestTokenRepository_GetByHash_NotFound(t *testing.T) {
 	repo, ctx := newRepo()
 
-	userID := uuid.New()
-	tokenHash := "token1"
-	expiresAt := time.Now().Add(refreshTTL)
-	token, _ := tokenDomain.NewTokens(userID, tokenHash, expiresAt)
+	got, err := repo.GetByHash(ctx, "unknown")
 
-	require.NoError(t, repo.Create(ctx, token, 5))
-
-	t.Run("success", func(t *testing.T) {
-		got, err := repo.GetByHash(ctx, tokenHash)
-
-		require.NoError(t, err)
-		require.NotNil(t, got)
-		require.Equal(t, userID, got.UserID())
-	})
-
-	t.Run("not found", func(t *testing.T) {
-		got, err := repo.GetByHash(ctx, "unknown")
-
-		require.Error(t, err)
-		require.Nil(t, got)
-	})
-}
-
-func TestTokenRepository_Update(t *testing.T) {
-	repo, ctx := newRepo()
-
-	userID := uuid.New()
-	oldToken := "old"
-	newToken := "new"
-	expiresAt := time.Now().Add(refreshTTL)
-
-	token, _ := tokenDomain.NewTokens(userID, oldToken, expiresAt)
-
-	require.NoError(t, repo.Create(ctx, token, 5))
-
-	require.NoError(t, repo.Update(ctx, userID, oldToken, newToken))
+	require.Error(t, err)
+	require.Nil(t, got)
 }
 
 func TestTokenRepository_Revoke(t *testing.T) {
 	repo, ctx := newRepo()
 
 	userID := uuid.New()
+	familyID := uuid.New()
+
 	tokenHash := "token1"
 	expiresAt := time.Now().Add(refreshTTL)
 
-	token, _ := tokenDomain.NewTokens(userID, tokenHash, expiresAt)
+	token, err := tokenDomain.NewTokens(userID, tokenHash, expiresAt, familyID, nil)
+	require.NoError(t, err)
 
 	require.NoError(t, repo.Create(ctx, token, 5))
-	require.NoError(t, repo.Revoke(ctx, tokenHash))
+
+	// revoke
+	require.NoError(t, repo.Revoke(ctx, token.ID()))
+
+	// check revoked
+	got, err := repo.GetByHash(ctx, tokenHash)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	require.True(t, got.IsRevoked())
 }
 
-func TestTokenRepository_RevokeByToken(t *testing.T) {
+func TestTokenRepository_Rotate(t *testing.T) {
 	repo, ctx := newRepo()
 
 	userID := uuid.New()
-	tokenHash := "token1"
+	familyID := uuid.New()
+
+	oldHash := "old_token"
+	newHash := "new_token"
+
 	expiresAt := time.Now().Add(refreshTTL)
 
-	token, _ := tokenDomain.NewTokens(userID, tokenHash, expiresAt)
-	require.NoError(t, repo.Create(ctx, token, 5))
-	require.NoError(t, repo.Revoke(ctx, tokenHash))
+	oldToken, err := tokenDomain.NewTokens(userID, oldHash, expiresAt, familyID, nil)
+	require.NoError(t, err)
+
+	require.NoError(t, repo.Create(ctx, oldToken, 5))
+
+	parentID := oldToken.ID()
+
+	newToken, err := tokenDomain.NewTokens(
+		userID,
+		newHash,
+		expiresAt,
+		familyID,
+		&parentID,
+	)
+	require.NoError(t, err)
+
+	// rotate
+	require.NoError(t, repo.Rotate(ctx, oldToken, newToken))
+
+	// old token should be revoked
+	oldFromDB, err := repo.GetByHash(ctx, oldHash)
+	require.NoError(t, err)
+	require.True(t, oldFromDB.IsRevoked())
+
+	// new token should exist
+	newFromDB, err := repo.GetByHash(ctx, newHash)
+	require.NoError(t, err)
+	require.NotNil(t, newFromDB)
+
+	require.Equal(t, &parentID, newFromDB.ParentID())
+	require.Equal(t, familyID, newFromDB.FamilyID())
 }
