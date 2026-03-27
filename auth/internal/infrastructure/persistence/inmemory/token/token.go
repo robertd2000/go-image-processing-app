@@ -31,12 +31,7 @@ func (r *tokenInMemoryRepository) Create(ctx context.Context, token *tokenDomain
 		return tokenDomain.ErrTokenAlreadyExists
 	}
 
-	tokens, err := tokenDomain.NewTokens(token.UserID(), token.RefreshToken()+"_refresh", token.ExpiresAt())
-	if err != nil {
-		return err
-	}
-
-	r.data[token.RefreshToken()] = tokens
+	r.data[token.RefreshToken()] = token
 
 	return nil
 }
@@ -89,11 +84,14 @@ func (t *tokenInMemoryRepository) Update(ctx context.Context, userID uuid.UUID, 
 	delete(t.data, oldToken)
 
 	newEntity := tokenDomain.RestoreTokens(
-		userID,
-		tokens.RefreshToken(),
+		tokens.ID(),
+		tokens.UserID(),
+		newToken,
 		tokens.ExpiresAt(),
 		tokens.CreatedAt(),
-		nil,
+		tokens.RevokedAt(),
+		tokens.FamilyID(),
+		tokens.ParentID(),
 	)
 
 	t.data[newToken] = newEntity
@@ -101,19 +99,79 @@ func (t *tokenInMemoryRepository) Update(ctx context.Context, userID uuid.UUID, 
 	return nil
 }
 
-func (t *tokenInMemoryRepository) Revoke(ctx context.Context, token string) error {
+func (t *tokenInMemoryRepository) Revoke(ctx context.Context, tokenID uuid.UUID) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	tokens, err := t.getByToken(ctx, token)
-	if err != nil {
-		return err
+	found := false
+	for _, tokens := range t.data {
+		if tokens == nil {
+			continue
+		}
+		if tokens.ID() == tokenID {
+			now := time.Now().UTC()
+			tokens.Revoke(now)
+			found = true
+			break
+		}
 	}
 
-	now := time.Now().UTC()
-	tokens.Revoke(now)
+	if !found {
+		return tokenDomain.ErrTokenNotFound
+	}
 
 	return nil
+}
+
+func (t *tokenInMemoryRepository) RevokeFamily(ctx context.Context, familyID uuid.UUID) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	now := time.Now().UTC()
+
+	for _, tokens := range t.data {
+		if tokens == nil {
+			continue
+		}
+		if tokens.FamilyID() == familyID {
+			tokens.Revoke(now)
+		}
+	}
+
+	return nil
+}
+
+func (t *tokenInMemoryRepository) Rotate(
+	ctx context.Context,
+	oldToken *tokenDomain.Tokens,
+	newToken *tokenDomain.Tokens,
+) (bool, error) {
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	existedToken, err := t.getByToken(ctx, oldToken.RefreshToken())
+	if err != nil {
+		return false, err
+	}
+
+	if existedToken.ID() != oldToken.ID() {
+		return false, tokenDomain.ErrTokenNotFound
+	}
+
+	if existedToken.IsRevoked() {
+		return true, nil
+	}
+
+	existedToken.Revoke(time.Now().UTC())
+
+	if _, exists := t.data[newToken.RefreshToken()]; exists {
+		return false, tokenDomain.ErrTokenAlreadyExists
+	}
+
+	t.data[newToken.RefreshToken()] = newToken
+
+	return false, nil
 }
 
 func (t *tokenInMemoryRepository) GetByHash(ctx context.Context, hash string) (*tokenDomain.Tokens, error) {

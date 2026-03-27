@@ -44,10 +44,12 @@ func NewAuthService(
 		tokenGen:       tokenGen,
 		passwordHasher: passwordHasher,
 		tokenHasher:    tokenHasher,
+		accessTTL:      accessTTL,
+		refreshTTL:     refreshTTL,
 	}
 }
 
-func (s *authService) Register(ctx context.Context, username, firstname, lastname, email, password string) error {
+func (s *authService) Register(ctx context.Context, username, firstName, lastName, email, password string) error {
 	if err := validation.ValidateEmail(email); err != nil {
 		return err
 	}
@@ -59,30 +61,18 @@ func (s *authService) Register(ctx context.Context, username, firstname, lastnam
 	if err := validation.ValidateUsername(username); err != nil {
 		return err
 	}
-	//
-	// exists, err := s.userRepo.ExistsByEmail(ctx, email)
-	// if err != nil {
-	// 	return fmt.Errorf("find user by email: %w", err)
-	// }
-	// if exists {
-	// 	return userDomain.ErrUserAlreadyExists
-	// }
-	//
 	hashed, err := s.passwordHasher.Hash(password)
 	if err != nil {
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
+	user, err := userDomain.CreateUser(username, firstName, lastName, &email, hashed)
 	if err != nil {
 		return err
 	}
 
 	err = s.userRepo.Create(ctx, user)
 	if err != nil {
-		if errors.Is(err, userDomain.ErrUserAlreadyExists) {
-			return err
-		}
 		return fmt.Errorf("create user: %w", err)
 	}
 
@@ -100,7 +90,7 @@ func (s *authService) Login(ctx context.Context, email string, password string) 
 
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		return nil, userDomain.ErrWrongCreadentials
+		return nil, userDomain.ErrWrongCredentials
 	}
 
 	if !user.Enabled() {
@@ -108,38 +98,70 @@ func (s *authService) Login(ctx context.Context, email string, password string) 
 	}
 
 	if !s.passwordHasher.Compare(password, user.PasswordHash()) {
-		return nil, userDomain.ErrWrongCreadentials
+		return nil, userDomain.ErrWrongCredentials
 	}
 
-	return s.generateTokens(ctx, user.ID())
+	return s.generateTokenPair(ctx, user.ID())
 }
 
 func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error) {
-	now := time.Now()
-
+	if refreshToken == "" {
+		return nil, tokensDomain.ErrInvalidToken
+	}
 	hash := s.tokenHasher.Hash(refreshToken)
+
 	token, err := s.refreshRepo.GetByHash(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
-
 	if token == nil {
 		return nil, tokensDomain.ErrInvalidToken
 	}
 
-	if token.IsRevoked() {
-		return nil, tokensDomain.ErrInvalidToken
+	if token.ExpiresAt().Before(time.Now()) {
+		return nil, tokensDomain.ErrExpiredToken
 	}
 
-	if token.ExpiresAt().Before(now) {
-		return nil, tokensDomain.ErrInvalidToken
-	}
-
-	if err := s.refreshRepo.Revoke(ctx, hash); err != nil {
+	access, err := s.tokenGen.GenerateAccess(token.UserID())
+	if err != nil {
 		return nil, err
 	}
 
-	return s.generateTokens(ctx, token.UserID())
+	refresh, err := s.tokenGen.GenerateRefresh(token.UserID())
+	if err != nil {
+		return nil, err
+	}
+	familyID := token.FamilyID()
+	if familyID == uuid.Nil {
+		familyID = token.ID()
+	}
+	newToken, err := tokensDomain.NewTokens(
+		token.UserID(),
+		s.tokenHasher.Hash(refresh),
+		time.Now().Add(s.refreshTTL),
+		familyID,
+		token.ID(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if newToken == nil {
+		return nil, errors.New("newToken is nil")
+	}
+	reuse, err := s.refreshRepo.Rotate(ctx, token, newToken)
+	if err != nil {
+		return nil, err
+	}
+
+	if reuse {
+		_ = s.refreshRepo.RevokeFamily(ctx, token.FamilyID())
+		return nil, tokensDomain.ErrInvalidToken
+	}
+
+	return &dto.TokenPair{
+		AccessToken:  access,
+		RefreshToken: refresh,
+	}, nil
 }
 
 func (s *authService) Logout(ctx context.Context, refreshToken string) error {
@@ -153,13 +175,16 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 		return nil
 	}
 
-	return s.refreshRepo.Revoke(ctx, hash)
+	return s.refreshRepo.Revoke(ctx, token.ID())
 }
 
-func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*dto.TokenPair, error) {
+func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (*dto.TokenPair, error) {
 	access, err := s.tokenGen.GenerateAccess(userID)
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
+	}
+	if access == "" {
+		return nil, fmt.Errorf("generate access token: empty token returned")
 	}
 
 	refresh, err := s.tokenGen.GenerateRefresh(userID)
@@ -167,26 +192,28 @@ func (s *authService) generateTokens(ctx context.Context, userID uuid.UUID) (*dt
 		return nil, fmt.Errorf("generate refresh token: %w", err)
 	}
 
-	hash := s.tokenHasher.Hash(refresh)
+	// Cache the hash of the refresh token for reuse
+	refreshHash := s.tokenHasher.Hash(refresh)
 	now := time.Now()
 	expiresAt := now.Add(s.refreshTTL)
 
-	token, err := tokensDomain.NewTokens(userID, hash, expiresAt)
+	familyID := uuid.New()
+	var parentID uuid.UUID
+
+	token, err := tokensDomain.NewTokens(userID, refreshHash, expiresAt, familyID, parentID)
 	if err != nil {
 		return nil, fmt.Errorf("create refresh token: %w", err)
 	}
 
 	if err := s.refreshRepo.Create(ctx, token, sessionLimit); err != nil {
+		if errors.Is(err, tokensDomain.ErrSessionLimitExceeded) {
+			return nil, fmt.Errorf("session limit exceeded: %w", err)
+		}
 		return nil, fmt.Errorf("save refresh token: %w", err)
-	}
-
-	tokens, err := tokensDomain.NewTokens(userID, refresh, now.Add(s.accessTTL))
-	if err != nil {
-		return nil, err
 	}
 
 	return &dto.TokenPair{
 		AccessToken:  access,
-		RefreshToken: tokens.RefreshToken(),
+		RefreshToken: refresh,
 	}, nil
 }

@@ -2,6 +2,8 @@ package auth_test
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,7 +23,7 @@ import (
 
 type (
 	AuthService interface {
-		Register(ctx context.Context, username, fistname, lastname, email, password string) error
+		Register(ctx context.Context, username, firstname, lastname, email, password string) error
 		Login(ctx context.Context, email string, password string) (*dto.TokenPair, error)
 		Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error)
 		Logout(ctx context.Context, refreshToken string) error
@@ -165,7 +167,7 @@ func (s *AuthTestSuite) TestAuthService_LoginUserNotExists() {
 
 	tokens, err := s.service.Login(s.ctx, email, password)
 	s.Require().Error(err)
-	s.Require().ErrorIs(err, userDomain.ErrWrongCreadentials)
+	s.Require().ErrorIs(err, userDomain.ErrWrongCredentials)
 	s.Require().Nil(tokens)
 }
 
@@ -206,7 +208,7 @@ func (s *AuthTestSuite) TestAuthService_LoginWrongPassword() {
 	s.Require().NoError(err)
 	tokens, err := s.service.Login(s.ctx, email, "!!!!!!SecureDifferent22")
 	s.Require().Error(err)
-	s.Require().ErrorIs(err, userDomain.ErrWrongCreadentials)
+	s.Require().ErrorIs(err, userDomain.ErrWrongCredentials)
 	s.Require().Nil(tokens)
 }
 
@@ -297,11 +299,16 @@ func (s *AuthTestSuite) TestAuthService_Refresh_TokenRevoked() {
 	tokens, err := s.service.Login(ctx, "john2@example.com", "!Secure123")
 	s.Require().NoError(err)
 
-	hash := s.tokenHasher.Hash(tokens.RefreshToken)
-
-	err = s.tokenRepo.Revoke(ctx, hash)
+	// Extract the token entity from the repository to get its ID
+	hashedRefreshToken := s.tokenHasher.Hash(tokens.RefreshToken)
+	refreshTokenEntity, err := s.tokenRepo.GetByHash(ctx, hashedRefreshToken)
 	s.Require().NoError(err)
 
+	err = s.tokenRepo.Revoke(ctx, refreshTokenEntity.ID())
+	_, err = s.service.Refresh(ctx, tokens.RefreshToken)
+
+	s.Require().Error(err)
+	s.Require().ErrorIs(err, tokensDomain.ErrInvalidToken)
 	_, err = s.service.Refresh(ctx, tokens.RefreshToken)
 	s.Require().Error(err)
 }
@@ -368,6 +375,126 @@ func (s *AuthTestSuite) TestAuthService_Logout_AlreadyRevoked() {
 
 	err = s.service.Logout(ctx, tokens.RefreshToken)
 	s.Require().NoError(err)
+}
+
+func (s *AuthTestSuite) TestAuthService_Refresh_ReuseAttack_ShouldRevokeFamily() {
+	ctx := s.ctx
+
+	err := s.service.Register(
+		ctx,
+		"user_logout2",
+		"John",
+		"Doe",
+		"logout2@example.com",
+		"!Secure123",
+	)
+	s.Require().NoError(err)
+
+	tokens, err := s.service.Login(ctx, "logout2@example.com", "!Secure123")
+	s.Require().NoError(err)
+
+	newTokens, err := s.service.Refresh(ctx, tokens.RefreshToken)
+	s.Require().NoError(err)
+	s.Require().NotNil(newTokens)
+	s.Require().NotEmpty(newTokens.RefreshToken)
+	fmt.Println("DEBUG newTokens:", newTokens)
+	_, err = s.service.Refresh(ctx, tokens.RefreshToken)
+	s.Require().Error(err)
+
+	_, err = s.service.Refresh(ctx, newTokens.RefreshToken)
+	s.Require().Error(err)
+}
+
+func (s *AuthTestSuite) TestAuthService_Refresh_ShouldPreserveFamily() {
+	ctx := s.ctx
+
+	err := s.service.Register(
+		ctx,
+		"user_logout2",
+		"John",
+		"Doe",
+		"logout2@example.com",
+		"!Secure123",
+	)
+	s.Require().NoError(err)
+
+	tokens, err := s.service.Login(ctx, "logout2@example.com", "!Secure123")
+	s.Require().NoError(err)
+
+	hash := s.tokenHasher.Hash(tokens.RefreshToken)
+	token1, _ := s.tokenRepo.GetByHash(ctx, hash)
+
+	newTokens, _ := s.service.Refresh(ctx, tokens.RefreshToken)
+
+	hash2 := s.tokenHasher.Hash(newTokens.RefreshToken)
+	token2, _ := s.tokenRepo.GetByHash(ctx, hash2)
+
+	s.Require().Equal(token1.FamilyID(), token2.FamilyID())
+	s.Require().Equal(token1.ID(), token2.ParentID())
+}
+
+func (s *AuthTestSuite) TestAuthService_Refresh_ExpiredToken() {
+	ctx := s.ctx
+
+	s.service = auth.NewAuthService(
+		s.userRepo,
+		s.tokenRepo,
+		s.passwordHasher,
+		s.tokenHasher,
+		s.tokenGen,
+		1*time.Second,
+		1*time.Second,
+	)
+
+	_ = s.service.Register(ctx, "exp", "f", "l", "exp@test.com", "!Secure123")
+	tokens, _ := s.service.Login(ctx, "exp@test.com", "!Secure123")
+
+	time.Sleep(2 * time.Second)
+
+	_, err := s.service.Refresh(ctx, tokens.RefreshToken)
+
+	s.Require().ErrorIs(err, tokensDomain.ErrExpiredToken)
+}
+
+func (s *AuthTestSuite) TestAuthService_Refresh_RaceCondition() {
+	ctx := s.ctx
+
+	_ = s.service.Register(ctx, "race", "f", "l", "race@test.com", "!Secure123")
+	tokens, _ := s.service.Login(ctx, "race@test.com", "!Secure123")
+
+	var wg sync.WaitGroup
+	results := make(chan error, 2)
+
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		_, err := s.service.Refresh(ctx, tokens.RefreshToken)
+		results <- err
+	}()
+
+	go func() {
+		defer wg.Done()
+		_, err := s.service.Refresh(ctx, tokens.RefreshToken)
+		results <- err
+	}()
+
+	wg.Wait()
+	close(results)
+
+	success := 0
+	fail := 0
+
+	for err := range results {
+		if err == nil {
+			success++
+		} else {
+			fail++
+		}
+	}
+
+	s.Require().Equal(1, success)
+	s.Require().Equal(1, fail)
 }
 
 func TestAuthServiceSuite(t *testing.T) {

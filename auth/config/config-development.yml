@@ -1,0 +1,20 @@
+server:
+  port: 8080
+  run_mode: debug
+  domain: localhost
+
+postgres:
+  host: postgres-auth
+  port: 5432
+  user: auth_user
+  password: auth_pass
+  db_name: auth_db
+  ssl_mode: disable
+
+jwt:
+  secret: super_secret_jwt_key_change_me
+  access_ttl_min: 15
+  refresh_ttl_min: 10080
+
+log:
+  level: debug

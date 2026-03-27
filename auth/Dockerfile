@@ -1,20 +1,36 @@
-# Stage 1: Builder
+# =========================
+# Stage 1: Build
+# =========================
 FROM golang:1.25-alpine AS builder
+
 WORKDIR /app
+
 RUN apk add --no-cache git
 
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN go build -o /app/bin/app cmd/main.go
 
+# build
+RUN go build -o app cmd/main.go
+
+# =========================
 # Stage 2: Runtime
-FROM alpine:latest
-
-RUN apk add --no-cache tini
+# =========================
+FROM alpine:3.19
 
 WORKDIR /app
-COPY --from=builder /app/bin/app .
+
+# timezone + certs (важно для JWT / HTTPS)
+RUN apk add --no-cache ca-certificates tzdata
+
+COPY --from=builder /app/app .
+
+COPY --from=builder /app/config ./config
+
+# port
 EXPOSE 8080
+
+# run
 CMD ["./app"]

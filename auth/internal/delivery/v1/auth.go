@@ -135,7 +135,7 @@ func (h *authHandler) refresh(c *gin.Context) {
 
 	token, err := h.authSvc.Refresh(c.Request.Context(), input.Token)
 	if err != nil {
-		h.logger.Error("login failed", zap.Error(err))
+		h.logger.Error("refresh failed", zap.Error(err))
 
 		status, code, msg := mapError(err)
 		respondError(c, status, code, msg)
@@ -150,7 +150,7 @@ func (h *authHandler) refresh(c *gin.Context) {
 func mapError(err error) (int, string, string) {
 	switch {
 	// AUTH
-	case errors.Is(err, userDomain.ErrWrongCreadentials):
+	case errors.Is(err, userDomain.ErrWrongCredentials):
 		return http.StatusUnauthorized, "INVALID_CREDENTIALS", "email or password is wrong"
 
 	case errors.Is(err, userDomain.ErrUserDisabled):
