@@ -8,12 +8,13 @@ import (
 )
 
 var (
-	ErrInvalidToken       = errors.New("invalid token")
-	ErrInvalidRefresh     = errors.New("invalid refresh")
-	ErrExpiredToken       = errors.New("expired token")
-	ErrTokenAlreadyExists = errors.New("token already exists")
-	ErrTokenNotFound      = errors.New("token not found")
-	ErrInvalidUserID      = errors.New("invalid user id")
+	ErrInvalidToken         = errors.New("invalid token")
+	ErrInvalidRefresh       = errors.New("invalid refresh")
+	ErrTokenAlreadyExists   = errors.New("token already exists")
+	ErrTokenNotFound        = errors.New("token not found")
+	ErrInvalidUserID        = errors.New("invalid user id")
+	ErrExpiredToken         = errors.New("token has expired")
+	ErrSessionLimitExceeded = errors.New("session limit exceeded")
 )
 
 type Tokens struct {
