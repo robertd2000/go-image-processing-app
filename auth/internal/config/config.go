@@ -1,10 +1,8 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -18,18 +16,28 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port    string `mapstructure:"SERVER_PORT"`
-	RunMode string `mapstructure:"SERVER_RUN_MODE"`
-	Domain  string `mapstructure:"SERVER_DOMAIN"`
+	Port    string `mapstructure:"port"`
+	RunMode string `mapstructure:"run_mode"`
+	Domain  string `mapstructure:"domain"`
 }
 
 type PostgresConfig struct {
-	Host     string
-	Port     string
-	User     string
-	Password string
-	DBName   string
-	SSLMode  string
+	Host     string `mapstructure:"host"`
+	Port     string `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	DBName   string `mapstructure:"db_name"`
+	SSLMode  string `mapstructure:"ssl_mode"`
+}
+
+type JWTConfig struct {
+	Secret        string `mapstructure:"secret"`
+	AccessTTLMin  int    `mapstructure:"access_ttl_min"`
+	RefreshTTLMin int    `mapstructure:"refresh_ttl_min"`
+}
+
+type LogConfig struct {
+	Level string `mapstructure:"level"`
 }
 
 func (p PostgresConfig) DSN() string {
@@ -44,16 +52,6 @@ func (p PostgresConfig) DSN() string {
 	)
 }
 
-type JWTConfig struct {
-	Secret        string `mapstructure:"JWT_SECRET"`
-	AccessTTLMin  int    `mapstructure:"JWT_ACCESS_TTL_MIN"`
-	RefreshTTLMin int    `mapstructure:"JWT_REFRESH_TTL_MIN"`
-}
-
-type LogConfig struct {
-	Level string
-}
-
 func Load() (*Config, error) {
 	v := viper.New()
 
@@ -63,45 +61,23 @@ func Load() (*Config, error) {
 	}
 
 	v.SetConfigName("config-" + env)
-	v.SetConfigType("yml")
+	v.SetConfigType("yaml")
 
 	v.AddConfigPath(".")
 	v.AddConfigPath("./config")
 
+	// ENV override
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	if err := v.ReadInConfig(); err != nil {
-		var notFound viper.ConfigFileNotFoundError
-		if !errors.As(err, &notFound) {
-			return nil, fmt.Errorf("read config: %w", err)
-		}
+		return nil, fmt.Errorf("read config: %w", err)
 	}
 
 	var cfg Config
 
 	if err := v.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)
-	}
-
-	cfg.JWT.Secret = os.Getenv("JWT_SECRET")
-	cfg.JWT.AccessTTLMin = mustInt(os.Getenv("JWT_ACCESS_TTL_MIN"))
-	cfg.JWT.RefreshTTLMin = mustInt(os.Getenv("JWT_REFRESH_TTL_MIN"))
-
-	cfg.Postgres = PostgresConfig{
-		Host:     os.Getenv("AUTH_DB_HOST"),
-		Port:     os.Getenv("AUTH_DB_PORT"),
-		User:     os.Getenv("AUTH_DB_USER"),
-		Password: os.Getenv("AUTH_DB_PASS"),
-		DBName:   os.Getenv("AUTH_DB_NAME"),
-		SSLMode:  os.Getenv("AUTH_DB_SSL_MODE"),
-	}
-
-	cfg.Server.Port = os.Getenv("SERVER_PORT")
-
-	// PORT override (docker/platform)
-	if port := os.Getenv("PORT"); port != "" {
-		cfg.Server.Port = port
 	}
 
 	cfg.Server.Port = normalizePort(cfg.Server.Port)
@@ -137,9 +113,4 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("postgres dbname is required")
 	}
 	return nil
-}
-
-func mustInt(s string) int {
-	v, _ := strconv.Atoi(s)
-	return v
 }

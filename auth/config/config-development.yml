@@ -1,46 +1,20 @@
 server:
-  internalport: "8080"
-  runmode: "debug"
-  domain: "localhost"
+  port: 8080
+  run_mode: debug
+  domain: localhost
 
-db:
-  host: localhost
-  port: "5432"
-  user: postgres
-  password: postgres
-  dbname: image_service
-  sslmode: disable
-
-kafka:
-  brokers:
-    - localhost:9092
-  tasktopic: image_tasks
-  resulttopic: image_results
-  retrytopic: image_retry
-  deadlettertopic: image_dlq
-  consumergroup: image_processor
-
-storage:
-  type: minio
-  endpoint: localhost:9000
-  bucket: images
-  accesskey: minioadmin
-  secretkey: minioadmin
-  usessl: false
-
-image:
-  maxuploadsizemb: 20
-  allowedformats:
-    - jpg
-    - png
-    - webp
-  defaultquality: 85
-  workers: 4
+postgres:
+  host: postgres-auth
+  port: 5432
+  user: auth_user
+  password: auth_pass
+  db_name: auth_db
+  ssl_mode: disable
 
 jwt:
-  secret: supersecret
-  accessttlmin: 60
-  refreshttlmin: 10080
+  secret: super_secret_jwt_key_change_me
+  access_ttl_min: 15
+  refresh_ttl_min: 10080
 
 log:
   level: debug
