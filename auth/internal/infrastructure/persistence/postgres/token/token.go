@@ -86,12 +86,12 @@ func (t tokenRepository) Revoke(ctx context.Context, token string) error {
 
 // Create implements token.TokenRepository.
 func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, limit int) error {
-	if token.UserID() == uuid.Nil {
-		return tokenDomain.ErrInvalidUserID
-	}
-
 	if token == nil {
 		return tokenDomain.ErrInvalidToken
+	}
+
+	if token.UserID() == uuid.Nil {
+		return tokenDomain.ErrInvalidUserID
 	}
 
 	tx, err := r.db.Begin(ctx)
@@ -100,29 +100,28 @@ func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, 
 	}
 	defer tx.Rollback(ctx)
 
-	query := `
+	_, err = tx.Exec(ctx, `
 		INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at)
-        VALUES ($1, $2, $3, $4)
-	`
-
-	_, err = tx.Exec(ctx, query, token.UserID(), token.RefreshToken(), token.CreatedAt(), token.ExpiresAt())
+		VALUES ($1, $2, $3, $4)
+	`, token.UserID(), token.RefreshToken(), token.CreatedAt(), token.ExpiresAt())
 	if err != nil {
 		if dberrors.IsUniqueViolation(err) {
 			return tokenDomain.ErrTokenAlreadyExists
 		}
-
-		return fmt.Errorf("save token: %w", err)
+		return err
 	}
 
 	_, err = tx.Exec(ctx, `
-	    DELETE FROM refresh_tokens
-	    WHERE user_id = $1
-	    AND id NOT IN (
-	        SELECT id FROM refresh_tokens
-	        WHERE user_id = $1
-	        ORDER BY created_at DESC
-	        LIMIT $2
-	    )
+		DELETE FROM refresh_tokens
+		WHERE id IN (
+			SELECT id FROM (
+				SELECT id
+				FROM refresh_tokens
+				WHERE user_id = $1
+				ORDER BY created_at DESC
+				OFFSET $2
+			) t
+		)
 	`, token.UserID(), limit)
 	if err != nil {
 		return err
