@@ -11,6 +11,6 @@ var (
 	ErrInvalidUsername     = errors.New("invalid username")
 	ErrInvalidPasswordHash = errors.New("invalid password hash")
 	ErrInvalidPassword     = errors.New("invalid password")
-	ErrWrongCreadentials   = errors.New("wrong password or email")
+	ErrWrongCredentials    = errors.New("wrong password or email")
 	ErrUserDisabled        = errors.New("user is disabled")
 )

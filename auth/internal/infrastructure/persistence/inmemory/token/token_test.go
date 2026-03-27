@@ -27,7 +27,7 @@ func TestTokenRepository_CreateAndGet(t *testing.T) {
 	tokenHash := "token1"
 	expiresAt := time.Now().Add(refreshTTL)
 
-	token, err := tokenDomain.NewTokens(userID, tokenHash, expiresAt, familyID, nil)
+	token, err := tokenDomain.NewTokens(userID, tokenHash, expiresAt, familyID, uuid.Nil)
 	require.NoError(t, err)
 
 	require.NoError(t, repo.Create(ctx, token, 5))
@@ -59,7 +59,7 @@ func TestTokenRepository_Revoke(t *testing.T) {
 	tokenHash := "token1"
 	expiresAt := time.Now().Add(refreshTTL)
 
-	token, err := tokenDomain.NewTokens(userID, tokenHash, expiresAt, familyID, nil)
+	token, err := tokenDomain.NewTokens(userID, tokenHash, expiresAt, familyID, uuid.Nil)
 	require.NoError(t, err)
 
 	require.NoError(t, repo.Create(ctx, token, 5))
@@ -86,7 +86,7 @@ func TestTokenRepository_Rotate(t *testing.T) {
 
 	expiresAt := time.Now().Add(refreshTTL)
 
-	oldToken, err := tokenDomain.NewTokens(userID, oldHash, expiresAt, familyID, nil)
+	oldToken, err := tokenDomain.NewTokens(userID, oldHash, expiresAt, familyID, uuid.Nil)
 	require.NoError(t, err)
 
 	require.NoError(t, repo.Create(ctx, oldToken, 5))
@@ -98,12 +98,14 @@ func TestTokenRepository_Rotate(t *testing.T) {
 		newHash,
 		expiresAt,
 		familyID,
-		&parentID,
+		parentID,
 	)
 	require.NoError(t, err)
 
 	// rotate
-	require.NoError(t, repo.Rotate(ctx, oldToken, newToken))
+	rotated, err := repo.Rotate(ctx, oldToken, newToken)
+	require.NoError(t, err)
+	require.False(t, rotated)
 
 	// old token should be revoked
 	oldFromDB, err := repo.GetByHash(ctx, oldHash)
@@ -115,6 +117,6 @@ func TestTokenRepository_Rotate(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, newFromDB)
 
-	require.Equal(t, &parentID, newFromDB.ParentID())
+	require.Equal(t, parentID, newFromDB.ParentID())
 	require.Equal(t, familyID, newFromDB.FamilyID())
 }

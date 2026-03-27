@@ -17,5 +17,6 @@ CREATE TABLE refresh_tokens (
         ON DELETE CASCADE
 );
 
-CREATE INDEX idx_refresh_user ON refresh_tokens(user_id);
-CREATE INDEX idx_refresh_token_hash ON refresh_tokens(token_hash);
+CREATE UNIQUE INDEX idx_refresh_token_hash ON refresh_tokens(token_hash);
+CREATE INDEX idx_refresh_family_id ON refresh_tokens(family_id);
+CREATE INDEX idx_refresh_user_id ON refresh_tokens(user_id);

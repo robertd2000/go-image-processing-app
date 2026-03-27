@@ -150,7 +150,7 @@ func (h *authHandler) refresh(c *gin.Context) {
 func mapError(err error) (int, string, string) {
 	switch {
 	// AUTH
-	case errors.Is(err, userDomain.ErrWrongCreadentials):
+	case errors.Is(err, userDomain.ErrWrongCredentials):
 		return http.StatusUnauthorized, "INVALID_CREDENTIALS", "email or password is wrong"
 
 	case errors.Is(err, userDomain.ErrUserDisabled):

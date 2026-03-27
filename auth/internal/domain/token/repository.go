@@ -14,8 +14,7 @@ type TokenRepository interface {
 	RevokeFamily(ctx context.Context, familyID uuid.UUID) error
 	Rotate(ctx context.Context,
 		oldToken *Tokens,
-		newToken *Tokens) error
-	// RevokeByToken(ctx context.Context, token string) error
+		newToken *Tokens) (bool, error)
 	GetByHash(ctx context.Context, token string) (*Tokens, error)
 }
 

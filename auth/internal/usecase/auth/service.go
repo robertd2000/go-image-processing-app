@@ -90,7 +90,7 @@ func (s *authService) Login(ctx context.Context, email string, password string) 
 
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		return nil, userDomain.ErrWrongCreadentials
+		return nil, userDomain.ErrWrongCredentials
 	}
 
 	if !user.Enabled() {
@@ -98,34 +98,27 @@ func (s *authService) Login(ctx context.Context, email string, password string) 
 	}
 
 	if !s.passwordHasher.Compare(password, user.PasswordHash()) {
-		return nil, userDomain.ErrWrongCreadentials
+		return nil, userDomain.ErrWrongCredentials
 	}
 
 	return s.generateTokenPair(ctx, user.ID())
 }
 
 func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error) {
-	now := time.Now()
-
+	if refreshToken == "" {
+		return nil, tokensDomain.ErrInvalidToken
+	}
 	hash := s.tokenHasher.Hash(refreshToken)
 
 	token, err := s.refreshRepo.GetByHash(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
-
 	if token == nil {
 		return nil, tokensDomain.ErrInvalidToken
 	}
 
-	if token.IsRevoked() {
-		if err := s.refreshRepo.RevokeFamily(ctx, token.FamilyID()); err != nil {
-			return nil, err
-		}
-		return nil, tokensDomain.ErrInvalidToken
-	}
-
-	if token.ExpiresAt().Before(now) {
+	if token.ExpiresAt().Before(time.Now()) {
 		return nil, tokensDomain.ErrExpiredToken
 	}
 
@@ -138,24 +131,31 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 	if err != nil {
 		return nil, err
 	}
-
-	hashNew := s.tokenHasher.Hash(refresh)
-
-	parentID := token.ID()
-
+	familyID := token.FamilyID()
+	if familyID == uuid.Nil {
+		familyID = token.ID()
+	}
 	newToken, err := tokensDomain.NewTokens(
 		token.UserID(),
-		hashNew,
-		now.Add(s.refreshTTL),
-		token.FamilyID(),
-		&parentID,
+		s.tokenHasher.Hash(refresh),
+		time.Now().Add(s.refreshTTL),
+		familyID,
+		token.ID(),
 	)
 	if err != nil {
 		return nil, err
 	}
-
-	if err := s.refreshRepo.Rotate(ctx, token, newToken); err != nil {
+	if newToken == nil {
+		return nil, errors.New("newToken is nil")
+	}
+	reuse, err := s.refreshRepo.Rotate(ctx, token, newToken)
+	if err != nil {
 		return nil, err
+	}
+
+	if reuse {
+		_ = s.refreshRepo.RevokeFamily(ctx, token.FamilyID())
+		return nil, tokensDomain.ErrInvalidToken
 	}
 
 	return &dto.TokenPair{
@@ -198,7 +198,7 @@ func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (
 	expiresAt := now.Add(s.refreshTTL)
 
 	familyID := uuid.New()
-	var parentID *uuid.UUID
+	var parentID uuid.UUID
 
 	token, err := tokensDomain.NewTokens(userID, refreshHash, expiresAt, familyID, parentID)
 	if err != nil {

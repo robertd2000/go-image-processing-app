@@ -126,10 +126,27 @@ func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, 
 	}
 	defer tx.Rollback(ctx)
 
-	_, err = tx.Exec(ctx, `
-		INSERT INTO refresh_tokens (user_id, token_hash, created_at, expires_at)
-		VALUES ($1, $2, $3, $4)
-	`, token.UserID(), token.RefreshToken(), token.CreatedAt(), token.ExpiresAt())
+	_, err = tx.Exec(ctx,
+		`
+		INSERT INTO refresh_tokens (
+			id,
+			user_id,
+			token_hash,
+			family_id,
+			parent_id,
+			created_at,
+			expires_at
+		)
+		VALUES ($1,$2,$3,$4,$5,$6,$7)
+	`,
+		token.ID(),
+		token.UserID(),
+		token.RefreshToken(),
+		token.FamilyID(),
+		token.ParentID(),
+		token.CreatedAt(),
+		token.ExpiresAt(),
+	)
 	if err != nil {
 		if dberrors.IsUniqueViolation(err) {
 			return tokenDomain.ErrTokenAlreadyExists
@@ -185,40 +202,43 @@ func (r tokenRepository) Rotate(
 	ctx context.Context,
 	oldToken *tokenDomain.Tokens,
 	newToken *tokenDomain.Tokens,
-) error {
+) (bool, error) {
+
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
+		return false, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. revoke old token (only if not already revoked)
+	// 1. Пытаемся "захватить" токен (revoke)
 	cmd, err := tx.Exec(ctx, `
-		UPDATE refresh_tokens
-		SET revoked_at = NOW()
-		WHERE id = $1 AND revoked_at IS NULL
-	`, oldToken.ID())
+        UPDATE refresh_tokens
+        SET revoked_at = NOW()
+        WHERE id = $1 AND revoked_at IS NULL
+    `, oldToken.ID())
 	if err != nil {
-		return fmt.Errorf("revoke old token: %w", err)
+		return false, fmt.Errorf("revoke old token: %w", err)
 	}
 
-	if cmd.RowsAffected() != 1 {
-		return fmt.Errorf("revoke old token: already revoked or not found")
+	// ❗ КЛЮЧЕВОЙ МОМЕНТ
+	if cmd.RowsAffected() == 0 {
+		// токен уже был использован → REUSE ATTACK
+		return true, tx.Commit(ctx) // commit чтобы зафиксировать "факт"
 	}
 
-	// 2. insert new token
+	// 2. Вставляем новый токен
 	_, err = tx.Exec(ctx, `
-		INSERT INTO refresh_tokens (
-			id,
-			user_id,
-			token_hash,
-			family_id,
-			parent_id,
-			created_at,
-			expires_at
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`,
+        INSERT INTO refresh_tokens (
+            id,
+            user_id,
+            token_hash,
+            family_id,
+            parent_id,
+            created_at,
+            expires_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `,
 		newToken.ID(),
 		newToken.UserID(),
 		newToken.RefreshToken(),
@@ -228,10 +248,14 @@ func (r tokenRepository) Rotate(
 		newToken.ExpiresAt(),
 	)
 	if err != nil {
-		return fmt.Errorf("insert new token: %w", err)
+		return false, fmt.Errorf("insert new token: %w", err)
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return false, fmt.Errorf("commit tx: %w", err)
+	}
+
+	return false, nil
 }
 
 func scanToken(row pgx.Row) (*tokenDomain.Tokens, error) {
@@ -240,7 +264,7 @@ func scanToken(row pgx.Row) (*tokenDomain.Tokens, error) {
 		userID    uuid.UUID
 		hash      string
 		familyID  uuid.UUID
-		parentID  *uuid.UUID
+		parentID  uuid.UUID
 		expiresAt time.Time
 		createdAt time.Time
 		revokedAt *time.Time

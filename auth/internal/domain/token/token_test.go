@@ -65,7 +65,7 @@ func TestNewTokens(t *testing.T) {
 				tt.refreshToken,
 				tt.expiresAt,
 				uuid.Nil, // familyID
-				nil,      // parentID
+				uuid.Nil, // parentID
 			)
 
 			if tt.wantErr {
