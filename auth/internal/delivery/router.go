@@ -32,5 +32,10 @@ func SetupRouter(r *gin.Engine, cfg *config.Config, db *pgxpool.Pool, logger *za
 
 	api := r.Group("/api")
 
-	authHandler.SetupAuthHandler(api)
+	{
+		v1 := api.Group("/v1")
+		{
+			authHandler.SetupAuthHandler(v1)
+		}
+	}
 }
