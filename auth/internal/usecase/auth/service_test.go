@@ -23,7 +23,7 @@ import (
 
 type (
 	AuthService interface {
-		Register(ctx context.Context, username, firstname, lastname, email, password string) error
+		Register(ctx context.Context, in dto.RegisterInput) error
 		Login(ctx context.Context, email string, password string) (*dto.TokenPair, error)
 		Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error)
 		Logout(ctx context.Context, refreshToken string) error
@@ -71,13 +71,17 @@ func (s *AuthTestSuite) TestAuthService_Register_Success() {
 	firstname := "user"
 	lastname := "1"
 
+	registerInput := dto.RegisterInput{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstname,
+		LastName:  lastname,
+	}
+
 	err := s.service.Register(
 		s.ctx,
-		username,
-		firstname,
-		lastname,
-		email,
-		password,
+		registerInput,
 	)
 
 	s.Require().NoError(err)
@@ -94,10 +98,19 @@ func (s *AuthTestSuite) TestAuthService_Register_UserAlreadyExists() {
 	firstname := "user"
 	lastname := "1"
 
-	err := s.service.Register(s.ctx, username, firstname, lastname, email, password)
+	registerInput := dto.RegisterInput{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstname,
+		LastName:  lastname,
+	}
+
+	err := s.service.Register(s.ctx, registerInput)
 	assert.NoError(s.T(), err)
 
-	err = s.service.Register(s.ctx, username, firstname, lastname, email, password)
+	registerInput.Username = "test_user2"
+	err = s.service.Register(s.ctx, registerInput)
 	assert.ErrorIs(s.T(), err, userDomain.ErrUserAlreadyExists)
 }
 
@@ -109,7 +122,15 @@ func (s *AuthTestSuite) TestAuthService_Register_InvalidEmail() {
 	firstname := "user"
 	lastname := "1"
 
-	err := s.service.Register(ctx, username, firstname, lastname, email, password)
+	registerInput := dto.RegisterInput{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstname,
+		LastName:  lastname,
+	}
+
+	err := s.service.Register(ctx, registerInput)
 	assert.ErrorIs(s.T(), err, userDomain.ErrInvalidEmail)
 }
 
@@ -121,18 +142,34 @@ func (s *AuthTestSuite) TestAuthService_Register_InvalidUsername() {
 	firstname := "user"
 	lastname := "1"
 
-	err := s.service.Register(ctx, username, firstname, lastname, email, password)
+	registerInput := dto.RegisterInput{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstname,
+		LastName:  lastname,
+	}
+	err := s.service.Register(ctx, registerInput)
 	assert.ErrorIs(s.T(), err, userDomain.ErrInvalidUsername)
 }
 
 func (s *AuthTestSuite) TestAuthService_Register_InvalidPassword() {
+	password := "!Secure123"
+	email := "test_user1@example.com"
+	username := ""
+	firstname := "user"
+	lastname := "1"
+
+	registerInput := dto.RegisterInput{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstname,
+		LastName:  lastname,
+	}
 	err := s.service.Register(
 		s.ctx,
-		"test_user",
-		"user",
-		"1",
-		"test@example.com",
-		"",
+		registerInput,
 	)
 
 	assert.Error(s.T(), err)
@@ -240,7 +277,15 @@ func (s *AuthTestSuite) TestAuthService_Refresh_Success() {
 	firstname := "user"
 	lastname := "one"
 
-	err := s.service.Register(ctx, username, firstname, lastname, email, password)
+	registerInput := dto.RegisterInput{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstname,
+		LastName:  lastname,
+	}
+
+	err := s.service.Register(ctx, registerInput)
 	s.Require().NoError(err)
 
 	tokens, err := s.service.Login(ctx, email, password)
@@ -280,13 +325,17 @@ func (s *AuthTestSuite) TestAuthService_Refresh_TokenNotInRepo() {
 func (s *AuthTestSuite) TestAuthService_Refresh_TokenRevoked() {
 	ctx := s.ctx
 
+	registerInput := dto.RegisterInput{
+		Username:  "test_user",
+		Email:     "john2@example.com",
+		Password:  "!Secure123",
+		FirstName: "John",
+		LastName:  "Doe",
+	}
+
 	err := s.service.Register(
 		ctx,
-		"test_user",
-		"John",
-		"Doe",
-		"john2@example.com",
-		"!Secure123",
+		registerInput,
 	)
 	s.Require().NoError(err)
 
@@ -310,14 +359,15 @@ func (s *AuthTestSuite) TestAuthService_Refresh_TokenRevoked() {
 func (s *AuthTestSuite) TestAuthService_Logout_Success() {
 	ctx := s.ctx
 
-	err := s.service.Register(
-		ctx,
-		"user_logout",
-		"John",
-		"Doe",
-		"logout@example.com",
-		"!Secure123",
-	)
+	registerInput := dto.RegisterInput{
+		Username:  "user_logout",
+		Email:     "logout@example.com",
+		Password:  "!Secure123",
+		FirstName: "John",
+		LastName:  "Doe",
+	}
+
+	err := s.service.Register(ctx, registerInput)
 	s.Require().NoError(err)
 
 	tokens, err := s.service.Login(ctx, "logout@example.com", "!Secure123")
@@ -351,14 +401,15 @@ func (s *AuthTestSuite) TestAuthService_Logout_TokenNotInRepo() {
 func (s *AuthTestSuite) TestAuthService_Logout_AlreadyRevoked() {
 	ctx := s.ctx
 
-	err := s.service.Register(
-		ctx,
-		"user_logout2",
-		"John",
-		"Doe",
-		"logout2@example.com",
-		"!Secure123",
-	)
+	registerInput := dto.RegisterInput{
+		Username:  "user_logout2",
+		Email:     "logout2@example.com",
+		Password:  "!Secure123",
+		FirstName: "John",
+		LastName:  "Doe",
+	}
+
+	err := s.service.Register(ctx, registerInput)
 	s.Require().NoError(err)
 
 	tokens, err := s.service.Login(ctx, "logout2@example.com", "!Secure123")
@@ -374,14 +425,15 @@ func (s *AuthTestSuite) TestAuthService_Logout_AlreadyRevoked() {
 func (s *AuthTestSuite) TestAuthService_Refresh_ReuseAttack_ShouldRevokeFamily() {
 	ctx := s.ctx
 
-	err := s.service.Register(
-		ctx,
-		"user_logout2",
-		"John",
-		"Doe",
-		"logout2@example.com",
-		"!Secure123",
-	)
+	registerInput := dto.RegisterInput{
+		Username:  "user_logout2",
+		Email:     "logout2@example.com",
+		Password:  "!Secure123",
+		FirstName: "John",
+		LastName:  "Doe",
+	}
+
+	err := s.service.Register(ctx, registerInput)
 	s.Require().NoError(err)
 
 	tokens, err := s.service.Login(ctx, "logout2@example.com", "!Secure123")
@@ -402,13 +454,17 @@ func (s *AuthTestSuite) TestAuthService_Refresh_ReuseAttack_ShouldRevokeFamily()
 func (s *AuthTestSuite) TestAuthService_Refresh_ShouldPreserveFamily() {
 	ctx := s.ctx
 
+	registerInput := dto.RegisterInput{
+		Username:  "user_logout2",
+		Email:     "logout2@example.com",
+		Password:  "!Secure123",
+		FirstName: "John",
+		LastName:  "Doe",
+	}
+
 	err := s.service.Register(
 		ctx,
-		"user_logout2",
-		"John",
-		"Doe",
-		"logout2@example.com",
-		"!Secure123",
+		registerInput,
 	)
 	s.Require().NoError(err)
 
@@ -440,7 +496,15 @@ func (s *AuthTestSuite) TestAuthService_Refresh_ExpiredToken() {
 		1*time.Second,
 	)
 
-	_ = s.service.Register(ctx, "exp", "f", "l", "exp@test.com", "!Secure123")
+	registerInput := dto.RegisterInput{
+		Username:  "exp",
+		Email:     "exp@test.com",
+		Password:  "!Secure123",
+		FirstName: "f",
+		LastName:  "l",
+	}
+
+	_ = s.service.Register(ctx, registerInput)
 	tokens, _ := s.service.Login(ctx, "exp@test.com", "!Secure123")
 
 	time.Sleep(2 * time.Second)
@@ -453,7 +517,15 @@ func (s *AuthTestSuite) TestAuthService_Refresh_ExpiredToken() {
 func (s *AuthTestSuite) TestAuthService_Refresh_RaceCondition() {
 	ctx := s.ctx
 
-	_ = s.service.Register(ctx, "race", "f", "l", "race@test.com", "!Secure123")
+	registerInput := dto.RegisterInput{
+		Username:  "race",
+		Email:     "race@test.com",
+		Password:  "!Secure123",
+		FirstName: "f",
+		LastName:  "l",
+	}
+
+	_ = s.service.Register(ctx, registerInput)
 	tokens, _ := s.service.Login(ctx, "race@test.com", "!Secure123")
 
 	var wg sync.WaitGroup

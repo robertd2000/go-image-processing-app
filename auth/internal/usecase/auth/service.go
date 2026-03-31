@@ -49,24 +49,24 @@ func NewAuthService(
 	}
 }
 
-func (s *authService) Register(ctx context.Context, username, firstName, lastName, email, password string) error {
-	if err := validation.ValidateEmail(email); err != nil {
+func (s *authService) Register(ctx context.Context, in dto.RegisterInput) error {
+	if err := validation.ValidateEmail(in.Email); err != nil {
 		return err
 	}
 
-	if err := validation.ValidatePassword(password); err != nil {
+	if err := validation.ValidatePassword(in.Password); err != nil {
 		return err
 	}
 
-	if err := validation.ValidateUsername(username); err != nil {
+	if err := validation.ValidateUsername(in.Username); err != nil {
 		return err
 	}
-	hashed, err := s.passwordHasher.Hash(password)
+	hashed, err := s.passwordHasher.Hash(in.Password)
 	if err != nil {
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
+	user, err := userDomain.NewAuthUser(uuid.New(), in.Username, &in.Email, hashed)
 	if err != nil {
 		return err
 	}

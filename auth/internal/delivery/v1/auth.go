@@ -14,7 +14,7 @@ import (
 )
 
 type AuthService interface {
-	Register(ctx context.Context, username, fistname, lastname, email, password string) error
+	Register(ctx context.Context, in dto.RegisterInput) error
 	Login(ctx context.Context, email string, password string) (*dto.TokenPair, error)
 	Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error)
 	Logout(ctx context.Context, refreshToken string) error
@@ -58,7 +58,15 @@ func (h *authHandler) register(c *gin.Context) {
 		return
 	}
 
-	err := h.authSvc.Register(c.Request.Context(), input.Username, input.Firstname, input.Lastname, input.Email, input.Password)
+	registerInput := dto.RegisterInput{
+		Username:  input.Username,
+		Email:     input.Email,
+		Password:  input.Password,
+		FirstName: input.Firstname,
+		LastName:  input.Lastname,
+	}
+
+	err := h.authSvc.Register(c.Request.Context(), registerInput)
 	if err != nil {
 		h.logger.Error("login failed", zap.Error(err))
 
