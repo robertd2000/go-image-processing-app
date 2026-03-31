@@ -24,6 +24,7 @@ type authService struct {
 	tokenGen       port.TokenGenerator
 	passwordHasher port.PasswordHasher
 	tokenHasher    port.TokenHasher
+	eventPublisher port.EventPublisher
 
 	accessTTL  time.Duration
 	refreshTTL time.Duration
@@ -35,6 +36,7 @@ func NewAuthService(
 	passwordHasher port.PasswordHasher,
 	tokenHasher port.TokenHasher,
 	tokenGen port.TokenGenerator,
+	eventPublisher port.EventPublisher,
 	accessTTL time.Duration,
 	refreshTTL time.Duration,
 ) *authService {
@@ -44,6 +46,7 @@ func NewAuthService(
 		tokenGen:       tokenGen,
 		passwordHasher: passwordHasher,
 		tokenHasher:    tokenHasher,
+		eventPublisher: eventPublisher,
 		accessTTL:      accessTTL,
 		refreshTTL:     refreshTTL,
 	}
@@ -84,6 +87,13 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 	if err != nil {
 		return fmt.Errorf("create user: %w", err)
 	}
+
+	_ = s.eventPublisher.PublishUserCreated(ctx, port.UserCreatedEvent{
+		UserID:    user.ID(),
+		Email:     in.Email,
+		FirstName: in.FirstName,
+		LastName:  in.LastName,
+	})
 
 	return nil
 }

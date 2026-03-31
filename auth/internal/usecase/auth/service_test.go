@@ -41,6 +41,7 @@ type (
 		tokenGen       port.TokenGenerator
 		passwordHasher port.PasswordHasher
 		tokenHasher    port.TokenHasher
+		eventPublisher port.EventPublisher
 	}
 )
 
@@ -52,6 +53,7 @@ func (s *AuthTestSuite) SetupTest() {
 	s.tokenRepo = tokenmem.NewTokenRepository()
 	s.passwordHasher = &security.FakeHasher{}
 	s.tokenHasher = &security.FakeTokenHasher{}
+	s.eventPublisher = &port.FakeEventPublisher{}
 
 	s.service = auth.NewAuthService(
 		s.userRepo,
@@ -59,6 +61,7 @@ func (s *AuthTestSuite) SetupTest() {
 		s.passwordHasher,
 		s.tokenHasher,
 		s.tokenGen,
+		s.eventPublisher,
 		10*time.Minute,
 		60*time.Minute,
 	)
@@ -540,6 +543,7 @@ func (s *AuthTestSuite) TestAuthService_Refresh_ExpiredToken() {
 		s.passwordHasher,
 		s.tokenHasher,
 		s.tokenGen,
+		s.eventPublisher,
 		1*time.Second,
 		1*time.Second,
 	)
