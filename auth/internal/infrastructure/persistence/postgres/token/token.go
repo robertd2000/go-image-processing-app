@@ -124,7 +124,9 @@ func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, 
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
 
 	_, err = tx.Exec(ctx,
 		`

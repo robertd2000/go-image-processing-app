@@ -26,16 +26,14 @@ func NewUserRepository(db *pgxpool.Pool) userDomain.UserRepository {
 
 func (r *userRepository) Create(ctx context.Context, user *userDomain.AuthUser) error {
 	query := `
-		INSERT INTO users (
+		INSERT INTO auth_users (
 			id,
 			username,
-			first_name,
-			last_name,
 			email,
 			password_hash,
 			enabled,
 			created_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		) VALUES ($1,$2,$3,$4,$5,$6)
 	`
 
 	_, err := r.db.Exec(
@@ -63,15 +61,11 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*userDom
 		SELECT
 			id,
 			username,
-			first_name,
-			last_name,
 			email,
 			password_hash,
 			enabled,
-			created_at,
-			modified_at,
-			deleted_at
-		FROM users
+			created_at
+		FROM auth_users
 		WHERE email = $1
 	`
 
@@ -82,8 +76,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*userDom
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, userDomain.ErrUserNotFound
 		}
-
-		return nil, fmt.Errorf("get user by id: %w", err)
+		return nil, fmt.Errorf("get user by email: %w", err)
 	}
 
 	return user, nil
@@ -102,7 +95,7 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*u
 			created_at,
 			modified_at,
 			deleted_at
-		FROM users
+		FROM auth_users
 		WHERE username = $1
 	`
 
@@ -133,7 +126,7 @@ func (r *userRepository) GetByID(ctx context.Context, userID uuid.UUID) (*userDo
 			created_at,
 			modified_at,
 			deleted_at
-		FROM users
+		FROM auth_users
 		WHERE id = $1
 	`
 
@@ -155,7 +148,7 @@ func (r *userRepository) ExistsByEmail(ctx context.Context, email string) (bool,
 	query := `
 		SELECT EXISTS(
 			SELECT 1
-			FROM users
+			FROM auth_users
 			WHERE email = $1
 		)
 	`
@@ -174,7 +167,7 @@ func (r *userRepository) ExistsByUsername(ctx context.Context, username string) 
 	query := `
 		SELECT EXISTS(
 			SELECT 1
-			FROM users
+			FROM auth_users
 			WHERE username = $1
 		)
 	`
@@ -189,16 +182,14 @@ func (r *userRepository) ExistsByUsername(ctx context.Context, username string) 
 	return exists, nil
 }
 
-func (r *userRepository) Disable(ctx context.Context, userUD uuid.UUID) error {
+func (r *userRepository) Disable(ctx context.Context, userID uuid.UUID) error {
 	query := `
-	UPDATE users
-	SET enabled = false,
-		modified_at = NOW()
-	WHERE id = 1$
-	AND deleted_at IS NULL
+		UPDATE auth_users
+		SET enabled = false
+		WHERE id = $1
 	`
 
-	cmd, err := r.db.Exec(ctx, query, userUD)
+	cmd, err := r.db.Exec(ctx, query, userID)
 	if err != nil {
 		return fmt.Errorf("disable user: %w", err)
 	}
@@ -210,16 +201,14 @@ func (r *userRepository) Disable(ctx context.Context, userUD uuid.UUID) error {
 	return nil
 }
 
-func (r *userRepository) Enable(ctx context.Context, userUD uuid.UUID) error {
+func (r *userRepository) Enable(ctx context.Context, userID uuid.UUID) error {
 	query := `
-	UPDATE users
-	SET enabled = true,
-		modified_at = NOW()
-	WHERE id = 1$
-	AND deleted_at IS NULL
+		UPDATE auth_users
+		SET enabled = true
+		WHERE id = $1
 	`
 
-	cmd, err := r.db.Exec(ctx, query, userUD)
+	cmd, err := r.db.Exec(ctx, query, userID)
 	if err != nil {
 		return fmt.Errorf("enable user: %w", err)
 	}
@@ -235,27 +224,19 @@ func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 	var (
 		id           uuid.UUID
 		username     string
-		firstName    string
-		lastName     string
 		email        *string
 		passwordHash string
 		enabled      bool
 		createdAt    time.Time
-		modifiedAt   *time.Time
-		deletedAt    *time.Time
 	)
 
 	err := row.Scan(
 		&id,
 		&username,
-		&firstName,
-		&lastName,
 		&email,
 		&passwordHash,
 		&enabled,
 		&createdAt,
-		&modifiedAt,
-		&deletedAt,
 	)
 	if err != nil {
 		return nil, err
