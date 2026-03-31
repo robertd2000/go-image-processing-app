@@ -79,16 +79,16 @@ func (s *authService) Register(ctx context.Context, in dto.RegisterInput) error 
 	return nil
 }
 
-func (s *authService) Login(ctx context.Context, email string, password string) (*dto.TokenPair, error) {
-	if err := validation.ValidateEmail(email); err != nil {
+func (s *authService) Login(ctx context.Context, in dto.LoginInput) (*dto.TokenPair, error) {
+	if err := validation.ValidateEmail(in.Email); err != nil {
 		return nil, err
 	}
 
-	if err := validation.ValidatePassword(password); err != nil {
+	if err := validation.ValidatePassword(in.Password); err != nil {
 		return nil, err
 	}
 
-	user, err := s.userRepo.GetByEmail(ctx, email)
+	user, err := s.userRepo.GetByEmail(ctx, in.Email)
 	if err != nil {
 		return nil, userDomain.ErrWrongCredentials
 	}
@@ -97,7 +97,7 @@ func (s *authService) Login(ctx context.Context, email string, password string) 
 		return nil, userDomain.ErrUserDisabled
 	}
 
-	if !s.passwordHasher.Compare(password, user.PasswordHash()) {
+	if !s.passwordHasher.Compare(in.Password, user.PasswordHash()) {
 		return nil, userDomain.ErrWrongCredentials
 	}
 
