@@ -59,33 +59,6 @@ func TestUserRepository_Create(t *testing.T) {
 	})
 }
 
-func TestUserRepository_Update(t *testing.T) {
-	repo := newRepo()
-
-	user := createTestUser(t, repo, "test@example.com", "test 1", "test", "1")
-
-	user.UpdateEmail("test-update@example.com")
-
-	require.NoError(t, repo.Update(ctx, user))
-
-	got, err := repo.GetByID(ctx, user.ID())
-	require.NoError(t, err)
-
-	assert.Equal(t, *user.Email(), *got.Email())
-}
-
-func TestUserRepository_Delete(t *testing.T) {
-	repo := newRepo()
-
-	user := createTestUser(t, repo, "test@example.com", "test 1", "test", "1")
-
-	require.NoError(t, repo.Delete(ctx, user.ID()))
-
-	got, err := repo.GetByID(ctx, user.ID())
-	assert.Error(t, err)
-	assert.Nil(t, got)
-}
-
 func TestUserRepository_GetByEmail(t *testing.T) {
 	repo := newRepo()
 

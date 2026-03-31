@@ -8,8 +8,6 @@ import (
 
 type UserRepository interface {
 	Create(ctx context.Context, u *AuthUser) error
-	Update(ctx context.Context, u *AuthUser) error
-	Delete(ctx context.Context, id uuid.UUID) error
 
 	GetByEmail(ctx context.Context, email string) (*AuthUser, error)
 	GetByUsername(ctx context.Context, username string) (*AuthUser, error)

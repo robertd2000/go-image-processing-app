@@ -58,62 +58,6 @@ func (r *userRepository) Create(ctx context.Context, user *userDomain.AuthUser) 
 	return nil
 }
 
-func (r *userRepository) Update(ctx context.Context, user *userDomain.AuthUser) error {
-	query := `
-		UPDATE users 
-		SET
-			username = $2,
-			first_name = $3,
-			last_name = $4,
-			email = $5,
-			enabled = $6,
-			modified_at = NOW()
-		WHERE id = $1
-		AND deleted_at IS NULL
-	`
-
-	cmd, err := r.db.Exec(
-		ctx,
-		query,
-		user.ID(),
-		user.Username(),
-		user.Email(),
-		user.Enabled(),
-		user.CreatedAt(),
-	)
-	if err != nil {
-		if dberrors.IsUniqueViolation(err) {
-			return userDomain.ErrUserAlreadyExists
-		}
-		return fmt.Errorf("userRepository.Update: %w", err)
-	}
-
-	if cmd.RowsAffected() == 0 {
-		return userDomain.ErrUserNotFound
-	}
-
-	return nil
-}
-
-func (r *userRepository) Delete(ctx context.Context, userUD uuid.UUID) error {
-	query := `
-		UPDATE users
-		SET deleted_at = NOW()
-		WHERE id = $1 AND deleted_at IS NULL
-	`
-
-	cmd, err := r.db.Exec(ctx, query, userUD)
-	if err != nil {
-		return fmt.Errorf("delete user: %w", err)
-	}
-
-	if cmd.RowsAffected() == 0 {
-		return userDomain.ErrUserNotFound
-	}
-
-	return nil
-}
-
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*userDomain.AuthUser, error) {
 	query := `
 		SELECT
