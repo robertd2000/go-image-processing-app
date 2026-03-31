@@ -3,8 +3,10 @@ definitions:
   dao.ErrorBody:
     properties:
       code:
+        example: INVALID_TOKEN
         type: string
       message:
+        example: invalid or expired token
         type: string
     type: object
   dao.ErrorResponse:
@@ -19,13 +21,19 @@ definitions:
         type: string
       password:
         example: "123456"
+        minLength: 6
         type: string
+    required:
+    - email
+    - password
     type: object
   dao.RefreshRequest:
     properties:
       refresh_token:
         example: abc123
         type: string
+    required:
+    - refresh_token
     type: object
   dao.RegisterRequest:
     properties:
@@ -40,10 +48,15 @@ definitions:
         type: string
       password:
         example: "123456"
+        minLength: 6
         type: string
       username:
         example: john
         type: string
+    required:
+    - email
+    - password
+    - username
     type: object
   dao.TokenResponse:
     properties:
@@ -65,11 +78,11 @@ paths:
     post:
       consumes:
       - application/json
-      description: Authenticate user and return tokens
+      description: Authenticates user and returns access and refresh tokens
       parameters:
-      - description: Login data
+      - description: Login credentials
         in: body
-        name: input
+        name: request
         required: true
         schema:
           $ref: '#/definitions/dao.LoginRequest'
@@ -81,11 +94,15 @@ paths:
           schema:
             $ref: '#/definitions/dao.TokenResponse'
         "400":
-          description: Bad Request
+          description: Invalid request
           schema:
             $ref: '#/definitions/dao.ErrorResponse'
         "401":
-          description: Unauthorized
+          description: Wrong credentials
+          schema:
+            $ref: '#/definitions/dao.ErrorResponse'
+        "500":
+          description: Internal error
           schema:
             $ref: '#/definitions/dao.ErrorResponse'
       summary: Login user
@@ -95,10 +112,39 @@ paths:
     post:
       consumes:
       - application/json
+      description: Revokes refresh token
       parameters:
       - description: Refresh token
         in: body
-        name: input
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dao.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/dao.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/dao.ErrorResponse'
+      summary: Logout user
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Generates new access and refresh tokens using refresh token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: request
         required: true
         schema:
           $ref: '#/definitions/dao.RefreshRequest'
@@ -108,31 +154,49 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties: true
-            type: object
-      summary: Logout user
+            $ref: '#/definitions/dao.TokenResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/dao.ErrorResponse'
+        "401":
+          description: Invalid or expired token
+          schema:
+            $ref: '#/definitions/dao.ErrorResponse'
+        "500":
+          description: Internal error
+          schema:
+            $ref: '#/definitions/dao.ErrorResponse'
+      summary: Refresh tokens
       tags:
       - auth
   /auth/register:
     post:
       consumes:
       - application/json
+      description: Creates a new user account
       parameters:
-      - description: Register data
+      - description: User registration data
         in: body
-        name: input
+        name: request
         required: true
         schema:
           $ref: '#/definitions/dao.RegisterRequest'
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
-          schema:
-            type: string
+        "201":
+          description: Created
         "400":
-          description: Bad Request
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/dao.ErrorResponse'
+        "409":
+          description: User already exists
+          schema:
+            $ref: '#/definitions/dao.ErrorResponse'
+        "500":
+          description: Internal error
           schema:
             $ref: '#/definitions/dao.ErrorResponse'
       summary: Register user

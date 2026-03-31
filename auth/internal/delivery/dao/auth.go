@@ -3,20 +3,20 @@ package dao
 import "github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 
 type LoginRequest struct {
-	Email    string `json:"email" example:"test@mail.com"`
-	Password string `json:"password" example:"123456"`
+	Email    string `json:"email" example:"test@mail.com" binding:"required,email"`
+	Password string `json:"password" example:"123456" binding:"required,min=6"`
 }
 
 type RegisterRequest struct {
-	Username  string `json:"username" example:"john"`
+	Username  string `json:"username" example:"john" binding:"required"`
 	Firstname string `json:"firstname" example:"John"`
 	Lastname  string `json:"lastname" example:"Doe"`
-	Email     string `json:"email" example:"test@mail.com"`
-	Password  string `json:"password" example:"123456"`
+	Email     string `json:"email" example:"test@mail.com" binding:"required,email"`
+	Password  string `json:"password" example:"123456" binding:"required,min=6"`
 }
 
 type RefreshRequest struct {
-	Token string `json:"refresh_token" example:"abc123"`
+	RefreshToken string `json:"refresh_token" example:"abc123" binding:"required"`
 }
 
 type TokenResponse struct {
@@ -36,6 +36,6 @@ type ErrorResponse struct {
 }
 
 type ErrorBody struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string `json:"code" example:"INVALID_TOKEN"`
+	Message string `json:"message" example:"invalid or expired token"`
 }

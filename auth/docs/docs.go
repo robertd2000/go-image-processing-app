@@ -17,7 +17,7 @@ const docTemplate = `{
     "paths": {
         "/auth/login": {
             "post": {
-                "description": "Authenticate user and return tokens",
+                "description": "Authenticates user and returns access and refresh tokens",
                 "consumes": [
                     "application/json"
                 ],
@@ -30,8 +30,8 @@ const docTemplate = `{
                 "summary": "Login user",
                 "parameters": [
                     {
-                        "description": "Login data",
-                        "name": "input",
+                        "description": "Login credentials",
+                        "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -47,13 +47,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request",
                         "schema": {
                             "$ref": "#/definitions/dao.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Unauthorized",
+                        "description": "Wrong credentials",
+                        "schema": {
+                            "$ref": "#/definitions/dao.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/dao.ErrorResponse"
                         }
@@ -63,6 +69,7 @@ const docTemplate = `{
         },
         "/auth/logout": {
             "post": {
+                "description": "Revokes refresh token",
                 "consumes": [
                     "application/json"
                 ],
@@ -76,7 +83,50 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "description": "Refresh token",
-                        "name": "input",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dao.RefreshRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/dao.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/dao.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "description": "Generates new access and refresh tokens using refresh token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh tokens",
+                "parameters": [
+                    {
+                        "description": "Refresh token",
+                        "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -88,8 +138,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dao.TokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/dao.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid or expired token",
+                        "schema": {
+                            "$ref": "#/definitions/dao.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
+                        "schema": {
+                            "$ref": "#/definitions/dao.ErrorResponse"
                         }
                     }
                 }
@@ -97,6 +164,7 @@ const docTemplate = `{
         },
         "/auth/register": {
             "post": {
+                "description": "Creates a new user account",
                 "consumes": [
                     "application/json"
                 ],
@@ -109,8 +177,8 @@ const docTemplate = `{
                 "summary": "Register user",
                 "parameters": [
                     {
-                        "description": "Register data",
-                        "name": "input",
+                        "description": "User registration data",
+                        "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -119,14 +187,23 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "string"
-                        }
+                    "201": {
+                        "description": "Created"
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/dao.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "User already exists",
+                        "schema": {
+                            "$ref": "#/definitions/dao.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal error",
                         "schema": {
                             "$ref": "#/definitions/dao.ErrorResponse"
                         }
@@ -140,10 +217,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "code": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "INVALID_TOKEN"
                 },
                 "message": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "invalid or expired token"
                 }
             }
         },
@@ -157,6 +236,10 @@ const docTemplate = `{
         },
         "dao.LoginRequest": {
             "type": "object",
+            "required": [
+                "email",
+                "password"
+            ],
             "properties": {
                 "email": {
                     "type": "string",
@@ -164,12 +247,16 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string",
+                    "minLength": 6,
                     "example": "123456"
                 }
             }
         },
         "dao.RefreshRequest": {
             "type": "object",
+            "required": [
+                "refresh_token"
+            ],
             "properties": {
                 "refresh_token": {
                     "type": "string",
@@ -179,6 +266,11 @@ const docTemplate = `{
         },
         "dao.RegisterRequest": {
             "type": "object",
+            "required": [
+                "email",
+                "password",
+                "username"
+            ],
             "properties": {
                 "email": {
                     "type": "string",
@@ -194,6 +286,7 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string",
+                    "minLength": 6,
                     "example": "123456"
                 },
                 "username": {
