@@ -61,6 +61,15 @@ func (s *authService) Register(ctx context.Context, in dto.RegisterInput) error 
 	if err := validation.ValidateUsername(in.Username); err != nil {
 		return err
 	}
+
+	exists, err := s.userRepo.ExistsByEmail(ctx, in.Email)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return userDomain.ErrUserAlreadyExists
+	}
+
 	hashed, err := s.passwordHasher.Hash(in.Password)
 	if err != nil {
 		return fmt.Errorf("hash password: %w", err)
@@ -90,7 +99,10 @@ func (s *authService) Login(ctx context.Context, in dto.LoginInput) (*dto.TokenP
 
 	user, err := s.userRepo.GetByEmail(ctx, in.Email)
 	if err != nil {
-		return nil, userDomain.ErrWrongCredentials
+		if errors.Is(err, userDomain.ErrUserNotFound) {
+			return nil, userDomain.ErrWrongCredentials
+		}
+		return nil, err
 	}
 
 	if !user.Enabled() {
@@ -108,6 +120,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 	if refreshToken == "" {
 		return nil, tokensDomain.ErrInvalidToken
 	}
+	now := time.Now()
 	hash := s.tokenHasher.Hash(refreshToken)
 
 	token, err := s.refreshRepo.GetByHash(ctx, hash)
@@ -118,7 +131,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 		return nil, tokensDomain.ErrInvalidToken
 	}
 
-	if token.ExpiresAt().Before(time.Now()) {
+	if token.ExpiresAt().Before(now) {
 		return nil, tokensDomain.ErrExpiredToken
 	}
 
@@ -138,7 +151,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 	newToken, err := tokensDomain.NewTokens(
 		token.UserID(),
 		s.tokenHasher.Hash(refresh),
-		time.Now().Add(s.refreshTTL),
+		now.Add(s.refreshTTL),
 		familyID,
 		token.ID(),
 	)
