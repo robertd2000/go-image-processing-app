@@ -1,8 +1,6 @@
 package dao
 
-import (
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/dto"
-)
+import "github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 
 type LoginRequest struct {
 	Email    string `json:"email" example:"test@mail.com"`
@@ -26,7 +24,7 @@ type TokenResponse struct {
 	RefreshToken string `json:"refresh_token" example:"refresh_token"`
 }
 
-func NewRefreshDAO(accessRefresh *dto.TokenPair) TokenResponse {
+func NewRefreshDAO(accessRefresh *model.TokenPair) TokenResponse {
 	return TokenResponse{
 		AccessToken:  accessRefresh.AccessToken,
 		RefreshToken: accessRefresh.RefreshToken,

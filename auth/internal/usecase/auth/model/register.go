@@ -1,4 +1,4 @@
-package dto
+package model
 
 type RegisterInput struct {
 	Username string

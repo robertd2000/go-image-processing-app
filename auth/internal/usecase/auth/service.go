@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/dto"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/port"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/validation"
 )
@@ -49,7 +49,7 @@ func NewAuthService(
 	}
 }
 
-func (s *authService) Register(ctx context.Context, in dto.RegisterInput) error {
+func (s *authService) Register(ctx context.Context, in model.RegisterInput) error {
 	if err := validation.ValidateEmail(in.Email); err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (s *authService) Register(ctx context.Context, in dto.RegisterInput) error 
 	return nil
 }
 
-func (s *authService) Login(ctx context.Context, in dto.LoginInput) (*dto.TokenPair, error) {
+func (s *authService) Login(ctx context.Context, in model.LoginInput) (*model.TokenPair, error) {
 	if err := validation.ValidateEmail(in.Email); err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (s *authService) Login(ctx context.Context, in dto.LoginInput) (*dto.TokenP
 	return s.generateTokenPair(ctx, user.ID())
 }
 
-func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error) {
+func (s *authService) Refresh(ctx context.Context, refreshToken string) (*model.TokenPair, error) {
 	if refreshToken == "" {
 		return nil, tokensDomain.ErrInvalidToken
 	}
@@ -171,7 +171,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 		return nil, tokensDomain.ErrInvalidToken
 	}
 
-	return &dto.TokenPair{
+	return &model.TokenPair{
 		AccessToken:  access,
 		RefreshToken: refresh,
 	}, nil
@@ -191,7 +191,7 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 	return s.refreshRepo.Revoke(ctx, token.ID())
 }
 
-func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (*dto.TokenPair, error) {
+func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (*model.TokenPair, error) {
 	access, err := s.tokenGen.GenerateAccess(userID)
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
@@ -225,7 +225,7 @@ func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (
 		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
 
-	return &dto.TokenPair{
+	return &model.TokenPair{
 		AccessToken:  access,
 		RefreshToken: refresh,
 	}, nil

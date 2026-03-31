@@ -9,14 +9,14 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/delivery/dao"
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/dto"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 	"go.uber.org/zap"
 )
 
 type AuthService interface {
-	Register(ctx context.Context, in dto.RegisterInput) error
-	Login(ctx context.Context, in dto.LoginInput) (*dto.TokenPair, error)
-	Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error)
+	Register(ctx context.Context, in model.RegisterInput) error
+	Login(ctx context.Context, in model.LoginInput) (*model.TokenPair, error)
+	Refresh(ctx context.Context, refreshToken string) (*model.TokenPair, error)
 	Logout(ctx context.Context, refreshToken string) error
 }
 
@@ -58,7 +58,7 @@ func (h *authHandler) register(c *gin.Context) {
 		return
 	}
 
-	registerInput := dto.RegisterInput{
+	registerInput := model.RegisterInput{
 		Username:  input.Username,
 		Email:     input.Email,
 		Password:  input.Password,
@@ -96,7 +96,7 @@ func (h *authHandler) login(c *gin.Context) {
 		return
 	}
 
-	loginInput := dto.LoginInput{
+	loginInput := model.LoginInput{
 		Email:    input.Email,
 		Password: input.Password,
 	}

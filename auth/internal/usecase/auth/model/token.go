@@ -1,4 +1,4 @@
-package dto
+package model
 
 type TokenPair struct {
 	AccessToken  string
