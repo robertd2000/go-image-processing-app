@@ -7,13 +7,11 @@ import (
 )
 
 type UserRepository interface {
-	Create(ctx context.Context, u *User) error
-	Update(ctx context.Context, u *User) error
-	Delete(ctx context.Context, id uuid.UUID) error
+	Create(ctx context.Context, u *AuthUser) error
 
-	GetByEmail(ctx context.Context, email string) (*User, error)
-	GetByUsername(ctx context.Context, username string) (*User, error)
-	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
+	GetByEmail(ctx context.Context, email string) (*AuthUser, error)
+	GetByUsername(ctx context.Context, username string) (*AuthUser, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*AuthUser, error)
 
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	ExistsByUsername(ctx context.Context, username string) (bool, error)

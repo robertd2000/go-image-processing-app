@@ -10,7 +10,7 @@ import (
 	"github.com/google/uuid"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/dto"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/port"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/validation"
 )
@@ -24,6 +24,7 @@ type authService struct {
 	tokenGen       port.TokenGenerator
 	passwordHasher port.PasswordHasher
 	tokenHasher    port.TokenHasher
+	eventPublisher port.EventPublisher
 
 	accessTTL  time.Duration
 	refreshTTL time.Duration
@@ -35,6 +36,7 @@ func NewAuthService(
 	passwordHasher port.PasswordHasher,
 	tokenHasher port.TokenHasher,
 	tokenGen port.TokenGenerator,
+	eventPublisher port.EventPublisher,
 	accessTTL time.Duration,
 	refreshTTL time.Duration,
 ) *authService {
@@ -44,29 +46,39 @@ func NewAuthService(
 		tokenGen:       tokenGen,
 		passwordHasher: passwordHasher,
 		tokenHasher:    tokenHasher,
+		eventPublisher: eventPublisher,
 		accessTTL:      accessTTL,
 		refreshTTL:     refreshTTL,
 	}
 }
 
-func (s *authService) Register(ctx context.Context, username, firstName, lastName, email, password string) error {
-	if err := validation.ValidateEmail(email); err != nil {
+func (s *authService) Register(ctx context.Context, in model.RegisterInput) error {
+	if err := validation.ValidateEmail(in.Email); err != nil {
 		return err
 	}
 
-	if err := validation.ValidatePassword(password); err != nil {
+	if err := validation.ValidatePassword(in.Password); err != nil {
 		return err
 	}
 
-	if err := validation.ValidateUsername(username); err != nil {
+	if err := validation.ValidateUsername(in.Username); err != nil {
 		return err
 	}
-	hashed, err := s.passwordHasher.Hash(password)
+
+	exists, err := s.userRepo.ExistsByEmail(ctx, in.Email)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return userDomain.ErrUserAlreadyExists
+	}
+
+	hashed, err := s.passwordHasher.Hash(in.Password)
 	if err != nil {
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	user, err := userDomain.CreateUser(username, firstName, lastName, &email, hashed)
+	user, err := userDomain.NewAuthUser(uuid.New(), in.Username, &in.Email, hashed)
 	if err != nil {
 		return err
 	}
@@ -76,38 +88,49 @@ func (s *authService) Register(ctx context.Context, username, firstName, lastNam
 		return fmt.Errorf("create user: %w", err)
 	}
 
+	_ = s.eventPublisher.PublishUserCreated(ctx, port.UserCreatedEvent{
+		UserID:    user.ID(),
+		Email:     in.Email,
+		FirstName: in.FirstName,
+		LastName:  in.LastName,
+	})
+
 	return nil
 }
 
-func (s *authService) Login(ctx context.Context, email string, password string) (*dto.TokenPair, error) {
-	if err := validation.ValidateEmail(email); err != nil {
+func (s *authService) Login(ctx context.Context, in model.LoginInput) (*model.TokenPair, error) {
+	if err := validation.ValidateEmail(in.Email); err != nil {
 		return nil, err
 	}
 
-	if err := validation.ValidatePassword(password); err != nil {
+	if err := validation.ValidatePassword(in.Password); err != nil {
 		return nil, err
 	}
 
-	user, err := s.userRepo.GetByEmail(ctx, email)
+	user, err := s.userRepo.GetByEmail(ctx, in.Email)
 	if err != nil {
-		return nil, userDomain.ErrWrongCredentials
+		if errors.Is(err, userDomain.ErrUserNotFound) {
+			return nil, userDomain.ErrWrongCredentials
+		}
+		return nil, err
 	}
 
 	if !user.Enabled() {
 		return nil, userDomain.ErrUserDisabled
 	}
 
-	if !s.passwordHasher.Compare(password, user.PasswordHash()) {
+	if !s.passwordHasher.Compare(in.Password, user.PasswordHash()) {
 		return nil, userDomain.ErrWrongCredentials
 	}
 
 	return s.generateTokenPair(ctx, user.ID())
 }
 
-func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error) {
+func (s *authService) Refresh(ctx context.Context, refreshToken string) (*model.TokenPair, error) {
 	if refreshToken == "" {
 		return nil, tokensDomain.ErrInvalidToken
 	}
+	now := time.Now()
 	hash := s.tokenHasher.Hash(refreshToken)
 
 	token, err := s.refreshRepo.GetByHash(ctx, hash)
@@ -118,7 +141,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 		return nil, tokensDomain.ErrInvalidToken
 	}
 
-	if token.ExpiresAt().Before(time.Now()) {
+	if token.ExpiresAt().Before(now) {
 		return nil, tokensDomain.ErrExpiredToken
 	}
 
@@ -138,7 +161,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 	newToken, err := tokensDomain.NewTokens(
 		token.UserID(),
 		s.tokenHasher.Hash(refresh),
-		time.Now().Add(s.refreshTTL),
+		now.Add(s.refreshTTL),
 		familyID,
 		token.ID(),
 	)
@@ -158,7 +181,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*dto.To
 		return nil, tokensDomain.ErrInvalidToken
 	}
 
-	return &dto.TokenPair{
+	return &model.TokenPair{
 		AccessToken:  access,
 		RefreshToken: refresh,
 	}, nil
@@ -178,7 +201,7 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 	return s.refreshRepo.Revoke(ctx, token.ID())
 }
 
-func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (*dto.TokenPair, error) {
+func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (*model.TokenPair, error) {
 	access, err := s.tokenGen.GenerateAccess(userID)
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
@@ -212,7 +235,7 @@ func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (
 		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
 
-	return &dto.TokenPair{
+	return &model.TokenPair{
 		AccessToken:  access,
 		RefreshToken: refresh,
 	}, nil

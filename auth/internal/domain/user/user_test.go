@@ -17,8 +17,16 @@ var (
 	passwordHash = "!!!!123PasswordHashSecure11111!?"
 )
 
+func createTestUser(t *testing.T) *user.AuthUser {
+	t.Helper()
+	userID := uuid.New()
+	u, err := user.NewAuthUser(userID, username, &email, passwordHash)
+	assert.NoError(t, err)
+	return u
+}
+
 func TestAddRole_Success(t *testing.T) {
-	u, _ := user.CreateUser(username, firtname, lastname, &email, passwordHash)
+	u := createTestUser(t)
 	r, _ := role.New(uuid.New(), "admin", []role.Permission{"read", "write"})
 
 	err := u.AddRole(*r)
@@ -28,7 +36,7 @@ func TestAddRole_Success(t *testing.T) {
 }
 
 func TestAddRole_AlreadyAssigned(t *testing.T) {
-	u, _ := user.CreateUser(username, firtname, lastname, &email, passwordHash)
+	u := createTestUser(t)
 	r, _ := role.New(uuid.New(), "admin", nil)
 
 	_ = u.AddRole(*r)
@@ -37,7 +45,7 @@ func TestAddRole_AlreadyAssigned(t *testing.T) {
 }
 
 func TestRemoveRole_Success(t *testing.T) {
-	u, _ := user.CreateUser(username, firtname, lastname, &email, passwordHash)
+	u := createTestUser(t)
 	r, _ := role.New(uuid.New(), "admin", nil)
 
 	_ = u.AddRole(*r)
@@ -47,7 +55,7 @@ func TestRemoveRole_Success(t *testing.T) {
 }
 
 func TestRemoveRole_NotAssigned(t *testing.T) {
-	u, _ := user.CreateUser(username, firtname, lastname, &email, passwordHash)
+	u := createTestUser(t)
 	r, _ := role.New(uuid.New(), "admin", nil)
 
 	err := u.RemoveRole(r.ID())

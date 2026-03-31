@@ -19,13 +19,13 @@ func newRepo() userDomain.UserRepository {
 	return usermem.NewUserRepository()
 }
 
-func generateTestUserData(t *testing.T, email, username, firstname, lastname string) *userDomain.User {
+func generateTestUserData(t *testing.T, email, username, firstname, lastname string) *userDomain.AuthUser {
 	t.Helper()
 
 	userID := uuid.New()
 	userPassword := "!!!!123PasswordHashSecure11111!?"
 
-	user, err := userDomain.NewUser(userID, username, firstname, lastname, &email, userPassword)
+	user, err := userDomain.NewAuthUser(userID, username, &email, userPassword)
 	require.NoError(t, err)
 
 	return user
@@ -35,7 +35,7 @@ func createTestUser(
 	t *testing.T,
 	repo userDomain.UserRepository,
 	email, username, firstname, lastname string,
-) *userDomain.User {
+) *userDomain.AuthUser {
 	t.Helper()
 
 	user := generateTestUserData(t, email, username, firstname, lastname)
@@ -59,41 +59,13 @@ func TestUserRepository_Create(t *testing.T) {
 	})
 }
 
-func TestUserRepository_Update(t *testing.T) {
-	repo := newRepo()
-
-	user := createTestUser(t, repo, "test@example.com", "test 1", "test", "1")
-
-	updated := user.Clone()
-	updated.UpdateEmail("test-update@example.com")
-
-	require.NoError(t, repo.Update(ctx, updated))
-
-	got, err := repo.GetByID(ctx, user.ID())
-	require.NoError(t, err)
-
-	assert.Equal(t, updated.Email(), got.Email())
-}
-
-func TestUserRepository_Delete(t *testing.T) {
-	repo := newRepo()
-
-	user := createTestUser(t, repo, "test@example.com", "test 1", "test", "1")
-
-	require.NoError(t, repo.Delete(ctx, user.ID()))
-
-	got, err := repo.GetByID(ctx, user.ID())
-	assert.Error(t, err)
-	assert.Nil(t, got)
-}
-
 func TestUserRepository_GetByEmail(t *testing.T) {
 	repo := newRepo()
 
 	user := createTestUser(t, repo, "test@example.com", "test 1", "test", "1")
 
 	t.Run("found", func(t *testing.T) {
-		found, err := repo.GetByEmail(ctx, user.Email())
+		found, err := repo.GetByEmail(ctx, *user.Email())
 		require.NoError(t, err)
 		assert.Equal(t, user, found)
 	})

@@ -15,7 +15,7 @@ import (
 	usermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/dto"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/port"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -23,9 +23,9 @@ import (
 
 type (
 	AuthService interface {
-		Register(ctx context.Context, username, firstname, lastname, email, password string) error
-		Login(ctx context.Context, email string, password string) (*dto.TokenPair, error)
-		Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error)
+		Register(ctx context.Context, in model.RegisterInput) error
+		Login(ctx context.Context, in model.LoginInput) (*model.TokenPair, error)
+		Refresh(ctx context.Context, refreshToken string) (*model.TokenPair, error)
 		Logout(ctx context.Context, refreshToken string) error
 	}
 
@@ -41,6 +41,7 @@ type (
 		tokenGen       port.TokenGenerator
 		passwordHasher port.PasswordHasher
 		tokenHasher    port.TokenHasher
+		eventPublisher port.EventPublisher
 	}
 )
 
@@ -52,6 +53,7 @@ func (s *AuthTestSuite) SetupTest() {
 	s.tokenRepo = tokenmem.NewTokenRepository()
 	s.passwordHasher = &security.FakeHasher{}
 	s.tokenHasher = &security.FakeTokenHasher{}
+	s.eventPublisher = &port.FakeEventPublisher{}
 
 	s.service = auth.NewAuthService(
 		s.userRepo,
@@ -59,6 +61,7 @@ func (s *AuthTestSuite) SetupTest() {
 		s.passwordHasher,
 		s.tokenHasher,
 		s.tokenGen,
+		s.eventPublisher,
 		10*time.Minute,
 		60*time.Minute,
 	)
@@ -71,13 +74,17 @@ func (s *AuthTestSuite) TestAuthService_Register_Success() {
 	firstname := "user"
 	lastname := "1"
 
+	registerInput := model.RegisterInput{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstname,
+		LastName:  lastname,
+	}
+
 	err := s.service.Register(
 		s.ctx,
-		username,
-		firstname,
-		lastname,
-		email,
-		password,
+		registerInput,
 	)
 
 	s.Require().NoError(err)
@@ -94,10 +101,19 @@ func (s *AuthTestSuite) TestAuthService_Register_UserAlreadyExists() {
 	firstname := "user"
 	lastname := "1"
 
-	err := s.service.Register(s.ctx, username, firstname, lastname, email, password)
+	registerInput := model.RegisterInput{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstname,
+		LastName:  lastname,
+	}
+
+	err := s.service.Register(s.ctx, registerInput)
 	assert.NoError(s.T(), err)
 
-	err = s.service.Register(s.ctx, username, firstname, lastname, email, password)
+	registerInput.Username = "test_user2"
+	err = s.service.Register(s.ctx, registerInput)
 	assert.ErrorIs(s.T(), err, userDomain.ErrUserAlreadyExists)
 }
 
@@ -109,7 +125,15 @@ func (s *AuthTestSuite) TestAuthService_Register_InvalidEmail() {
 	firstname := "user"
 	lastname := "1"
 
-	err := s.service.Register(ctx, username, firstname, lastname, email, password)
+	registerInput := model.RegisterInput{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstname,
+		LastName:  lastname,
+	}
+
+	err := s.service.Register(ctx, registerInput)
 	assert.ErrorIs(s.T(), err, userDomain.ErrInvalidEmail)
 }
 
@@ -121,18 +145,34 @@ func (s *AuthTestSuite) TestAuthService_Register_InvalidUsername() {
 	firstname := "user"
 	lastname := "1"
 
-	err := s.service.Register(ctx, username, firstname, lastname, email, password)
+	registerInput := model.RegisterInput{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstname,
+		LastName:  lastname,
+	}
+	err := s.service.Register(ctx, registerInput)
 	assert.ErrorIs(s.T(), err, userDomain.ErrInvalidUsername)
 }
 
 func (s *AuthTestSuite) TestAuthService_Register_InvalidPassword() {
+	password := "!Secure123"
+	email := "test_user1@example.com"
+	username := ""
+	firstname := "user"
+	lastname := "1"
+
+	registerInput := model.RegisterInput{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstname,
+		LastName:  lastname,
+	}
 	err := s.service.Register(
 		s.ctx,
-		"test_user",
-		"user",
-		"1",
-		"test@example.com",
-		"",
+		registerInput,
 	)
 
 	assert.Error(s.T(), err)
@@ -142,18 +182,20 @@ func (s *AuthTestSuite) TestAuthService_LoginSuccess() {
 	password := "!Secure123"
 	email := "test_user1@example.com"
 	username := "test_user"
-	firstname := "user"
-	lastname := "1"
 
 	hashed, err := s.passwordHasher.Hash(password)
 	s.Require().NoError(err)
 
-	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
+	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
 	s.Require().NoError(err)
 
 	err = s.userRepo.Create(s.ctx, user)
 	s.Require().NoError(err)
-	tokens, err := s.service.Login(s.ctx, email, password)
+	loginInput := model.LoginInput{
+		Email:    email,
+		Password: password,
+	}
+	tokens, err := s.service.Login(s.ctx, loginInput)
 	s.Require().NoError(err)
 	s.Require().NotNil(tokens)
 
@@ -165,7 +207,11 @@ func (s *AuthTestSuite) TestAuthService_LoginUserNotExists() {
 	password := "!Secure123"
 	email := "test_user1@example.com"
 
-	tokens, err := s.service.Login(s.ctx, email, password)
+	loginInput := model.LoginInput{
+		Email:    email,
+		Password: password,
+	}
+	tokens, err := s.service.Login(s.ctx, loginInput)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, userDomain.ErrWrongCredentials)
 	s.Require().Nil(tokens)
@@ -175,7 +221,11 @@ func (s *AuthTestSuite) TestAuthService_LoginInvalidEmail() {
 	password := "!Secure123"
 	email := "test_user1"
 
-	tokens, err := s.service.Login(s.ctx, email, password)
+	loginInput := model.LoginInput{
+		Email:    email,
+		Password: password,
+	}
+	tokens, err := s.service.Login(s.ctx, loginInput)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, userDomain.ErrInvalidEmail)
 	s.Require().Nil(tokens)
@@ -185,7 +235,11 @@ func (s *AuthTestSuite) TestAuthService_LoginInvalidPasswordFormat() {
 	password := "!Secure"
 	email := "test_user1@example"
 
-	tokens, err := s.service.Login(s.ctx, email, password)
+	loginInput := model.LoginInput{
+		Email:    email,
+		Password: password,
+	}
+	tokens, err := s.service.Login(s.ctx, loginInput)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, userDomain.ErrInvalidPassword)
 	s.Require().Nil(tokens)
@@ -195,18 +249,20 @@ func (s *AuthTestSuite) TestAuthService_LoginWrongPassword() {
 	password := "!Secure123"
 	email := "test_user1@example.com"
 	username := "test_user"
-	firstname := "user"
-	lastname := "1"
 
 	hashed, err := s.passwordHasher.Hash(password)
 	s.Require().NoError(err)
 
-	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
+	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
 	s.Require().NoError(err)
 
 	err = s.userRepo.Create(s.ctx, user)
 	s.Require().NoError(err)
-	tokens, err := s.service.Login(s.ctx, email, "!!!!!!SecureDifferent22")
+	loginInput := model.LoginInput{
+		Email:    email,
+		Password: "!!!!!!SecureDifferent22",
+	}
+	tokens, err := s.service.Login(s.ctx, loginInput)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, userDomain.ErrWrongCredentials)
 	s.Require().Nil(tokens)
@@ -216,13 +272,11 @@ func (s *AuthTestSuite) TestAuthService_LoginDisabledUser() {
 	password := "!Secure123"
 	email := "test_user1@example.com"
 	username := "test_user"
-	firstname := "user"
-	lastname := "1"
 
 	hashed, err := s.passwordHasher.Hash(password)
 	s.Require().NoError(err)
 
-	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
+	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
 	s.Require().NoError(err)
 
 	err = s.userRepo.Create(s.ctx, user)
@@ -231,7 +285,11 @@ func (s *AuthTestSuite) TestAuthService_LoginDisabledUser() {
 	err = s.userRepo.Disable(s.ctx, user.ID())
 	s.Require().NoError(err)
 
-	tokens, err := s.service.Login(s.ctx, email, password)
+	loginInput := model.LoginInput{
+		Email:    email,
+		Password: password,
+	}
+	tokens, err := s.service.Login(s.ctx, loginInput)
 	s.Require().Error(err)
 	s.Require().ErrorIs(err, userDomain.ErrUserDisabled)
 	s.Require().Nil(tokens)
@@ -246,10 +304,22 @@ func (s *AuthTestSuite) TestAuthService_Refresh_Success() {
 	firstname := "user"
 	lastname := "one"
 
-	err := s.service.Register(ctx, username, firstname, lastname, email, password)
+	registerInput := model.RegisterInput{
+		Username:  username,
+		Email:     email,
+		Password:  password,
+		FirstName: firstname,
+		LastName:  lastname,
+	}
+
+	err := s.service.Register(ctx, registerInput)
 	s.Require().NoError(err)
 
-	tokens, err := s.service.Login(ctx, email, password)
+	loginInput := model.LoginInput{
+		Email:    email,
+		Password: password,
+	}
+	tokens, err := s.service.Login(ctx, loginInput)
 	s.Require().NoError(err)
 	s.Require().NotNil(tokens)
 
@@ -286,17 +356,25 @@ func (s *AuthTestSuite) TestAuthService_Refresh_TokenNotInRepo() {
 func (s *AuthTestSuite) TestAuthService_Refresh_TokenRevoked() {
 	ctx := s.ctx
 
+	registerInput := model.RegisterInput{
+		Username:  "test_user",
+		Email:     "john2@example.com",
+		Password:  "!Secure123",
+		FirstName: "John",
+		LastName:  "Doe",
+	}
+
 	err := s.service.Register(
 		ctx,
-		"test_user",
-		"John",
-		"Doe",
-		"john2@example.com",
-		"!Secure123",
+		registerInput,
 	)
 	s.Require().NoError(err)
 
-	tokens, err := s.service.Login(ctx, "john2@example.com", "!Secure123")
+	loginInput := model.LoginInput{
+		Email:    "john2@example.com",
+		Password: "!Secure123",
+	}
+	tokens, err := s.service.Login(ctx, loginInput)
 	s.Require().NoError(err)
 
 	// Extract the token entity from the repository to get its ID
@@ -316,17 +394,22 @@ func (s *AuthTestSuite) TestAuthService_Refresh_TokenRevoked() {
 func (s *AuthTestSuite) TestAuthService_Logout_Success() {
 	ctx := s.ctx
 
-	err := s.service.Register(
-		ctx,
-		"user_logout",
-		"John",
-		"Doe",
-		"logout@example.com",
-		"!Secure123",
-	)
+	registerInput := model.RegisterInput{
+		Username:  "user_logout",
+		Email:     "logout@example.com",
+		Password:  "!Secure123",
+		FirstName: "John",
+		LastName:  "Doe",
+	}
+
+	err := s.service.Register(ctx, registerInput)
 	s.Require().NoError(err)
 
-	tokens, err := s.service.Login(ctx, "logout@example.com", "!Secure123")
+	loginInput := model.LoginInput{
+		Email:    "logout@example.com",
+		Password: "!Secure123",
+	}
+	tokens, err := s.service.Login(ctx, loginInput)
 	s.Require().NoError(err)
 
 	err = s.service.Logout(ctx, tokens.RefreshToken)
@@ -357,17 +440,22 @@ func (s *AuthTestSuite) TestAuthService_Logout_TokenNotInRepo() {
 func (s *AuthTestSuite) TestAuthService_Logout_AlreadyRevoked() {
 	ctx := s.ctx
 
-	err := s.service.Register(
-		ctx,
-		"user_logout2",
-		"John",
-		"Doe",
-		"logout2@example.com",
-		"!Secure123",
-	)
+	registerInput := model.RegisterInput{
+		Username:  "user_logout2",
+		Email:     "logout2@example.com",
+		Password:  "!Secure123",
+		FirstName: "John",
+		LastName:  "Doe",
+	}
+
+	err := s.service.Register(ctx, registerInput)
 	s.Require().NoError(err)
 
-	tokens, err := s.service.Login(ctx, "logout2@example.com", "!Secure123")
+	loginInput := model.LoginInput{
+		Email:    "logout2@example.com",
+		Password: "!Secure123",
+	}
+	tokens, err := s.service.Login(ctx, loginInput)
 	s.Require().NoError(err)
 
 	err = s.service.Logout(ctx, tokens.RefreshToken)
@@ -380,17 +468,22 @@ func (s *AuthTestSuite) TestAuthService_Logout_AlreadyRevoked() {
 func (s *AuthTestSuite) TestAuthService_Refresh_ReuseAttack_ShouldRevokeFamily() {
 	ctx := s.ctx
 
-	err := s.service.Register(
-		ctx,
-		"user_logout2",
-		"John",
-		"Doe",
-		"logout2@example.com",
-		"!Secure123",
-	)
+	registerInput := model.RegisterInput{
+		Username:  "user_logout2",
+		Email:     "logout2@example.com",
+		Password:  "!Secure123",
+		FirstName: "John",
+		LastName:  "Doe",
+	}
+
+	err := s.service.Register(ctx, registerInput)
 	s.Require().NoError(err)
 
-	tokens, err := s.service.Login(ctx, "logout2@example.com", "!Secure123")
+	loginInput := model.LoginInput{
+		Email:    "logout2@example.com",
+		Password: "!Secure123",
+	}
+	tokens, err := s.service.Login(ctx, loginInput)
 	s.Require().NoError(err)
 
 	newTokens, err := s.service.Refresh(ctx, tokens.RefreshToken)
@@ -408,17 +501,25 @@ func (s *AuthTestSuite) TestAuthService_Refresh_ReuseAttack_ShouldRevokeFamily()
 func (s *AuthTestSuite) TestAuthService_Refresh_ShouldPreserveFamily() {
 	ctx := s.ctx
 
+	registerInput := model.RegisterInput{
+		Username:  "user_logout2",
+		Email:     "logout2@example.com",
+		Password:  "!Secure123",
+		FirstName: "John",
+		LastName:  "Doe",
+	}
+
 	err := s.service.Register(
 		ctx,
-		"user_logout2",
-		"John",
-		"Doe",
-		"logout2@example.com",
-		"!Secure123",
+		registerInput,
 	)
 	s.Require().NoError(err)
 
-	tokens, err := s.service.Login(ctx, "logout2@example.com", "!Secure123")
+	loginInput := model.LoginInput{
+		Email:    "logout2@example.com",
+		Password: "!Secure123",
+	}
+	tokens, err := s.service.Login(ctx, loginInput)
 	s.Require().NoError(err)
 
 	hash := s.tokenHasher.Hash(tokens.RefreshToken)
@@ -442,12 +543,25 @@ func (s *AuthTestSuite) TestAuthService_Refresh_ExpiredToken() {
 		s.passwordHasher,
 		s.tokenHasher,
 		s.tokenGen,
+		s.eventPublisher,
 		1*time.Second,
 		1*time.Second,
 	)
 
-	_ = s.service.Register(ctx, "exp", "f", "l", "exp@test.com", "!Secure123")
-	tokens, _ := s.service.Login(ctx, "exp@test.com", "!Secure123")
+	registerInput := model.RegisterInput{
+		Username:  "exp",
+		Email:     "exp@test.com",
+		Password:  "!Secure123",
+		FirstName: "f",
+		LastName:  "l",
+	}
+
+	_ = s.service.Register(ctx, registerInput)
+	loginInput := model.LoginInput{
+		Email:    "exp@test.com",
+		Password: "!Secure123",
+	}
+	tokens, _ := s.service.Login(ctx, loginInput)
 
 	time.Sleep(2 * time.Second)
 
@@ -459,8 +573,20 @@ func (s *AuthTestSuite) TestAuthService_Refresh_ExpiredToken() {
 func (s *AuthTestSuite) TestAuthService_Refresh_RaceCondition() {
 	ctx := s.ctx
 
-	_ = s.service.Register(ctx, "race", "f", "l", "race@test.com", "!Secure123")
-	tokens, _ := s.service.Login(ctx, "race@test.com", "!Secure123")
+	registerInput := model.RegisterInput{
+		Username:  "race",
+		Email:     "race@test.com",
+		Password:  "!Secure123",
+		FirstName: "f",
+		LastName:  "l",
+	}
+
+	_ = s.service.Register(ctx, registerInput)
+	loginInput := model.LoginInput{
+		Email:    "race@test.com",
+		Password: "!Secure123",
+	}
+	tokens, _ := s.service.Login(ctx, loginInput)
 
 	var wg sync.WaitGroup
 	results := make(chan error, 2)

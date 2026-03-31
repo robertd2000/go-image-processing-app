@@ -7,13 +7,13 @@ CREATE TABLE refresh_tokens (
     expires_at      TIMESTAMPTZ NOT NULL,
     revoked_at      TIMESTAMPTZ,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    
+
     parent_id       UUID,
     family_id       UUID NOT NULL,
 
     CONSTRAINT fk_refresh_user
         FOREIGN KEY(user_id)
-        REFERENCES users(id)
+        REFERENCES auth_users(id)
         ON DELETE CASCADE
 );
 

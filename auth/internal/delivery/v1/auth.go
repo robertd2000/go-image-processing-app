@@ -9,14 +9,14 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/delivery/dao"
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/dto"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 	"go.uber.org/zap"
 )
 
 type AuthService interface {
-	Register(ctx context.Context, username, fistname, lastname, email, password string) error
-	Login(ctx context.Context, email string, password string) (*dto.TokenPair, error)
-	Refresh(ctx context.Context, refreshToken string) (*dto.TokenPair, error)
+	Register(ctx context.Context, in model.RegisterInput) error
+	Login(ctx context.Context, in model.LoginInput) (*model.TokenPair, error)
+	Refresh(ctx context.Context, refreshToken string) (*model.TokenPair, error)
 	Logout(ctx context.Context, refreshToken string) error
 }
 
@@ -42,13 +42,17 @@ func (h *authHandler) SetupAuthHandler(api *gin.RouterGroup) {
 	}
 }
 
+// Register godoc
 // @Summary Register user
+// @Description Creates a new user account
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Param input body dao.RegisterRequest true "Register data"
-// @Success 200 {string} string
-// @Failure 400 {object} dao.ErrorResponse
+// @Param request body dao.RegisterRequest true "User registration data"
+// @Success 201 {object} nil
+// @Failure 400 {object} dao.ErrorResponse "Invalid request"
+// @Failure 409 {object} dao.ErrorResponse "User already exists"
+// @Failure 500 {object} dao.ErrorResponse "Internal error"
 // @Router /auth/register [post]
 func (h *authHandler) register(c *gin.Context) {
 	var input dao.RegisterRequest
@@ -58,7 +62,15 @@ func (h *authHandler) register(c *gin.Context) {
 		return
 	}
 
-	err := h.authSvc.Register(c.Request.Context(), input.Username, input.Firstname, input.Lastname, input.Email, input.Password)
+	registerInput := model.RegisterInput{
+		Username:  input.Username,
+		Email:     input.Email,
+		Password:  input.Password,
+		FirstName: input.Firstname,
+		LastName:  input.Lastname,
+	}
+
+	err := h.authSvc.Register(c.Request.Context(), registerInput)
 	if err != nil {
 		h.logger.Error("login failed", zap.Error(err))
 
@@ -70,15 +82,17 @@ func (h *authHandler) register(c *gin.Context) {
 	c.JSON(http.StatusOK, "signed up")
 }
 
+// Login godoc
 // @Summary Login user
-// @Description Authenticate user and return tokens
+// @Description Authenticates user and returns access and refresh tokens
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Param input body dao.LoginRequest true "Login data"
+// @Param request body dao.LoginRequest true "Login credentials"
 // @Success 200 {object} dao.TokenResponse
-// @Failure 400 {object} dao.ErrorResponse
-// @Failure 401 {object} dao.ErrorResponse
+// @Failure 400 {object} dao.ErrorResponse "Invalid request"
+// @Failure 401 {object} dao.ErrorResponse "Wrong credentials"
+// @Failure 500 {object} dao.ErrorResponse "Internal error"
 // @Router /auth/login [post]
 func (h *authHandler) login(c *gin.Context) {
 	var input dao.LoginRequest
@@ -88,7 +102,12 @@ func (h *authHandler) login(c *gin.Context) {
 		return
 	}
 
-	token, err := h.authSvc.Login(c.Request.Context(), input.Email, input.Password)
+	loginInput := model.LoginInput{
+		Email:    input.Email,
+		Password: input.Password,
+	}
+
+	token, err := h.authSvc.Login(c.Request.Context(), loginInput)
 	if err != nil {
 		h.logger.Error("login failed", zap.Error(err))
 
@@ -102,12 +121,16 @@ func (h *authHandler) login(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
+// Logout godoc
 // @Summary Logout user
+// @Description Revokes refresh token
 // @Tags auth
 // @Accept json
 // @Produce json
-// @Param input body dao.RefreshRequest true "Refresh token"
-// @Success 200 {object} map[string]interface{}
+// @Param request body dao.RefreshRequest true "Refresh token"
+// @Success 204 {object} nil
+// @Failure 400 {object} dao.ErrorResponse "Invalid request"
+// @Failure 500 {object} dao.ErrorResponse "Internal error"
 // @Router /auth/logout [post]
 func (h *authHandler) logout(c *gin.Context) {
 	var input dao.RefreshRequest
@@ -117,7 +140,7 @@ func (h *authHandler) logout(c *gin.Context) {
 		return
 	}
 
-	err := h.authSvc.Logout(c.Request.Context(), input.Token)
+	err := h.authSvc.Logout(c.Request.Context(), input.RefreshToken)
 	if err != nil {
 		h.logger.Warn("logout failed", zap.Error(err))
 	}
@@ -125,6 +148,18 @@ func (h *authHandler) logout(c *gin.Context) {
 	c.JSON(http.StatusOK, "logged out")
 }
 
+// Refresh godoc
+// @Summary Refresh tokens
+// @Description Generates new access and refresh tokens using refresh token
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param request body dao.RefreshRequest true "Refresh token"
+// @Success 200 {object} dao.TokenResponse
+// @Failure 400 {object} dao.ErrorResponse "Invalid request"
+// @Failure 401 {object} dao.ErrorResponse "Invalid or expired token"
+// @Failure 500 {object} dao.ErrorResponse "Internal error"
+// @Router /auth/refresh [post]
 func (h *authHandler) refresh(c *gin.Context) {
 	var input dao.RefreshRequest
 
@@ -133,7 +168,7 @@ func (h *authHandler) refresh(c *gin.Context) {
 		return
 	}
 
-	token, err := h.authSvc.Refresh(c.Request.Context(), input.Token)
+	token, err := h.authSvc.Refresh(c.Request.Context(), input.RefreshToken)
 	if err != nil {
 		h.logger.Error("refresh failed", zap.Error(err))
 

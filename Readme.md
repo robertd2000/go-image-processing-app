@@ -188,7 +188,9 @@ http://localhost:8080/swagger/index.html
 - [x] **Auth Service**
   - JWT authentication
   - Access / Refresh tokens
-  - User management (basic)
+
+- [ ] **User Service**
+  - User management
 
 - [ ] **Image Service**
   - Upload images
