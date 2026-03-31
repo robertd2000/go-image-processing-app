@@ -142,13 +142,11 @@ func (s *AuthTestSuite) TestAuthService_LoginSuccess() {
 	password := "!Secure123"
 	email := "test_user1@example.com"
 	username := "test_user"
-	firstname := "user"
-	lastname := "1"
 
 	hashed, err := s.passwordHasher.Hash(password)
 	s.Require().NoError(err)
 
-	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
+	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
 	s.Require().NoError(err)
 
 	err = s.userRepo.Create(s.ctx, user)
@@ -195,13 +193,11 @@ func (s *AuthTestSuite) TestAuthService_LoginWrongPassword() {
 	password := "!Secure123"
 	email := "test_user1@example.com"
 	username := "test_user"
-	firstname := "user"
-	lastname := "1"
 
 	hashed, err := s.passwordHasher.Hash(password)
 	s.Require().NoError(err)
 
-	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
+	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
 	s.Require().NoError(err)
 
 	err = s.userRepo.Create(s.ctx, user)
@@ -216,13 +212,11 @@ func (s *AuthTestSuite) TestAuthService_LoginDisabledUser() {
 	password := "!Secure123"
 	email := "test_user1@example.com"
 	username := "test_user"
-	firstname := "user"
-	lastname := "1"
 
 	hashed, err := s.passwordHasher.Hash(password)
 	s.Require().NoError(err)
 
-	user, err := userDomain.CreateUser(username, firstname, lastname, &email, hashed)
+	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
 	s.Require().NoError(err)
 
 	err = s.userRepo.Create(s.ctx, user)

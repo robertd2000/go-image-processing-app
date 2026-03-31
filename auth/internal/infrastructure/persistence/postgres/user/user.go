@@ -24,7 +24,7 @@ func NewUserRepository(db *pgxpool.Pool) userDomain.UserRepository {
 	}
 }
 
-func (r *userRepository) Create(ctx context.Context, user *userDomain.User) error {
+func (r *userRepository) Create(ctx context.Context, user *userDomain.AuthUser) error {
 	query := `
 		INSERT INTO users (
 			id,
@@ -43,8 +43,6 @@ func (r *userRepository) Create(ctx context.Context, user *userDomain.User) erro
 		query,
 		user.ID(),
 		user.Username(),
-		user.FirstName(),
-		user.LastName(),
 		user.Email(),
 		user.PasswordHash(),
 		user.Enabled(),
@@ -60,7 +58,7 @@ func (r *userRepository) Create(ctx context.Context, user *userDomain.User) erro
 	return nil
 }
 
-func (r *userRepository) Update(ctx context.Context, user *userDomain.User) error {
+func (r *userRepository) Update(ctx context.Context, user *userDomain.AuthUser) error {
 	query := `
 		UPDATE users 
 		SET
@@ -79,8 +77,6 @@ func (r *userRepository) Update(ctx context.Context, user *userDomain.User) erro
 		query,
 		user.ID(),
 		user.Username(),
-		user.FirstName(),
-		user.LastName(),
 		user.Email(),
 		user.Enabled(),
 		user.CreatedAt(),
@@ -118,7 +114,7 @@ func (r *userRepository) Delete(ctx context.Context, userUD uuid.UUID) error {
 	return nil
 }
 
-func (r *userRepository) GetByEmail(ctx context.Context, email string) (*userDomain.User, error) {
+func (r *userRepository) GetByEmail(ctx context.Context, email string) (*userDomain.AuthUser, error) {
 	query := `
 		SELECT
 			id,
@@ -149,7 +145,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*userDom
 	return user, nil
 }
 
-func (r *userRepository) GetByUsername(ctx context.Context, username string) (*userDomain.User, error) {
+func (r *userRepository) GetByUsername(ctx context.Context, username string) (*userDomain.AuthUser, error) {
 	query := `
 		SELECT
 			id,
@@ -180,7 +176,7 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*u
 	return user, nil
 }
 
-func (r *userRepository) GetByID(ctx context.Context, userID uuid.UUID) (*userDomain.User, error) {
+func (r *userRepository) GetByID(ctx context.Context, userID uuid.UUID) (*userDomain.AuthUser, error) {
 	query := `
 		SELECT
 			id,
@@ -291,7 +287,7 @@ func (r *userRepository) Enable(ctx context.Context, userUD uuid.UUID) error {
 	return nil
 }
 
-func scanUser(row pgx.Row) (*userDomain.User, error) {
+func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 	var (
 		id           uuid.UUID
 		username     string
@@ -324,13 +320,9 @@ func scanUser(row pgx.Row) (*userDomain.User, error) {
 	return userDomain.NewUserFromDB(
 		id,
 		username,
-		firstName,
-		lastName,
 		email,
 		passwordHash,
 		enabled,
 		createdAt,
-		modifiedAt,
-		deletedAt,
 	), nil
 }

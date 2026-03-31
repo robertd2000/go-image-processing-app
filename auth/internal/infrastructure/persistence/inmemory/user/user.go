@@ -11,21 +11,29 @@ import (
 
 type userInMemoryRepository struct {
 	mu   *sync.RWMutex
-	data map[uuid.UUID]*userDomain.User
+	data map[uuid.UUID]*userDomain.AuthUser
 }
 
 func NewUserRepository() userDomain.UserRepository {
 	return &userInMemoryRepository{
-		data: make(map[uuid.UUID]*userDomain.User),
+		data: make(map[uuid.UUID]*userDomain.AuthUser),
 		mu:   &sync.RWMutex{},
 	}
 }
 
-func (r *userInMemoryRepository) Create(_ context.Context, user *userDomain.User) error {
+func (r *userInMemoryRepository) Create(_ context.Context, user *userDomain.AuthUser) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	existedUser, _ := r.findByEmail(context.Background(), user.Email())
+	if user.ID() == uuid.Nil {
+		return userDomain.ErrWrongCredentials
+	}
+
+	if user.Email() == nil {
+		return userDomain.ErrWrongCredentials
+	}
+
+	existedUser, _ := r.findByEmail(context.Background(), *user.Email())
 	if existedUser != nil {
 		return userDomain.ErrUserAlreadyExists
 	}
@@ -34,12 +42,20 @@ func (r *userInMemoryRepository) Create(_ context.Context, user *userDomain.User
 	return nil
 }
 
-func (r *userInMemoryRepository) Update(_ context.Context, user *userDomain.User) error {
+func (r *userInMemoryRepository) Update(_ context.Context, user *userDomain.AuthUser) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	existedUser, _ := r.findByEmail(context.Background(), user.Email())
-	if existedUser != nil {
+	if user.ID() == uuid.Nil {
+		return userDomain.ErrWrongCredentials
+	}
+
+	if user.Email() == nil {
+		return userDomain.ErrWrongCredentials
+	}
+
+	existedUser, _ := r.findByEmail(context.Background(), *user.Email())
+	if existedUser != nil && existedUser.ID() != user.ID() {
 		return userDomain.ErrUserAlreadyExists
 	}
 
@@ -56,14 +72,14 @@ func (r *userInMemoryRepository) Delete(_ context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *userInMemoryRepository) GetByUsername(_ context.Context, username string) (*userDomain.User, error) {
+func (r *userInMemoryRepository) GetByUsername(_ context.Context, username string) (*userDomain.AuthUser, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	return r.findByUsername(context.Background(), username)
 }
 
-func (r *userInMemoryRepository) GetByEmail(_ context.Context, email string) (*userDomain.User, error) {
+func (r *userInMemoryRepository) GetByEmail(_ context.Context, email string) (*userDomain.AuthUser, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -71,9 +87,9 @@ func (r *userInMemoryRepository) GetByEmail(_ context.Context, email string) (*u
 }
 
 // helper method to find user by email without locking
-func (r *userInMemoryRepository) findByEmail(_ context.Context, email string) (*userDomain.User, error) {
+func (r *userInMemoryRepository) findByEmail(_ context.Context, email string) (*userDomain.AuthUser, error) {
 	for _, user := range r.data {
-		if user.Email() == email {
+		if *user.Email() == email {
 			return user, nil
 		}
 	}
@@ -82,7 +98,7 @@ func (r *userInMemoryRepository) findByEmail(_ context.Context, email string) (*
 }
 
 // helper method to find user by email without locking
-func (r *userInMemoryRepository) findByUsername(_ context.Context, username string) (*userDomain.User, error) {
+func (r *userInMemoryRepository) findByUsername(_ context.Context, username string) (*userDomain.AuthUser, error) {
 	for _, user := range r.data {
 		if user.Username() == username {
 			return user, nil
@@ -93,7 +109,7 @@ func (r *userInMemoryRepository) findByUsername(_ context.Context, username stri
 }
 
 // helper method to find user by email without locking
-func (r *userInMemoryRepository) findByID(_ context.Context, userID uuid.UUID) (*userDomain.User, error) {
+func (r *userInMemoryRepository) findByID(_ context.Context, userID uuid.UUID) (*userDomain.AuthUser, error) {
 	user, exists := r.data[userID]
 	if !exists {
 		return nil, userDomain.ErrUserNotFound
@@ -101,7 +117,7 @@ func (r *userInMemoryRepository) findByID(_ context.Context, userID uuid.UUID) (
 	return user, nil
 }
 
-func (r *userInMemoryRepository) GetByID(ctx context.Context, userID uuid.UUID) (*userDomain.User, error) {
+func (r *userInMemoryRepository) GetByID(ctx context.Context, userID uuid.UUID) (*userDomain.AuthUser, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 

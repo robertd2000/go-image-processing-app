@@ -66,7 +66,7 @@ func (s *authService) Register(ctx context.Context, username, firstName, lastNam
 		return fmt.Errorf("hash password: %w", err)
 	}
 
-	user, err := userDomain.CreateUser(username, firstName, lastName, &email, hashed)
+	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
 	if err != nil {
 		return err
 	}
