@@ -1,12 +1,16 @@
-version: "3.9"
-
 services:
+  # =====================
+  # ZOOKEEPER
+  # =====================
   zookeeper:
     image: confluentinc/cp-zookeeper:7.3.0
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
 
+  # =====================
+  # KAFKA
+  # =====================
   kafka:
     image: confluentinc/cp-kafka:7.3.0
     depends_on:
@@ -25,51 +29,57 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
 
+  # =====================
+  # POSTGRES AUTH
+  # =====================
   postgres-auth:
     image: postgres:15
-    environment:
-      POSTGRES_USER: ${AUTH_DB_USER}
-      POSTGRES_PASSWORD: ${AUTH_DB_PASS}
-      POSTGRES_DB: ${AUTH_DB_NAME}
+    env_file:
+      - ./auth/.env
     volumes:
       - auth_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U auth_user"]
       interval: 5s
       retries: 5
     ports:
       - "5433:5432"
 
+  # =====================
+  # POSTGRES USER
+  # =====================
   postgres-user:
     image: postgres:15
-    environment:
-      POSTGRES_USER: ${USER_DB_USER}
-      POSTGRES_PASSWORD: ${USER_DB_PASS}
-      POSTGRES_DB: ${USER_DB_NAME}
+    env_file:
+      - ./user/.env
     volumes:
       - user_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${USER_DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U user_user"]
       interval: 5s
       retries: 5
     ports:
       - "5434:5432"
 
+  # =====================
+  # POSTGRES IMAGE
+  # =====================
   postgres-image:
     image: postgres:15
-    environment:
-      POSTGRES_USER: ${IMAGE_DB_USER}
-      POSTGRES_PASSWORD: ${IMAGE_DB_PASS}
-      POSTGRES_DB: ${IMAGE_DB_NAME}
+    env_file:
+      - ./image/.env
     volumes:
       - image_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${IMAGE_DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U image_user"]
       interval: 5s
       retries: 5
     ports:
       - "5435:5432"
 
+  # =====================
+  # AUTH SERVICE
+  # =====================
   auth:
     build: ./auth
     depends_on:
@@ -78,10 +88,26 @@ services:
       kafka:
         condition: service_started
     env_file:
-      - .env
+      - ./auth/.env
     ports:
       - "8080:8080"
 
+  # =====================
+  # USER SERVICE
+  # =====================
+  user:
+    build: ./user
+    depends_on:
+      postgres-user:
+        condition: service_healthy
+    env_file:
+      - ./user/.env
+    ports:
+      - "8083:8080"
+
+  # =====================
+  # IMAGE SERVICE
+  # =====================
   image:
     build: ./image
     depends_on:
@@ -90,10 +116,13 @@ services:
       kafka:
         condition: service_started
     env_file:
-      - .env
+      - ./image/.env
     ports:
       - "8081:8080"
 
+  # =====================
+  # PROCESSOR SERVICE
+  # =====================
   processor:
     build: ./processor
     depends_on:
@@ -102,10 +131,13 @@ services:
       kafka:
         condition: service_started
     env_file:
-      - .env
+      - ./processor/.env
     ports:
       - "8082:8080"
 
+  # =====================
+  # MIGRATE SERVICE
+  # =====================
   migrate:
     image: migrate/migrate:4
     depends_on:
@@ -116,13 +148,16 @@ services:
       postgres-image:
         condition: service_healthy
     env_file:
-      - .env
+      - ./.env
     entrypoint: ["sleep", "infinity"]
     volumes:
       - ./auth/migrations:/migrations/auth
       - ./user/migrations:/migrations/user
       - ./image/migrations:/migrations/image
 
+# =====================
+# VOLUMES
+# =====================
 volumes:
   auth_db_data:
   user_db_data:
