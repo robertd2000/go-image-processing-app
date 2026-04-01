@@ -10,6 +10,7 @@ DC=docker compose
 # DATABASE URLs (для контейнеров)
 # =========================================
 AUTH_DB_URL=postgres://${AUTH_DB_USER}:${AUTH_DB_PASS}@postgres-auth:5432/${AUTH_DB_NAME}?sslmode=disable
+USER_DB_URL=postgres://${USER_DB_USER}:${USER_DB_PASS}@postgres-user:5432/${USER_DB_NAME}?sslmode=disable
 IMAGE_DB_URL=postgres://${IMAGE_DB_USER}:${IMAGE_DB_PASS}@postgres-image:5432/${IMAGE_DB_NAME}?sslmode=disable
 
 # =========================================
@@ -33,33 +34,60 @@ ps:
 	$(DC) ps
 
 # =========================================
-# MIGRATIONS (через контейнер migrate)
+# WAITERS
+# =========================================
+
+wait-db:
+	@echo "Waiting for Postgres..."
+	until $(DC) exec postgres-auth pg_isready -U ${AUTH_DB_USER} >/dev/null 2>&1; do sleep 2; done
+	until $(DC) exec postgres-user pg_isready -U ${USER_DB_USER} >/dev/null 2>&1; do sleep 2; done
+	until $(DC) exec postgres-image pg_isready -U ${IMAGE_DB_USER} >/dev/null 2>&1; do sleep 2; done
+	@echo "Postgres is ready"
+
+wait-kafka:
+	@echo "Waiting for Kafka..."
+	until $(DC) exec kafka bash -c "kafka-topics --bootstrap-server kafka:9092 --list" >/dev/null 2>&1; do \
+		sleep 3; \
+	done
+	@echo "Kafka is ready"
+
+# =========================================
+# MIGRATIONS
 # =========================================
 
 auth-migrate-up:
-	docker exec migrate migrate -path=/migrations/auth -database "$(AUTH_DB_URL)" up
+	$(DC) exec migrate migrate -path=/migrations/auth -database "$(AUTH_DB_URL)" up
 
 auth-migrate-down:
-	docker exec migrate migrate -path=/migrations/auth -database "$(AUTH_DB_URL)" down 1
+	$(DC) exec migrate migrate -path=/migrations/auth -database "$(AUTH_DB_URL)" down 1
 
 auth-migrate-create:
-	docker exec migrate migrate create -ext sql -dir /migrations/auth -seq $(name)
+	$(DC) exec migrate migrate create -ext sql -dir /migrations/auth -seq $(name)
+
+user-migrate-up:
+	$(DC) exec migrate migrate -path=/migrations/user -database "$(USER_DB_URL)" up
+
+user-migrate-down:
+	$(DC) exec migrate migrate -path=/migrations/user -database "$(USER_DB_URL)" down 1
+
+user-migrate-create:
+	$(DC) exec migrate migrate create -ext sql -dir /migrations/user -seq $(name)
 
 image-migrate-up:
-	docker exec migrate migrate -path=/migrations/image -database "$(IMAGE_DB_URL)" up
+	$(DC) exec migrate migrate -path=/migrations/image -database "$(IMAGE_DB_URL)" up
 
 image-migrate-down:
-	docker exec migrate migrate -path=/migrations/image -database "$(IMAGE_DB_URL)" down 1
+	$(DC) exec migrate migrate -path=/migrations/image -database "$(IMAGE_DB_URL)" down 1
 
 image-migrate-create:
-	docker exec migrate migrate create -ext sql -dir /migrations/image -seq $(name)
+	$(DC) exec migrate migrate create -ext sql -dir /migrations/image -seq $(name)
 
 # =========================================
 # KAFKA TOPICS
 # =========================================
 
 topics:
-	docker exec kafka kafka-topics \
+	$(DC) exec kafka kafka-topics \
 		--create \
 		--if-not-exists \
 		--bootstrap-server ${KAFKA_BROKER} \
@@ -67,7 +95,7 @@ topics:
 		--partitions 3 \
 		--topic ${KAFKA_TOPIC_PROCESS}
 
-	docker exec kafka kafka-topics \
+	$(DC) exec kafka kafka-topics \
 		--create \
 		--if-not-exists \
 		--bootstrap-server ${KAFKA_BROKER} \
@@ -76,57 +104,55 @@ topics:
 		--topic ${KAFKA_TOPIC_DONE}
 
 # =========================================
-# BOOTSTRAP (поднять всё + миграции + топики)
+# BOOTSTRAP
 # =========================================
 
-wait-db:
-	@echo "Waiting for Postgres..."
-	until docker exec postgres-auth pg_isready -U ${AUTH_DB_USER}; do sleep 2; done
-	until docker exec postgres-image pg_isready -U ${IMAGE_DB_USER}; do sleep 2; done
-
-wait-kafka:
-	@echo "Waiting for Kafka..."
-	until docker exec kafka bash -c "kafka-topics --bootstrap-server kafka:9092 --list" >/dev/null 2>&1; do \
-		sleep 3; \
-	done
-	
 bootstrap:
-	make up
-	make wait-db
-	make wait-kafka
-	make auth-migrate-up
-	make image-migrate-up
-	make topics
+	$(MAKE) up
+	$(MAKE) wait-db
+	$(MAKE) wait-kafka
+	$(MAKE) auth-migrate-up
+	$(MAKE) user-migrate-up
+	$(MAKE) image-migrate-up
+	$(MAKE) topics
 
 # =========================================
 # RESET DATABASES
 # =========================================
 
 reset-auth-db:
-	docker exec postgres-auth psql -U ${AUTH_DB_USER} -d ${AUTH_DB_NAME} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+	$(DC) exec postgres-auth psql -U ${AUTH_DB_USER} -d ${AUTH_DB_NAME} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+reset-user-db:
+	$(DC) exec postgres-user psql -U ${USER_DB_USER} -d ${USER_DB_NAME} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 
 reset-image-db:
-	docker exec postgres-image psql -U ${IMAGE_DB_USER} -d ${IMAGE_DB_NAME} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+	$(DC) exec postgres-image psql -U ${IMAGE_DB_USER} -d ${IMAGE_DB_NAME} -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
 
 reset:
-	make reset-auth-db
-	make reset-image-db
-	make auth-migrate-up
-	make image-migrate-up
+	$(MAKE) reset-auth-db
+	$(MAKE) reset-user-db
+	$(MAKE) reset-image-db
+	$(MAKE) auth-migrate-up
+	$(MAKE) user-migrate-up
+	$(MAKE) image-migrate-up
 
 # =========================================
-# HEALTH CHECK
+# HEALTH
 # =========================================
 
 health:
-	docker ps
+	$(DC) ps
 
 # =========================================
-# BUILD SERVICES (опционально)
+# BUILD (optional)
 # =========================================
 
 build-auth:
 	cd auth && go build -o bin/auth cmd/main.go
+
+build-user:
+	cd user && go build -o bin/user cmd/main.go
 
 build-image:
 	cd image && go build -o bin/image cmd/main.go
@@ -134,4 +160,4 @@ build-image:
 build-processor:
 	cd processor && go build -o bin/processor cmd/main.go
 
-build: build-auth build-image build-processor
+build: build-auth build-user build-image build-processor
