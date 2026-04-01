@@ -1,33 +1,86 @@
 # Image Processing Microservices
 
-This project is a microservices-based system that includes:
+A microservices-based system for image processing built with Go.
 
-- **Auth service** (authentication, JWT)
-- **Image service** (image storage & metadata)
-- **Processor service** (async image processing via Kafka)
-- **PostgreSQL** (separate DBs per service)
-- **Kafka** (event-driven processing)
+The project demonstrates:
+
+- service isolation (separate DB per service)
+- event-driven architecture (Kafka)
+- DDD-lite domain modeling (user service)
+- Docker-based infrastructure
 
 ---
 
-## 🚀 Getting Started
+# 🧱 Architecture
 
-### 1. Requirements
+```text
+auth        → authentication & JWT
+user        → user profiles & settings
+image       → image metadata & storage
+processor   → async image processing (Kafka)
+```
 
-- Docker & Docker Compose
+---
+
+# 📦 Services
+
+## Auth Service
+
+- registration & login
+- JWT (access + refresh)
+- roles & permissions
+
+## User Service
+
+- user profile (username, avatar, etc.)
+- user settings
+- DDD-style domain (aggregate + value objects)
+
+## Image Service
+
+- image metadata
+- integration with storage (planned)
+
+## Processor Service
+
+- Kafka consumer
+- image processing (resize/compress)
+
+---
+
+# 🧠 Key Concepts
+
+- **Single `user_id` across all services**
+- **Auth owns identity**
+- **User owns profile**
+- **Event-driven communication (planned via Kafka)**
+
+---
+
+# 🚀 Getting Started
+
+## 1. Requirements
+
+- Docker
+- Docker Compose
 - Make
 
 ---
 
-### 2. Setup environment
+## 2. Environment
 
-Create a `.env` file in the root (or use the existing one):
+### Root `.env`
 
 ```env
 # AUTH DB
 AUTH_DB_USER=auth_user
 AUTH_DB_PASS=auth_pass
 AUTH_DB_NAME=auth_db
+
+# USER DB
+USER_DB_USER=user_user
+USER_DB_PASS=user_pass
+USER_DB_NAME=user_db
 
 # IMAGE DB
 IMAGE_DB_USER=image_user
@@ -39,135 +92,134 @@ JWT_SECRET=super_secret_jwt_key_change_me
 
 # KAFKA
 KAFKA_BROKER=kafka:9092
+KAFKA_BROKER_HOST=localhost:29092
 
-# SERVER
+KAFKA_TOPIC_PROCESS=image.process
+KAFKA_TOPIC_DONE=image.done
+
+# SERVER (default fallback)
 SERVER_PORT=8080
 ```
 
 ---
 
-### 3. Run everything
+## 3. Service Config
 
-```bash
-make bootstrap
+Each service uses:
+
+- `config.yaml` (defaults)
+- `.env` (override via Viper)
+
+Example (`user/config.yaml`):
+
+```yaml
+server:
+  port: 8080
+  run_mode: debug
+
+postgres:
+  host: postgres-user
+  port: 5432
+  user: user_user
+  password: user_pass
+  db_name: user_db
+  ssl_mode: disable
 ```
 
-This will:
-
-- build and start all containers
-- wait for databases
-- run migrations
-- create Kafka topics
+> ⚠️ No `${VAR}` in YAML — ENV overrides are handled by Viper.
 
 ---
 
-## 🪟 Windows Note (Git Bash)
+## 4. Run Everything
 
-If you are using **Git Bash on Windows**, use:
+```bash
+make bootstrap
+```
+
+### On Windows (Git Bash)
 
 ```bash
 MSYS_NO_PATHCONV=1 make bootstrap
-```
-
-Or export once:
-
-```bash
-export MSYS_NO_PATHCONV=1
-make bootstrap
 ```
 
 ---
 
 ## 🛠 Useful Commands
 
-### Start / Stop
-
 ```bash
 make up
 make down
 make restart
-```
-
----
-
-### Logs
-
-```bash
 make logs
-```
-
----
-
-### Check running containers
-
-```bash
 make ps
-```
-
----
-
-### Health check
-
-```bash
 make health
 ```
 
 ---
 
-## 🗄 Migrations
+# 🗄 Migrations
 
-### Run migrations
+Run migrations per service:
 
 ```bash
 make auth-migrate-up
+make user-migrate-up
 make image-migrate-up
 ```
 
-### Rollback
+Rollback:
 
 ```bash
 make auth-migrate-down
+make user-migrate-down
 make image-migrate-down
 ```
 
-### Create migration
+Create migration:
 
 ```bash
-make auth-migrate-create name=your_migration_name
-make image-migrate-create name=your_migration_name
+make user-migrate-create name=create_users
 ```
 
 ---
 
-## 🔄 Reset Databases
+# 🔄 Reset Databases
 
 ```bash
 make reset
 ```
 
-This will:
-
-- drop schemas
-- re-run migrations
-
 ---
 
-## 📡 Kafka Topics
+# 📡 Kafka
 
-```bash
-make topics
+Topics:
+
+```text
+image.process
+image.done
 ```
 
-Topics used:
+Planned:
 
-- `image.process`
-- `image.done`
+```text
+user.created
+image.uploaded
+```
 
 ---
 
-## 📚 API Documentation
+# 📚 API
 
-Swagger is available at:
+## Auth
+
+```
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/refresh
+```
+
+Swagger:
 
 ```
 http://localhost:8080/swagger/index.html
@@ -175,63 +227,81 @@ http://localhost:8080/swagger/index.html
 
 ---
 
-## 🏗 Services
+## User (in progress)
 
-- **Auth Service** → authentication & JWT
-- **Image Service** → images and metadata
-- **Processor Service** → async processing
-
----
-
-## ✅ Services Status
-
-- [x] **Auth Service**
-  - JWT authentication
-  - Access / Refresh tokens
-
-- [ ] **User Service**
-  - User management
-
-- [ ] **Image Service**
-  - Upload images
-  - Store metadata
-  - API for image retrieval
-
-- [ ] **Processor Service**
-  - Consume Kafka events
-  - Process images (resize/compress)
-  - Publish results
-
----
-
-## 🧭 Roadmap (optional)
-
-- [ ] Add image storage (S3 / local FS)
-- [ ] Improve error handling & retries
-- [ ] Add monitoring (Prometheus / Grafana)
-- [ ] Add tracing (Jaeger)
-- [ ] Add rate limiting
-
----
-
-## ⚙️ Build Services (optional)
-
-```bash
-make build
 ```
-
-Or individually:
-
-```bash
-make build-auth
-make build-image
-make build-processor
+GET  /api/users/me
+PUT  /api/users/profile
+PUT  /api/users/settings
 ```
 
 ---
 
-## 🧩 Notes
+# 🧪 Testing
+
+Run domain tests:
+
+```bash
+go test ./internal/domain/...
+```
+
+Covers:
+
+- value objects (username, email)
+- user aggregate logic
+- domain invariants
+
+---
+
+# 🏗 Services Status
+
+## ✅ Done
+
+- Auth service (JWT, refresh tokens)
+- Docker infrastructure
+- Migrations setup
+- User domain (DDD-lite + tests)
+
+## 🚧 In Progress
+
+- User service (repository, handlers)
+- Image service
+
+## 📌 Planned
+
+- Kafka integration (auth → user)
+- Image processing pipeline
+- Storage (S3 / MinIO)
+
+---
+
+# 🧩 Notes
 
 - Each service has its own PostgreSQL database
-- Communication between services is done via Kafka
-- JWT is used for authentication
+- Domain layer is isolated from DB schema
+- Config = YAML (defaults) + ENV override
+- Start simple → evolve to event-driven
+
+---
+
+# 🚀 Roadmap
+
+- [ ] User repository (Postgres mapping)
+- [ ] User HTTP API
+- [ ] Kafka integration
+- [ ] Image upload & storage
+- [ ] Processor workers
+- [ ] Monitoring & logging
+
+---
+
+# 💡 Philosophy
+
+This project focuses on:
+
+- real backend architecture (not just CRUD)
+- clean separation of concerns
+- practical DDD (without overengineering)
+- incremental system design
+
+---

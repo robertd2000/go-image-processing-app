@@ -1,0 +1,15 @@
+server:
+  port: 8080
+  run_mode: debug
+  domain: localhost
+
+postgres:
+  host: postgres-user
+  port: 5432
+  user: user_user
+  password: user_pass
+  db_name: user_db
+  ssl_mode: disable
+
+log:
+  level: debug
