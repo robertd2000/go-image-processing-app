@@ -195,6 +195,38 @@ func (s *UserServiceTestSuite) TestUpdateUser_IgnoreNilFields() {
 	assert.Equal(s.T(), input.Email, user.Email().String())
 }
 
+func (s *UserServiceTestSuite) TestUpdateUser_InvalidEmail() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	update := model.UpdateUserInput{
+		UserID: input.ID,
+		Email:  strPtr("invalid-email"),
+	}
+
+	err := s.service.Update(s.ctx, update)
+
+	assert.Error(s.T(), err)
+}
+
+func (s *UserServiceTestSuite) TestUpdateUser_DuplicateUsername() {
+	user1 := s.newCreateUserInput()
+	user2 := s.newCreateUserInputWith("user2", "user2@test.com")
+
+	s.createUser(user1)
+	s.createUser(user2)
+
+	update := model.UpdateUserInput{
+		UserID:   user2.ID,
+		Username: strPtr(user1.Username),
+	}
+
+	err := s.service.Update(s.ctx, update)
+
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUsernameAlreadyExists, err)
+}
+
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	// Test code for deleting a user
 }
