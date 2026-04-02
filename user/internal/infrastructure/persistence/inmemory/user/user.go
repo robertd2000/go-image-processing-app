@@ -55,7 +55,12 @@ func (u *userInMemoryRepository) Delete(ctx context.Context, id uuid.UUID) error
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	delete(u.users, id)
+	user, err := u.findByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	user.Deactivate()
 
 	return nil
 }
@@ -67,6 +72,9 @@ func (u *userInMemoryRepository) FindByEmail(ctx context.Context, email userDoma
 
 	for _, user := range u.users {
 		if user.Email() == email {
+			if user.Status() == userDomain.StatusInactive {
+				return nil, userDomain.ErrUserNotFound
+			}
 			return user, nil
 		}
 	}
@@ -78,10 +86,7 @@ func (u *userInMemoryRepository) FindByID(ctx context.Context, id uuid.UUID) (*u
 	u.mu.RLock()
 	defer u.mu.RUnlock()
 
-	if user, exists := u.users[id]; exists {
-		return user, nil
-	}
-	return nil, userDomain.ErrUserNotFound
+	return u.findByID(ctx, id)
 }
 
 // Update implements user.UserRepository.
@@ -95,6 +100,13 @@ func (u *userInMemoryRepository) Update(ctx context.Context, user *userDomain.Us
 
 	u.users[user.ID()] = user
 	return nil
+}
+
+func (u *userInMemoryRepository) findByID(ctx context.Context, id uuid.UUID) (*userDomain.User, error) {
+	if user, exists := u.users[id]; exists {
+		return user, nil
+	}
+	return nil, userDomain.ErrUserNotFound
 }
 
 func NewUserRepository() userDomain.UserRepository {
