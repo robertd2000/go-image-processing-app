@@ -77,3 +77,19 @@ func validateTheme(t string) error {
 		return errors.New("invalid theme")
 	}
 }
+
+func RestoreSettings(
+	isPublic bool,
+	allowNotifications bool,
+	theme string,
+	createdAt time.Time,
+	updatedAt time.Time,
+) *UserSettings {
+	return &UserSettings{
+		isPublic:           isPublic,
+		allowNotifications: allowNotifications,
+		theme:              theme,
+		createdAt:          createdAt,
+		updatedAt:          updatedAt,
+	}
+}

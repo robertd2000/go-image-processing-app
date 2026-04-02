@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
@@ -111,8 +113,50 @@ func (r *userRepository) Create(ctx context.Context, user *userDomain.User) erro
 }
 
 func (r *userRepository) FindByID(ctx context.Context, userID uuid.UUID) (*userDomain.User, error) {
-	// Implementation of the FindByID method
-	return nil, nil
+	query := `
+	SELECT 
+		u.id,
+		u.username,
+		u.email,
+		u.first_name,
+		u.last_name,
+		u.avatar_url,
+		u.status,
+		u.role,
+		u.last_seen_at,
+		u.created_at,
+		u.updated_at,
+		u.deleted_at,
+
+		p.bio,
+		p.location,
+		p.website,
+		p.birthday,
+		p.created_at,
+		p.updated_at,
+
+		s.is_public,
+		s.allow_notifications,
+		s.theme,
+		s.created_at,
+		s.updated_at 
+		FROM users u
+	LEFT JOIN user_profiles p ON u.id = p.user_id
+	LEFT JOIN user_settings s ON u.id = s.user_id
+	WHERE u.id = $1 AND u.status == 'active'
+	`
+
+	row := r.db.QueryRow(ctx, query, userID)
+
+	user, err := scanUser(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, userDomain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("find user by id: %w", err)
+	}
+
+	return user, nil
 }
 
 func (r *userRepository) FindByEmail(ctx context.Context, email userDomain.Email) (*userDomain.User, error) {
@@ -157,4 +201,139 @@ func mapPGError(err error) error {
 	}
 
 	return fmt.Errorf("insert user: %w", err)
+}
+
+func scanUser(row pgx.Row) (*userDomain.User, error) {
+	var (
+		// user
+		id         uuid.UUID
+		username   string
+		email      string
+		firstName  string
+		lastName   string
+		avatarURL  *string
+		status     string
+		role       string
+		lastSeenAt *time.Time
+		createdAt  time.Time
+		updatedAt  time.Time
+		deletedAt  *time.Time
+
+		// profile
+		bio      *string
+		location *string
+		website  *string
+		birthday *time.Time
+		pCreated *time.Time
+		pUpdated *time.Time
+
+		// settings
+		isPublic           *bool
+		allowNotifications *bool
+		theme              *string
+		sCreated           *time.Time
+		sUpdated           *time.Time
+	)
+
+	err := row.Scan(
+		&id,
+		&username,
+		&email,
+		&firstName,
+		&lastName,
+		&avatarURL,
+		&status,
+		&role,
+		&lastSeenAt,
+		&createdAt,
+		&updatedAt,
+		&deletedAt,
+
+		&bio,
+		&location,
+		&website,
+		&birthday,
+		&pCreated,
+		&pUpdated,
+
+		&isPublic,
+		&allowNotifications,
+		&theme,
+		&sCreated,
+		&sUpdated,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// ===== value objects
+	uName, err := userDomain.NewUsername(username)
+	if err != nil {
+		return nil, fmt.Errorf("invalid username in db: %w", err)
+	}
+
+	uEmail, err := userDomain.NewEmail(email)
+	if err != nil {
+		return nil, fmt.Errorf("invalid email in db: %w", err)
+	}
+
+	// ===== profile
+	profile := userDomain.RestoreProfile(
+		bio,
+		location,
+		website,
+		birthday,
+		derefTime(pCreated),
+		derefTime(pUpdated),
+	)
+
+	// ===== settings
+	settings := userDomain.RestoreSettings(
+		derefBool(isPublic),
+		derefBool(allowNotifications),
+		derefString(theme),
+		derefTime(sCreated),
+		derefTime(sUpdated),
+	)
+
+	// ===== aggregate
+	user := userDomain.RestoreUser(
+		id,
+		uName,
+		uEmail,
+		firstName,
+		lastName,
+		avatarURL,
+		userDomain.UserStatus(status),
+		userDomain.UserRole(role),
+		profile,
+		settings,
+		lastSeenAt,
+		createdAt,
+		updatedAt,
+		deletedAt,
+	)
+
+	return user, nil
+}
+
+func derefString(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
+
+func derefBool(v *bool) bool {
+	if v == nil {
+		return false
+	}
+	return *v
+}
+
+func derefTime(v *time.Time) time.Time {
+	if v == nil {
+		return time.Time{}
+	}
+	return *v
 }

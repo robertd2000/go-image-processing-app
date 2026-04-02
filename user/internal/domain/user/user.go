@@ -203,3 +203,37 @@ func NewUserFromDB(
 		updatedAt: updatedAt,
 	}
 }
+
+func RestoreUser(
+	id uuid.UUID,
+	username Username,
+	email Email,
+	firstName string,
+	lastName string,
+	avatarURL *string,
+	status UserStatus,
+	role UserRole,
+	profile *UserProfile,
+	settings *UserSettings,
+	lastSeenAt *time.Time,
+	createdAt time.Time,
+	updatedAt time.Time,
+	deletedAt *time.Time,
+) *User {
+	return &User{
+		id:         id,
+		username:   username,
+		email:      email,
+		firstName:  firstName,
+		lastName:   lastName,
+		avatarURL:  avatarURL,
+		status:     status,
+		role:       role,
+		profile:    profile,
+		settings:   settings,
+		lastSeenAt: lastSeenAt,
+		createdAt:  createdAt,
+		updatedAt:  updatedAt,
+		deletedAt:  deletedAt,
+	}
+}
