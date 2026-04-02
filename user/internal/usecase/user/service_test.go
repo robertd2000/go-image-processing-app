@@ -227,6 +227,18 @@ func (s *UserServiceTestSuite) TestUpdateUser_DuplicateUsername() {
 	assert.Equal(s.T(), userDomain.ErrUsernameAlreadyExists, err)
 }
 
+func (s *UserServiceTestSuite) TestUpdateUser_NotFound() {
+	update := model.UpdateUserInput{
+		UserID:   uuid.New(),
+		Username: strPtr("newname"),
+	}
+
+	err := s.service.Update(s.ctx, update)
+
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	// Test code for deleting a user
 }
