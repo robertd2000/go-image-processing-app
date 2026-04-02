@@ -25,10 +25,22 @@ func (p *UserProfile) Update(
 	bio, location, website *string,
 	birthday *time.Time,
 ) {
-	p.bio = bio
-	p.location = location
-	p.website = website
-	p.birthday = birthday
+	if bio != nil {
+		p.bio = bio
+	}
+
+	if location != nil {
+		p.location = location
+	}
+
+	if website != nil {
+		p.website = website
+	}
+
+	if birthday != nil {
+		p.birthday = birthday
+	}
+
 	p.updatedAt = time.Now()
 }
 

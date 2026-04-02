@@ -161,6 +161,17 @@ func (u *User) UpdateProfile(
 	u.updatedAt = time.Now()
 }
 
+func (u *User) UpdateSettings(
+	isPublic, allowNotifications *bool,
+	theme *string,
+) error {
+	if err := u.settings.Update(isPublic, allowNotifications, theme); err != nil {
+		return err
+	}
+	u.updatedAt = time.Now()
+	return nil
+}
+
 func NewUserFromDB(
 	id uuid.UUID,
 	username string,

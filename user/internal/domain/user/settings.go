@@ -1,6 +1,9 @@
 package user
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 type UserSettings struct {
 	isPublic           bool
@@ -24,14 +27,26 @@ func NewSettings() *UserSettings {
 }
 
 func (s *UserSettings) Update(
-	isPublic bool,
-	allowNotifications bool,
-	theme string,
-) {
-	s.isPublic = isPublic
-	s.allowNotifications = allowNotifications
-	s.theme = theme
+	isPublic, allowNotifications *bool,
+	theme *string,
+) error {
+	if isPublic != nil {
+		s.isPublic = *isPublic
+	}
+
+	if allowNotifications != nil {
+		s.allowNotifications = *allowNotifications
+	}
+
+	if theme != nil {
+		if err := validateTheme(*theme); err != nil {
+			return err
+		}
+		s.theme = *theme
+	}
+
 	s.updatedAt = time.Now()
+	return nil
 }
 
 func (s *UserSettings) IsPublic() bool {
@@ -44,4 +59,13 @@ func (s *UserSettings) AllowNotifications() bool {
 
 func (s *UserSettings) Theme() string {
 	return s.theme
+}
+
+func validateTheme(t string) error {
+	switch t {
+	case "light", "dark":
+		return nil
+	default:
+		return errors.New("invalid theme")
+	}
 }

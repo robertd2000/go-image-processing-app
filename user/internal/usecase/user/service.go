@@ -175,6 +175,30 @@ func (s *userService) UpdateProfile(ctx context.Context, input model.UpdateProfi
 	return nil
 }
 
+func (s *userService) UpdateSettings(ctx context.Context, input model.UpdateSettingsInput) error {
+	user, err := s.userRepo.FindByID(ctx, input.UserID)
+	if err != nil {
+		if errors.Is(err, userDomain.ErrUserNotFound) {
+			return err
+		}
+		return fmt.Errorf("find user: %w", err)
+	}
+
+	if err := user.UpdateSettings(
+		input.IsPublic,
+		input.AllowNotifications,
+		input.Theme,
+	); err != nil {
+		return fmt.Errorf("update user settings: %w", err)
+	}
+
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return fmt.Errorf("update user settings: %w", err)
+	}
+
+	return nil
+}
+
 func (s *userService) Delete(id string) error {
 	// TODO: implement delete user logic
 	return nil
