@@ -275,6 +275,25 @@ func (s *UserServiceTestSuite) TestUpdateProfile_Bio() {
 	assert.Equal(s.T(), "hello world", *user.Profile().Bio())
 }
 
+func (s *UserServiceTestSuite) TestUpdateProfile_MultipleFields() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	update := model.UpdateProfileInput{
+		UserID:   input.ID,
+		Bio:      strPtr("bio"),
+		Location: strPtr("Berlin"),
+	}
+
+	err := s.service.UpdateProfile(s.ctx, update)
+	assert.NoError(s.T(), err)
+
+	user := s.mustGetUserFromRepo(input.ID)
+
+	assert.Equal(s.T(), "bio", *user.Profile().Bio())
+	assert.Equal(s.T(), "Berlin", *user.Profile().Location())
+}
+
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	// Test code for deleting a user
 }
