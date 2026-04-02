@@ -397,6 +397,31 @@ func (s *UserServiceTestSuite) TestUpdateSettings_IgnoreNil() {
 	assert.Equal(s.T(), "light", user.Settings().Theme())
 }
 
+func (s *UserServiceTestSuite) TestUpdateSettings_InvalidTheme() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	update := model.UpdateSettingsInput{
+		UserID: input.ID,
+		Theme:  strPtr("blue"),
+	}
+
+	err := s.service.UpdateSettings(s.ctx, update)
+
+	assert.Error(s.T(), err)
+}
+
+func (s *UserServiceTestSuite) TestUpdateSettings_NotFound() {
+	update := model.UpdateSettingsInput{
+		UserID: uuid.New(),
+	}
+
+	err := s.service.UpdateSettings(s.ctx, update)
+
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	// Test code for deleting a user
 }
