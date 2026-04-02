@@ -104,6 +104,18 @@ func (u *User) Settings() *UserSettings {
 	return u.settings
 }
 
+func (u *User) AvatarURL() *string {
+	return u.avatarURL
+}
+
+func (u *User) FirstName() string {
+	return u.firstName
+}
+
+func (u *User) LastName() string {
+	return u.lastName
+}
+
 func NewUserFromDB(
 	id uuid.UUID,
 	username string,

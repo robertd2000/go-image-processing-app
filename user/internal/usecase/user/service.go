@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 
+	"github.com/google/uuid"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user/model"
 )
@@ -53,9 +54,14 @@ func (s *userService) Create(ctx context.Context, input model.CreateUserInput) e
 	return s.userRepo.Create(ctx, user)
 }
 
-func (s *userService) GetByID(id string) (*userDomain.User, error) {
+func (s *userService) GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error) {
 	// TODO: implement get user by ID logic
-	return nil, nil
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return model.MapToOutput(user), nil
 }
 
 func (s *userService) Update(user *userDomain.User) error {

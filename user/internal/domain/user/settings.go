@@ -33,3 +33,15 @@ func (s *UserSettings) Update(
 	s.theme = theme
 	s.updatedAt = time.Now()
 }
+
+func (s *UserSettings) IsPublic() bool {
+	return s.isPublic
+}
+
+func (s *UserSettings) AllowNotifications() bool {
+	return s.allowNotifications
+}
+
+func (s *UserSettings) Theme() string {
+	return s.theme
+}

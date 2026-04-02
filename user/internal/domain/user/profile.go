@@ -31,3 +31,15 @@ func (p *UserProfile) Update(
 	p.birthday = birthday
 	p.updatedAt = time.Now()
 }
+
+func (p *UserProfile) Bio() *string {
+	return p.bio
+}
+
+func (p *UserProfile) Location() *string {
+	return p.location
+}
+
+func (p *UserProfile) Website() *string {
+	return p.website
+}

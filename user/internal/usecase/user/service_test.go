@@ -16,6 +16,7 @@ import (
 type UserService interface {
 	// Define methods for the UserService interface here
 	Create(ctx context.Context, userInput model.CreateUserInput) error
+	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
 }
 
 type UserServiceTestSuite struct {
@@ -120,8 +121,30 @@ func (s *UserServiceTestSuite) TestCreateUserWithExistingEmail() {
 	assert.Error(s.T(), err)
 	assert.Equal(s.T(), userDomain.ErrEmailAlreadyExists, err)
 }
+
 func (s *UserServiceTestSuite) TestGetUserByID() {
+	ctx := s.ctx
+	userID := uuid.New()
+	userName, err := userDomain.NewUsername("Test user")
+	assert.NoError(s.T(), err)
+	email, err := userDomain.NewEmail("test@example.com")
+	assert.NoError(s.T(), err)
+
+	userInput := model.CreateUserInput{
+		ID:       userID,
+		Username: userName.String(),
+		Email:    email.String(),
+	}
+	err = s.service.Create(ctx, userInput)
+	assert.NoError(s.T(), err)
+
 	// Test code for getting a user by ID
+	user, err := s.service.GetByID(ctx, userID)
+	assert.NoError(s.T(), err)
+	assert.NotNil(s.T(), user)
+	assert.Equal(s.T(), userID, user.ID)
+	assert.Equal(s.T(), userName.String(), user.Username)
+	assert.Equal(s.T(), email.String(), user.Email)
 }
 
 func (s *UserServiceTestSuite) TestUpdateUser() {
