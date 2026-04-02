@@ -324,13 +324,40 @@ func (r *userRepository) Delete(ctx context.Context, userID uuid.UUID) error {
 }
 
 func (r *userRepository) ExistsByUsername(ctx context.Context, username userDomain.Username) (bool, error) {
-	// Implementation of the ExistsByUsername method
-	return false, nil
+	var exists bool
+
+	query := `
+		SELECT EXISTS(
+			SELECT 1
+			FROM users
+			WHERE username = $1 AND status = 'active'
+		)
+	`
+
+	err := r.db.QueryRow(ctx, query, username.String()).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check user exists by username: %w", err)
+	}
+
+	return exists, nil
 }
 
 func (r *userRepository) ExistsByEmail(ctx context.Context, email userDomain.Email) (bool, error) {
-	// Implementation of the ExistsByEmail method
-	return false, nil
+	var exists bool
+
+	err := r.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM users
+			WHERE email = $1
+			  AND status = 'active'
+		)
+	`, email.String()).Scan(&exists)
+
+	if err != nil {
+		return false, fmt.Errorf("exists by email: %w", err)
+	}
+
+	return exists, nil
 }
 
 func mapPGError(err error) error {
