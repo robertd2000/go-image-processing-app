@@ -134,6 +134,18 @@ func (s *userService) Update(ctx context.Context, input model.UpdateUserInput) e
 		}
 	}
 
+	if input.FirstName != nil {
+		if err := user.ChangeFirstName(*input.FirstName); err != nil {
+			return err
+		}
+	}
+
+	if input.LastName != nil {
+		if err := user.ChangeLastname(*input.LastName); err != nil {
+			return err
+		}
+	}
+
 	if err := s.userRepo.Update(ctx, user); err != nil {
 		return fmt.Errorf("update user: %w", err)
 	}

@@ -67,6 +67,25 @@ func (u *User) UpdateName(first, last string) {
 	u.updatedAt = time.Now()
 }
 
+func (u *User) ChangeFirstName(first string) error {
+	if u.status == StatusBanned {
+		return errors.New("banned user cannot change first name")
+	}
+
+	u.firstName = first
+	u.updatedAt = time.Now()
+	return nil
+}
+
+func (u *User) ChangeLastname(last string) error {
+	if u.status == StatusBanned {
+		return errors.New("banned user cannot change last name")
+	}
+	u.lastName = last
+	u.updatedAt = time.Now()
+	return nil
+}
+
 func (u *User) UpdateAvatar(url *string) {
 	u.avatarURL = url
 	u.updatedAt = time.Now()

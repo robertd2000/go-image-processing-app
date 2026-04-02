@@ -157,6 +157,27 @@ func (s *UserServiceTestSuite) TestUpdateUser_Username() {
 	assert.Equal(s.T(), input.Email, user.Email().String()) // не изменился
 }
 
+func (s *UserServiceTestSuite) TestUpdateUser_MultipleFields() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	update := model.UpdateUserInput{
+		UserID:    input.ID,
+		Username:  strPtr("newusername"),
+		FirstName: strPtr("John"),
+		LastName:  strPtr("Doe"),
+	}
+
+	err := s.service.Update(s.ctx, update)
+	assert.NoError(s.T(), err)
+
+	user := s.mustGetUserFromRepo(input.ID)
+
+	assert.Equal(s.T(), "newusername", user.Username().String())
+	assert.Equal(s.T(), "John", user.FirstName())
+	assert.Equal(s.T(), "Doe", user.LastName())
+}
+
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	// Test code for deleting a user
 }
