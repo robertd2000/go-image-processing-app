@@ -153,6 +153,18 @@ func (u *User) LastName() string {
 	return u.lastName
 }
 
+func (u *User) LastSeenAt() *time.Time {
+	return u.lastSeenAt
+}
+
+func (u *User) CreatedAt() time.Time {
+	return u.createdAt
+}
+
+func (u *User) UpdatedAt() time.Time {
+	return u.updatedAt
+}
+
 func (u *User) UpdateProfile(
 	bio, location, website *string,
 	birthday *time.Time,

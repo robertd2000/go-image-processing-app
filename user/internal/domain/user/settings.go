@@ -61,6 +61,14 @@ func (s *UserSettings) Theme() string {
 	return s.theme
 }
 
+func (s *UserSettings) CreatedAt() time.Time {
+	return s.createdAt
+}
+
+func (s *UserSettings) UpdatedAt() time.Time {
+	return s.updatedAt
+}
+
 func validateTheme(t string) error {
 	switch t {
 	case "light", "dark":
