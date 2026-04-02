@@ -423,7 +423,16 @@ func (s *UserServiceTestSuite) TestUpdateSettings_NotFound() {
 }
 
 func (s *UserServiceTestSuite) TestDeleteUser() {
-	// Test code for deleting a user
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	user, err := s.service.GetByID(s.ctx, input.ID)
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
 func TestUserServiceSuite(t *testing.T) {

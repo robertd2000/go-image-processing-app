@@ -66,6 +66,10 @@ func (s *userService) GetByID(ctx context.Context, userID uuid.UUID) (*model.Use
 		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 
+	if user.Status() == userDomain.StatusInactive {
+		return nil, userDomain.ErrUserNotFound
+	}
+
 	return model.MapToOutput(user), nil
 }
 
@@ -82,6 +86,10 @@ func (s *userService) GetByEmail(ctx context.Context, email string) (*model.User
 		}
 
 		return nil, fmt.Errorf("get user by id: %w", err)
+	}
+
+	if user.Status() == userDomain.StatusInactive {
+		return nil, userDomain.ErrUserNotFound
 	}
 
 	return model.MapToOutput(user), nil
@@ -200,6 +208,17 @@ func (s *userService) UpdateSettings(ctx context.Context, input model.UpdateSett
 }
 
 func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
-	// TODO: implement delete user logic
-	return nil
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, userDomain.ErrUserNotFound) {
+			return err
+		}
+		return fmt.Errorf("find user: %w", err)
+	}
+
+	if user.Status() == userDomain.StatusInactive {
+		return userDomain.ErrUserNotFound
+	}
+
+	return s.userRepo.Delete(ctx, userID)
 }
