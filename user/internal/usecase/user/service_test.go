@@ -380,6 +380,23 @@ func (s *UserServiceTestSuite) TestUpdateSettings_Multiple() {
 	assert.Equal(s.T(), "dark", user.Settings().Theme())
 }
 
+func (s *UserServiceTestSuite) TestUpdateSettings_IgnoreNil() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	update := model.UpdateSettingsInput{
+		UserID: input.ID,
+	}
+
+	err := s.service.UpdateSettings(s.ctx, update)
+	assert.NoError(s.T(), err)
+
+	user := s.mustGetUserFromRepo(input.ID)
+
+	assert.Equal(s.T(), true, user.Settings().IsPublic()) // default
+	assert.Equal(s.T(), "light", user.Settings().Theme())
+}
+
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	// Test code for deleting a user
 }
