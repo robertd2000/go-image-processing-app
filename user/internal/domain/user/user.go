@@ -67,6 +67,25 @@ func (u *User) UpdateName(first, last string) {
 	u.updatedAt = time.Now()
 }
 
+func (u *User) ChangeFirstName(first string) error {
+	if u.status == StatusBanned {
+		return errors.New("banned user cannot change first name")
+	}
+
+	u.firstName = first
+	u.updatedAt = time.Now()
+	return nil
+}
+
+func (u *User) ChangeLastname(last string) error {
+	if u.status == StatusBanned {
+		return errors.New("banned user cannot change last name")
+	}
+	u.lastName = last
+	u.updatedAt = time.Now()
+	return nil
+}
+
 func (u *User) UpdateAvatar(url *string) {
 	u.avatarURL = url
 	u.updatedAt = time.Now()
@@ -96,12 +115,61 @@ func (u *User) Email() Email {
 	return u.email
 }
 
+func (u *User) ChangeEmail(email Email) error {
+	if u.status == StatusBanned {
+		return errors.New("banned user cannot change email")
+	}
+
+	u.email = email
+	u.updatedAt = time.Now()
+	return nil
+}
+
+func (u *User) Role() UserRole {
+	return u.role
+}
+
+func (u *User) Status() UserStatus {
+	return u.status
+}
+
 func (u *User) Profile() *UserProfile {
 	return u.profile
 }
 
 func (u *User) Settings() *UserSettings {
 	return u.settings
+}
+
+func (u *User) AvatarURL() *string {
+	return u.avatarURL
+}
+
+func (u *User) FirstName() string {
+	return u.firstName
+}
+
+func (u *User) LastName() string {
+	return u.lastName
+}
+
+func (u *User) UpdateProfile(
+	bio, location, website *string,
+	birthday *time.Time,
+) {
+	u.profile.Update(bio, location, website, birthday)
+	u.updatedAt = time.Now()
+}
+
+func (u *User) UpdateSettings(
+	isPublic, allowNotifications *bool,
+	theme *string,
+) error {
+	if err := u.settings.Update(isPublic, allowNotifications, theme); err != nil {
+		return err
+	}
+	u.updatedAt = time.Now()
+	return nil
 }
 
 func NewUserFromDB(
