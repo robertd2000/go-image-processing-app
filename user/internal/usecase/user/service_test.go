@@ -16,6 +16,7 @@ import (
 type UserService interface {
 	// Define methods for the UserService interface here
 	Create(ctx context.Context, userInput model.CreateUserInput) error
+	Update(ctx context.Context, input model.UpdateUserInput) error
 	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
 }
@@ -138,8 +139,22 @@ func (s *UserServiceTestSuite) TestGetUserByEmailNotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
-func (s *UserServiceTestSuite) TestUpdateUser() {
-	// Test code for updating a user
+func (s *UserServiceTestSuite) TestUpdateUser_Username() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	update := model.UpdateUserInput{
+		UserID:   input.ID,
+		Username: strPtr("newusername"),
+	}
+
+	err := s.service.Update(s.ctx, update)
+	assert.NoError(s.T(), err)
+
+	user := s.mustGetUserFromRepo(input.ID)
+
+	assert.Equal(s.T(), "newusername", user.Username().String())
+	assert.Equal(s.T(), input.Email, user.Email().String()) // не изменился
 }
 
 func (s *UserServiceTestSuite) TestDeleteUser() {
@@ -180,3 +195,6 @@ func (s *UserServiceTestSuite) mustGetUserFromRepo(id uuid.UUID) *userDomain.Use
 	assert.NotNil(s.T(), u)
 	return u
 }
+
+func strPtr(s string) *string { return &s }
+func boolPtr(b bool) *bool    { return &b }

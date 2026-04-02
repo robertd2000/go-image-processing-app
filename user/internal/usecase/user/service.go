@@ -87,8 +87,56 @@ func (s *userService) GetByEmail(ctx context.Context, email string) (*model.User
 	return model.MapToOutput(user), nil
 }
 
-func (s *userService) Update(user *userDomain.User) error {
-	// TODO: implement update user logic
+func (s *userService) Update(ctx context.Context, input model.UpdateUserInput) error {
+	user, err := s.userRepo.FindByID(ctx, input.UserID)
+	if err != nil {
+		if errors.Is(err, userDomain.ErrUserNotFound) {
+			return err
+		}
+		return fmt.Errorf("find user: %w", err)
+	}
+
+	if input.Username != nil {
+		username, err := userDomain.NewUsername(*input.Username)
+		if err != nil {
+			return err
+		}
+
+		exists, err := s.userRepo.ExistsByUsername(ctx, username)
+		if err != nil {
+			return fmt.Errorf("check username exists: %w", err)
+		}
+		if exists && user.Username() != username {
+			return userDomain.ErrUsernameAlreadyExists
+		}
+
+		if err := user.ChangeUsername(username); err != nil {
+			return err
+		}
+	}
+
+	if input.Email != nil {
+		email, err := userDomain.NewEmail(*input.Email)
+		if err != nil {
+			return err
+		}
+
+		exists, err := s.userRepo.ExistsByEmail(ctx, email)
+		if err != nil {
+			return fmt.Errorf("check email exists: %w", err)
+		}
+		if exists && user.Email() != email {
+			return userDomain.ErrEmailAlreadyExists
+		}
+
+		if err := user.ChangeEmail(email); err != nil {
+			return err
+		}
+	}
+
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return fmt.Errorf("update user: %w", err)
+	}
 	return nil
 }
 

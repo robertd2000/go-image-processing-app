@@ -96,6 +96,24 @@ func (u *User) Email() Email {
 	return u.email
 }
 
+func (u *User) ChangeEmail(email Email) error {
+	if u.status == StatusBanned {
+		return errors.New("banned user cannot change email")
+	}
+
+	u.email = email
+	u.updatedAt = time.Now()
+	return nil
+}
+
+func (u *User) Role() UserRole {
+	return u.role
+}
+
+func (u *User) Status() UserStatus {
+	return u.status
+}
+
 func (u *User) Profile() *UserProfile {
 	return u.profile
 }
