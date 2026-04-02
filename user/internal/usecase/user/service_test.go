@@ -311,6 +311,18 @@ func (s *UserServiceTestSuite) TestUpdateProfile_IgnoreNil() {
 	assert.Nil(s.T(), user.Profile().Location())
 }
 
+func (s *UserServiceTestSuite) TestUpdateProfile_NotFound() {
+	update := model.UpdateProfileInput{
+		UserID: uuid.New(),
+		Bio:    strPtr("bio"),
+	}
+
+	err := s.service.UpdateProfile(s.ctx, update)
+
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	// Test code for deleting a user
 }
