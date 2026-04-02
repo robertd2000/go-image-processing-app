@@ -359,6 +359,27 @@ func (s *UserServiceTestSuite) TestUpdateSettings_IsPublic() {
 	assert.Equal(s.T(), false, user.Settings().IsPublic())
 }
 
+func (s *UserServiceTestSuite) TestUpdateSettings_Multiple() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	update := model.UpdateSettingsInput{
+		UserID:             input.ID,
+		IsPublic:           boolPtr(false),
+		AllowNotifications: boolPtr(false),
+		Theme:              strPtr("dark"),
+	}
+
+	err := s.service.UpdateSettings(s.ctx, update)
+	assert.NoError(s.T(), err)
+
+	user := s.mustGetUserFromRepo(input.ID)
+
+	assert.Equal(s.T(), false, user.Settings().IsPublic())
+	assert.Equal(s.T(), false, user.Settings().AllowNotifications())
+	assert.Equal(s.T(), "dark", user.Settings().Theme())
+}
+
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	// Test code for deleting a user
 }
