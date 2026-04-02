@@ -62,6 +62,8 @@ func (u *userInMemoryRepository) Delete(ctx context.Context, id uuid.UUID) error
 
 	user.Deactivate()
 
+	u.users[id] = user
+
 	return nil
 }
 
