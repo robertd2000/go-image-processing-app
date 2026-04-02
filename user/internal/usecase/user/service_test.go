@@ -435,6 +435,13 @@ func (s *UserServiceTestSuite) TestDeleteUser() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestDeleteUserNotFound() {
+	nonExistentID := uuid.New()
+	err := s.service.Delete(s.ctx, nonExistentID)
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
 func TestUserServiceSuite(t *testing.T) {
 	suite.Run(t, new(UserServiceTestSuite))
 }
