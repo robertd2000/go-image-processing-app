@@ -204,6 +204,51 @@ func (r *userRepository) FindByEmail(ctx context.Context, email userDomain.Email
 	return user, nil
 }
 
+func (r *userRepository) FindByUsername(ctx context.Context, username userDomain.Username) (*userDomain.User, error) {
+	query := `
+	SELECT 
+		u.id,
+		u.username,
+		u.email,
+		u.first_name,
+		u.last_name,
+		u.avatar_url,
+		u.status,
+		u.role,
+		u.last_seen_at,
+		u.created_at,
+		u.updated_at,
+		u.deleted_at,
+
+		p.bio,
+		p.location,
+		p.website,
+		p.birthday,
+		p.created_at,
+		p.updated_at,
+
+		s.is_public,
+		s.allow_notifications,
+		s.theme,
+		s.created_at,
+		s.updated_at 
+		FROM users u
+	LEFT JOIN user_profiles p ON u.id = p.user_id
+	LEFT JOIN user_settings s ON u.id = s.user_id
+	WHERE u.username = $1 AND u.status == 'active'
+	`
+	row := r.db.QueryRow(ctx, query, username.String())
+	user, err := scanUser(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, userDomain.ErrUserNotFound
+		}
+		return nil, fmt.Errorf("find user by username: %w", err)
+	}
+
+	return user, nil
+}
+
 func (r *userRepository) Update(ctx context.Context, user *userDomain.User) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {

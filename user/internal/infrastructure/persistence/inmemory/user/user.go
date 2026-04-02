@@ -14,6 +14,22 @@ type userInMemoryRepository struct {
 	mu    *sync.RWMutex
 }
 
+// FindByUsername implements user.UserRepository.
+func (u *userInMemoryRepository) FindByUsername(ctx context.Context, username userDomain.Username) (*userDomain.User, error) {
+	u.mu.RLock()
+	defer u.mu.RUnlock()
+
+	for _, user := range u.users {
+		if user.Username() == username {
+			if user.Status() == userDomain.StatusInactive {
+				return nil, userDomain.ErrUserNotFound
+			}
+			return user, nil
+		}
+	}
+	return nil, userDomain.ErrUserNotFound
+}
+
 // ExistsByEmail implements user.UserRepository.ExistsByEmail
 func (u *userInMemoryRepository) ExistsByEmail(ctx context.Context, email userDomain.Email) (bool, error) {
 	u.mu.RLock()

@@ -94,6 +94,27 @@ func (s *UserRepoTestSuite) TestFindByEmail_NotFound() {
 	s.Equal(userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserRepoTestSuite) TestFindByUsername() {
+	user := s.createUser("test", "test@test.com")
+
+	username, _ := userDomain.NewUsername("test")
+
+	found, err := s.repo.FindByUsername(s.ctx, username)
+
+	s.NoError(err)
+	s.NotNil(found)
+	s.Equal(user.ID(), found.ID())
+}
+
+func (s *UserRepoTestSuite) TestFindByUsername_NotFound() {
+	username, _ := userDomain.NewUsername("none")
+
+	_, err := s.repo.FindByUsername(s.ctx, username)
+
+	s.Error(err)
+	s.Equal(userDomain.ErrUserNotFound, err)
+}
+
 //
 // =====================
 // DELETE (SOFT DELETE)
