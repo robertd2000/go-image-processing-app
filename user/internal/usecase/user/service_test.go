@@ -323,6 +323,23 @@ func (s *UserServiceTestSuite) TestUpdateProfile_NotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestUpdateProfile_ClearBio() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	update := model.UpdateProfileInput{
+		UserID: input.ID,
+		Bio:    strPtr(""),
+	}
+
+	err := s.service.UpdateProfile(s.ctx, update)
+	assert.NoError(s.T(), err)
+
+	user := s.mustGetUserFromRepo(input.ID)
+
+	assert.Equal(s.T(), "", *user.Profile().Bio())
+}
+
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	// Test code for deleting a user
 }
