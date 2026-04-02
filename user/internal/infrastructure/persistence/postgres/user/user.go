@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -422,6 +423,167 @@ func mapPGError(err error) error {
 	}
 
 	return fmt.Errorf("insert user: %w", err)
+}
+
+func (r *userRepository) List(ctx context.Context, f userDomain.UserFilter) ([]*userDomain.User, error) {
+	query := `
+		SELECT 
+			u.id,
+			u.username,
+			u.email,
+			u.first_name,
+			u.last_name,
+			u.avatar_url,
+			u.status,
+			u.role,
+			u.last_seen_at,
+			u.created_at,
+			u.updated_at,
+			u.deleted_at,
+
+			p.bio,
+			p.location,
+			p.website,
+			p.birthday,
+			p.created_at,
+			p.updated_at,
+
+			s.is_public,
+			s.allow_notifications,
+			s.theme,
+			s.created_at,
+			s.updated_at
+
+		FROM users u
+		LEFT JOIN user_profiles p ON p.user_id = u.id
+		LEFT JOIN user_settings s ON s.user_id = u.id
+	`
+
+	var (
+		args   []interface{}
+		where  []string
+		argPos = 1
+	)
+
+	// =====================
+	// FILTERS
+	// =====================
+
+	if f.Status != nil {
+		where = append(where, fmt.Sprintf("u.status = $%d", argPos))
+		args = append(args, *f.Status)
+		argPos++
+	} else {
+		// по умолчанию только active
+		where = append(where, "u.status = 'active'")
+	}
+
+	if f.Search != nil && *f.Search != "" {
+		where = append(where, fmt.Sprintf("(u.username ILIKE $%d OR u.email ILIKE $%d)", argPos, argPos))
+		args = append(args, "%"+*f.Search+"%")
+		argPos++
+	}
+
+	if len(where) > 0 {
+		query += " WHERE " + strings.Join(where, " AND ")
+	}
+
+	// =====================
+	// SORT
+	// =====================
+
+	sortBy := "u.created_at"
+	switch f.SortBy {
+	case "username":
+		sortBy = "u.username"
+	case "created_at":
+		sortBy = "u.created_at"
+	}
+
+	order := "DESC"
+	if strings.ToLower(f.SortOrder) == "asc" {
+		order = "ASC"
+	}
+
+	query += fmt.Sprintf(" ORDER BY %s %s", sortBy, order)
+
+	// =====================
+	// PAGINATION
+	// =====================
+
+	limit := 20
+	if f.Limit > 0 && f.Limit <= 100 {
+		limit = f.Limit
+	}
+
+	offset := 0
+	if f.Offset > 0 {
+		offset = f.Offset
+	}
+
+	query += fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
+
+	// =====================
+	// QUERY
+	// =====================
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+	defer rows.Close()
+
+	var users []*userDomain.User
+
+	for rows.Next() {
+		user, err := scanUser(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan user: %w", err)
+		}
+		users = append(users, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
+
+	return users, nil
+}
+
+func (r *userRepository) Count(ctx context.Context, f userDomain.UserFilter) (int, error) {
+	query := `SELECT COUNT(*) FROM users u`
+
+	var (
+		args   []interface{}
+		where  []string
+		argPos = 1
+	)
+
+	if f.Status != nil {
+		where = append(where, fmt.Sprintf("u.status = $%d", argPos))
+		args = append(args, *f.Status)
+		argPos++
+	} else {
+		where = append(where, "u.status = 'active'")
+	}
+
+	if f.Search != nil && *f.Search != "" {
+		where = append(where, fmt.Sprintf("(u.username ILIKE $%d OR u.email ILIKE $%d)", argPos, argPos))
+		args = append(args, "%"+*f.Search+"%")
+		argPos++
+	}
+
+	if len(where) > 0 {
+		query += " WHERE " + strings.Join(where, " AND ")
+	}
+
+	var count int
+	err := r.db.QueryRow(ctx, query, args...).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("count users: %w", err)
+	}
+
+	return count, nil
 }
 
 func scanUser(row pgx.Row) (*userDomain.User, error) {
