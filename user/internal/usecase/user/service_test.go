@@ -227,6 +227,24 @@ func (s *UserServiceTestSuite) TestUpdateUser_DuplicateUsername() {
 	assert.Equal(s.T(), userDomain.ErrUsernameAlreadyExists, err)
 }
 
+func (s *UserServiceTestSuite) TestUpdateUser_DuplicateEmail() {
+	user1 := s.newCreateUserInput()
+	user2 := s.newCreateUserInputWith("user2", "user2@test.com")
+
+	s.createUser(user1)
+	s.createUser(user2)
+
+	update := model.UpdateUserInput{
+		UserID: user2.ID,
+		Email:  strPtr(user1.Email),
+	}
+
+	err := s.service.Update(s.ctx, update)
+
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrEmailAlreadyExists, err)
+}
+
 func (s *UserServiceTestSuite) TestUpdateUser_NotFound() {
 	update := model.UpdateUserInput{
 		UserID:   uuid.New(),
