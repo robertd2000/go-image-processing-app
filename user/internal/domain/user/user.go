@@ -153,6 +153,22 @@ func (u *User) LastName() string {
 	return u.lastName
 }
 
+func (u *User) LastSeenAt() *time.Time {
+	return u.lastSeenAt
+}
+
+func (u *User) CreatedAt() time.Time {
+	return u.createdAt
+}
+
+func (u *User) UpdatedAt() time.Time {
+	return u.updatedAt
+}
+
+func (u *User) DeletedAt() *time.Time {
+	return u.deletedAt
+}
+
 func (u *User) UpdateProfile(
 	bio, location, website *string,
 	birthday *time.Time,
@@ -189,5 +205,39 @@ func NewUserFromDB(
 		role:      UserRole(role),
 		createdAt: createdAt,
 		updatedAt: updatedAt,
+	}
+}
+
+func RestoreUser(
+	id uuid.UUID,
+	username Username,
+	email Email,
+	firstName string,
+	lastName string,
+	avatarURL *string,
+	status UserStatus,
+	role UserRole,
+	profile *UserProfile,
+	settings *UserSettings,
+	lastSeenAt *time.Time,
+	createdAt time.Time,
+	updatedAt time.Time,
+	deletedAt *time.Time,
+) *User {
+	return &User{
+		id:         id,
+		username:   username,
+		email:      email,
+		firstName:  firstName,
+		lastName:   lastName,
+		avatarURL:  avatarURL,
+		status:     status,
+		role:       role,
+		profile:    profile,
+		settings:   settings,
+		lastSeenAt: lastSeenAt,
+		createdAt:  createdAt,
+		updatedAt:  updatedAt,
+		deletedAt:  deletedAt,
 	}
 }

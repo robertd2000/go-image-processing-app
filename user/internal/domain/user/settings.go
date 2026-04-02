@@ -61,11 +61,35 @@ func (s *UserSettings) Theme() string {
 	return s.theme
 }
 
+func (s *UserSettings) CreatedAt() time.Time {
+	return s.createdAt
+}
+
+func (s *UserSettings) UpdatedAt() time.Time {
+	return s.updatedAt
+}
+
 func validateTheme(t string) error {
 	switch t {
 	case "light", "dark":
 		return nil
 	default:
 		return errors.New("invalid theme")
+	}
+}
+
+func RestoreSettings(
+	isPublic bool,
+	allowNotifications bool,
+	theme string,
+	createdAt time.Time,
+	updatedAt time.Time,
+) *UserSettings {
+	return &UserSettings{
+		isPublic:           isPublic,
+		allowNotifications: allowNotifications,
+		theme:              theme,
+		createdAt:          createdAt,
+		updatedAt:          updatedAt,
 	}
 }

@@ -94,6 +94,27 @@ func (s *UserRepoTestSuite) TestFindByEmail_NotFound() {
 	s.Equal(userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserRepoTestSuite) TestFindByUsername() {
+	user := s.createUser("test", "test@test.com")
+
+	username, _ := userDomain.NewUsername("test")
+
+	found, err := s.repo.FindByUsername(s.ctx, username)
+
+	s.NoError(err)
+	s.NotNil(found)
+	s.Equal(user.ID(), found.ID())
+}
+
+func (s *UserRepoTestSuite) TestFindByUsername_NotFound() {
+	username, _ := userDomain.NewUsername("none")
+
+	_, err := s.repo.FindByUsername(s.ctx, username)
+
+	s.Error(err)
+	s.Equal(userDomain.ErrUserNotFound, err)
+}
+
 //
 // =====================
 // DELETE (SOFT DELETE)
@@ -199,7 +220,62 @@ func (s *UserRepoTestSuite) TestDelete_NotFound() {
 	s.Equal(userDomain.ErrUserNotFound, err)
 }
 
+// =====================
+// LIST AND COUNT
+// =====================
 //
+
+func (s *UserRepoTestSuite) TestList() {
+	s.createUser("test1", "test1@test.com")
+	s.createUser("test2", "test2@test.com")
+	s.createUser("test3", "test3@test.com")
+
+	filter := userDomain.UserFilter{
+		Limit:  10,
+		Offset: 0,
+	}
+	users, err := s.repo.List(s.ctx, filter)
+
+	s.NoError(err)
+	s.Len(users, 3)
+}
+
+func (s *UserRepoTestSuite) TestList_Empty() {
+	filter := userDomain.UserFilter{
+		Limit:  10,
+		Offset: 0,
+	}
+	users, err := s.repo.List(s.ctx, filter)
+
+	s.NoError(err)
+	s.Len(users, 0)
+}
+
+func (s *UserRepoTestSuite) TestCount() {
+	s.createUser("test1", "test1@test.com")
+	s.createUser("test2", "test2@test.com")
+
+	filter := userDomain.UserFilter{
+		Limit:  10,
+		Offset: 0,
+	}
+	count, err := s.repo.Count(s.ctx, filter)
+
+	s.NoError(err)
+	s.Equal(2, count)
+}
+
+func (s *UserRepoTestSuite) TestCount_Empty() {
+	filter := userDomain.UserFilter{
+		Limit:  10,
+		Offset: 0,
+	}
+	count, err := s.repo.Count(s.ctx, filter)
+
+	s.NoError(err)
+	s.Equal(0, count)
+}
+
 // =====================
 // RUN
 // =====================

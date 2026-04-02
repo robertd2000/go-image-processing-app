@@ -55,3 +55,33 @@ func (p *UserProfile) Location() *string {
 func (p *UserProfile) Website() *string {
 	return p.website
 }
+
+func (p *UserProfile) Birthday() *time.Time {
+	return p.birthday
+}
+
+func (p *UserProfile) CreatedAt() time.Time {
+	return p.createdAt
+}
+
+func (p *UserProfile) UpdatedAt() time.Time {
+	return p.updatedAt
+}
+
+func RestoreProfile(
+	bio *string,
+	location *string,
+	website *string,
+	birthday *time.Time,
+	createdAt time.Time,
+	updatedAt time.Time,
+) *UserProfile {
+	return &UserProfile{
+		bio:       bio,
+		location:  location,
+		website:   website,
+		birthday:  birthday,
+		createdAt: createdAt,
+		updatedAt: updatedAt,
+	}
+}

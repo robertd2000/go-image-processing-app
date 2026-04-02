@@ -9,6 +9,7 @@ import (
 type UserRepository interface {
 	FindByID(ctx context.Context, id uuid.UUID) (*User, error)
 	FindByEmail(ctx context.Context, email Email) (*User, error)
+	FindByUsername(ctx context.Context, username Username) (*User, error)
 
 	Create(ctx context.Context, user *User) error
 	Update(ctx context.Context, user *User) error
@@ -16,4 +17,7 @@ type UserRepository interface {
 
 	ExistsByUsername(ctx context.Context, username Username) (bool, error)
 	ExistsByEmail(ctx context.Context, email Email) (bool, error)
+
+	List(ctx context.Context, filter UserFilter) ([]*User, error)
+	Count(ctx context.Context, filter UserFilter) (int, error)
 }
