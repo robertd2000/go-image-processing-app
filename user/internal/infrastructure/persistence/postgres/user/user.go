@@ -205,7 +205,101 @@ func (r *userRepository) FindByEmail(ctx context.Context, email userDomain.Email
 }
 
 func (r *userRepository) Update(ctx context.Context, user *userDomain.User) error {
-	// Implementation of the Update method
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// =====================
+	// USERS
+	// =====================
+	cmd, err := tx.Exec(ctx, `
+		UPDATE users SET
+			username = $1,
+			email = $2,
+			first_name = $3,
+			last_name = $4,
+			avatar_url = $5,
+			status = $6,
+			role = $7,
+			last_seen_at = $8,
+			updated_at = $9,
+			deleted_at = $10
+		WHERE id = $11
+	`,
+		user.Username().String(),
+		user.Email().String(),
+		user.FirstName(),
+		user.LastName(),
+		user.AvatarURL(),
+		user.Status(),
+		user.Role(),
+		user.LastSeenAt(),
+		user.UpdatedAt(),
+		user.DeletedAt(),
+		user.ID(),
+	)
+	if err != nil {
+		return fmt.Errorf("update user: %w", err)
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return userDomain.ErrUserNotFound
+	}
+
+	// =====================
+	// PROFILE
+	// =====================
+	p := user.Profile()
+
+	_, err = tx.Exec(ctx, `
+		UPDATE user_profiles SET
+			bio = $1,
+			location = $2,
+			website = $3,
+			birthday = $4,
+			updated_at = $5
+		WHERE user_id = $6
+	`,
+		p.Bio(),
+		p.Location(),
+		p.Website(),
+		p.Birthday(),
+		p.UpdatedAt(),
+		user.ID(),
+	)
+	if err != nil {
+		return fmt.Errorf("update profile: %w", err)
+	}
+
+	// =====================
+	// SETTINGS
+	// =====================
+	s := user.Settings()
+
+	_, err = tx.Exec(ctx, `
+		UPDATE user_settings SET
+			is_public = $1,
+			allow_notifications = $2,
+			theme = $3,
+			updated_at = $4
+		WHERE user_id = $5
+	`,
+		s.IsPublic(),
+		s.AllowNotifications(),
+		s.Theme(),
+		s.UpdatedAt(),
+		user.ID(),
+	)
+	if err != nil {
+		return fmt.Errorf("update settings: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+
 	return nil
 }
 

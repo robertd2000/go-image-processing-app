@@ -165,6 +165,10 @@ func (u *User) UpdatedAt() time.Time {
 	return u.updatedAt
 }
 
+func (u *User) DeletedAt() *time.Time {
+	return u.deletedAt
+}
+
 func (u *User) UpdateProfile(
 	bio, location, website *string,
 	birthday *time.Time,
