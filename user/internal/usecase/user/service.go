@@ -55,8 +55,21 @@ func (s *userService) Create(ctx context.Context, input model.CreateUserInput) e
 }
 
 func (s *userService) GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error) {
-	// TODO: implement get user by ID logic
 	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return model.MapToOutput(user), nil
+}
+
+func (s *userService) GetByEmail(ctx context.Context, email string) (*model.UserOutput, error) {
+	userEmail, err := userDomain.NewEmail(email)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := s.userRepo.FindByEmail(ctx, userEmail)
 	if err != nil {
 		return nil, err
 	}

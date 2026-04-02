@@ -17,6 +17,7 @@ type UserService interface {
 	// Define methods for the UserService interface here
 	Create(ctx context.Context, userInput model.CreateUserInput) error
 	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
+	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
 }
 
 type UserServiceTestSuite struct {
@@ -115,6 +116,18 @@ func (s *UserServiceTestSuite) TestGetUserByIDInvalidID() {
 	assert.Error(s.T(), err)
 	assert.Nil(s.T(), user)
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+func (s *UserServiceTestSuite) TestGetUserByEmail() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	user, err := s.service.GetByEmail(s.ctx, input.Email)
+	assert.NoError(s.T(), err)
+	assert.NotNil(s.T(), user)
+	assert.Equal(s.T(), input.ID, user.ID)
+	assert.Equal(s.T(), input.Username, user.Username)
+	assert.Equal(s.T(), input.Email, user.Email)
 }
 
 func (s *UserServiceTestSuite) TestUpdateUser() {
