@@ -18,6 +18,8 @@ type UserService interface {
 	Create(ctx context.Context, userInput model.CreateUserInput) error
 	Update(ctx context.Context, input model.UpdateUserInput) error
 	UpdateProfile(ctx context.Context, input model.UpdateProfileInput) error
+	UpdateSettings(ctx context.Context, input model.UpdateSettingsInput) error
+	Delete(ctx context.Context, userID uuid.UUID) error
 	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
 }
@@ -338,6 +340,23 @@ func (s *UserServiceTestSuite) TestUpdateProfile_ClearBio() {
 	user := s.mustGetUserFromRepo(input.ID)
 
 	assert.Equal(s.T(), "", *user.Profile().Bio())
+}
+
+func (s *UserServiceTestSuite) TestUpdateSettings_IsPublic() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	update := model.UpdateSettingsInput{
+		UserID:   input.ID,
+		IsPublic: boolPtr(false),
+	}
+
+	err := s.service.UpdateSettings(s.ctx, update)
+	assert.NoError(s.T(), err)
+
+	user := s.mustGetUserFromRepo(input.ID)
+
+	assert.Equal(s.T(), false, user.Settings().IsPublic())
 }
 
 func (s *UserServiceTestSuite) TestDeleteUser() {

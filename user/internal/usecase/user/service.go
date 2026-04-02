@@ -199,7 +199,7 @@ func (s *userService) UpdateSettings(ctx context.Context, input model.UpdateSett
 	return nil
 }
 
-func (s *userService) Delete(id string) error {
+func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 	// TODO: implement delete user logic
 	return nil
 }
