@@ -304,7 +304,22 @@ func (r *userRepository) Update(ctx context.Context, user *userDomain.User) erro
 }
 
 func (r *userRepository) Delete(ctx context.Context, userID uuid.UUID) error {
-	// Implementation of the Delete method
+	cmd, err := r.db.Exec(ctx, `
+		UPDATE users
+		SET 
+			status = 'inactive',
+			deleted_at = NOW(),
+			updated_at = NOW()
+		WHERE id = $1 AND status = 'active'
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return userDomain.ErrUserNotFound
+	}
+
 	return nil
 }
 
