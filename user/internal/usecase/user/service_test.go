@@ -294,6 +294,23 @@ func (s *UserServiceTestSuite) TestUpdateProfile_MultipleFields() {
 	assert.Equal(s.T(), "Berlin", *user.Profile().Location())
 }
 
+func (s *UserServiceTestSuite) TestUpdateProfile_IgnoreNil() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	update := model.UpdateProfileInput{
+		UserID: input.ID,
+	}
+
+	err := s.service.UpdateProfile(s.ctx, update)
+	assert.NoError(s.T(), err)
+
+	user := s.mustGetUserFromRepo(input.ID)
+
+	assert.Nil(s.T(), user.Profile().Bio())
+	assert.Nil(s.T(), user.Profile().Location())
+}
+
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	// Test code for deleting a user
 }
