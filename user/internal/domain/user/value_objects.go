@@ -18,6 +18,10 @@ func NewUsername(v string) (Username, error) {
 	return Username(v), nil
 }
 
+func (u Username) String() string {
+	return string(u)
+}
+
 type Email string
 
 func NewEmail(v string) (Email, error) {
@@ -33,6 +37,10 @@ func NewEmail(v string) (Email, error) {
 	}
 
 	return Email(v), nil
+}
+
+func (e Email) String() string {
+	return string(e)
 }
 
 type UserStatus string
