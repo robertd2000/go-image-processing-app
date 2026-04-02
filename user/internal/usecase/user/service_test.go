@@ -55,6 +55,13 @@ func (s *UserServiceTestSuite) TestCreateUser() {
 	}
 	err = s.service.Create(ctx, userInput)
 	assert.NoError(s.T(), err)
+
+	user, err := s.userRepo.FindByID(ctx, userID)
+	assert.NoError(s.T(), err)
+	assert.NotNil(s.T(), user)
+	assert.Equal(s.T(), userID, user.ID())
+	assert.Equal(s.T(), userName.String(), user.Username().String())
+	assert.Equal(s.T(), email.String(), user.Email().String())
 }
 
 func (s *UserServiceTestSuite) TestGetUserByID() {
