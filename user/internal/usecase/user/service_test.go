@@ -142,9 +142,19 @@ func (s *UserServiceTestSuite) TestGetUserByID() {
 	user, err := s.service.GetByID(ctx, userID)
 	assert.NoError(s.T(), err)
 	assert.NotNil(s.T(), user)
+
 	assert.Equal(s.T(), userID, user.ID)
-	assert.Equal(s.T(), userName.String(), user.Username)
-	assert.Equal(s.T(), email.String(), user.Email)
+	assert.Equal(s.T(), userInput.Username, user.Username)
+	assert.Equal(s.T(), userInput.Email, user.Email)
+
+	// --- profile (default)
+	assert.Nil(s.T(), user.Profile.Bio)
+	assert.Nil(s.T(), user.Profile.Location)
+	assert.Nil(s.T(), user.Profile.Website)
+
+	// --- settings (default)
+	assert.Equal(s.T(), true, user.Settings.IsPublic)
+	assert.Equal(s.T(), "light", user.Settings.Theme)
 }
 
 func (s *UserServiceTestSuite) TestUpdateUser() {

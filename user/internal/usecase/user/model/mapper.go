@@ -6,19 +6,19 @@ import (
 
 func MapToOutput(u *userDomain.User) *UserOutput {
 	return &UserOutput{
-		ID:        u.ID(),
-		Username:  u.Username().String(),
-		Email:     u.Email().String(),
-		AvatarURL: u.AvatarURL(),
+		ID:       u.ID(),
+		Username: u.Username().String(),
+		Email:    u.Email().String(),
 
-		FirstName: u.FirstName(),
-		LastName:  u.LastName(),
+		Profile: UserProfileOutput{
+			Bio:      u.Profile().Bio(),
+			Location: u.Profile().Location(),
+			Website:  u.Profile().Website(),
+		},
 
-		Bio:      u.Profile().Bio(),
-		Location: u.Profile().Location(),
-		Website:  u.Profile().Website(),
-
-		IsPublic: u.Settings().IsPublic(),
-		Theme:    u.Settings().Theme(),
+		Settings: UserSettingsOutput{
+			IsPublic: u.Settings().IsPublic(),
+			Theme:    u.Settings().Theme(),
+		},
 	}
 }
