@@ -152,6 +152,29 @@ func (s *userService) Update(ctx context.Context, input model.UpdateUserInput) e
 	return nil
 }
 
+func (s *userService) UpdateProfile(ctx context.Context, input model.UpdateProfileInput) error {
+	user, err := s.userRepo.FindByID(ctx, input.UserID)
+	if err != nil {
+		if errors.Is(err, userDomain.ErrUserNotFound) {
+			return err
+		}
+		return fmt.Errorf("find user: %w", err)
+	}
+
+	user.UpdateProfile(
+		input.Bio,
+		input.Location,
+		input.Website,
+		input.Birthday,
+	)
+
+	if err := s.userRepo.Update(ctx, user); err != nil {
+		return fmt.Errorf("update user profile: %w", err)
+	}
+
+	return nil
+}
+
 func (s *userService) Delete(id string) error {
 	// TODO: implement delete user logic
 	return nil

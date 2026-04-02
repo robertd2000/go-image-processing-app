@@ -17,6 +17,7 @@ type UserService interface {
 	// Define methods for the UserService interface here
 	Create(ctx context.Context, userInput model.CreateUserInput) error
 	Update(ctx context.Context, input model.UpdateUserInput) error
+	UpdateProfile(ctx context.Context, input model.UpdateProfileInput) error
 	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
 }
@@ -255,6 +256,23 @@ func (s *UserServiceTestSuite) TestUpdateUser_NotFound() {
 
 	assert.Error(s.T(), err)
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+func (s *UserServiceTestSuite) TestUpdateProfile_Bio() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	update := model.UpdateProfileInput{
+		UserID: input.ID,
+		Bio:    strPtr("hello world"),
+	}
+
+	err := s.service.UpdateProfile(s.ctx, update)
+	assert.NoError(s.T(), err)
+
+	user := s.mustGetUserFromRepo(input.ID)
+
+	assert.Equal(s.T(), "hello world", *user.Profile().Bio())
 }
 
 func (s *UserServiceTestSuite) TestDeleteUser() {

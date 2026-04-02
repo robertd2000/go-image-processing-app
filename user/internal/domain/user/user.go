@@ -153,6 +153,14 @@ func (u *User) LastName() string {
 	return u.lastName
 }
 
+func (u *User) UpdateProfile(
+	bio, location, website *string,
+	birthday *time.Time,
+) {
+	u.profile.Update(bio, location, website, birthday)
+	u.updatedAt = time.Now()
+}
+
 func NewUserFromDB(
 	id uuid.UUID,
 	username string,
