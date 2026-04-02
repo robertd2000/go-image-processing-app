@@ -109,6 +109,14 @@ func (s *UserServiceTestSuite) TestGetUserByIDNotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestGetUserByIDInvalidID() {
+	invalidID := uuid.Nil
+	user, err := s.service.GetByID(s.ctx, invalidID)
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
 func (s *UserServiceTestSuite) TestUpdateUser() {
 	// Test code for updating a user
 }
