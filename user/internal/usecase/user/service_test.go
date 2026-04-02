@@ -43,11 +43,6 @@ func (s *UserServiceTestSuite) TestCreateUser() {
 	email, err := userDomain.NewEmail("test@example.com")
 	assert.NoError(s.T(), err)
 
-	// user := userDomain.NewUser(
-	// 	userID,
-	// 	userName,
-	// 	email,
-	// )
 	userInput := model.CreateUserInput{
 		ID:       userID,
 		Username: userName.String(),
@@ -64,6 +59,67 @@ func (s *UserServiceTestSuite) TestCreateUser() {
 	assert.Equal(s.T(), email.String(), user.Email().String())
 }
 
+func (s *UserServiceTestSuite) TestCreateUserWithExistingUsername() {
+	ctx := s.ctx
+	userID := uuid.New()
+	userName, err := userDomain.NewUsername("Test user")
+	assert.NoError(s.T(), err)
+	email, err := userDomain.NewEmail("test@example.com")
+	assert.NoError(s.T(), err)
+
+	userInput := model.CreateUserInput{
+		ID:       userID,
+		Username: userName.String(),
+		Email:    email.String(),
+	}
+	err = s.service.Create(ctx, userInput)
+	assert.NoError(s.T(), err)
+
+	// Attempt to create another user with the same username
+	userID2 := uuid.New()
+	email2, err := userDomain.NewEmail("test2@example.com")
+	assert.NoError(s.T(), err)
+
+	userInput2 := model.CreateUserInput{
+		ID:       userID2,
+		Username: userName.String(),
+		Email:    email2.String(),
+	}
+	err = s.service.Create(ctx, userInput2)
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUsernameAlreadyExists, err)
+}
+
+func (s *UserServiceTestSuite) TestCreateUserWithExistingEmail() {
+	ctx := s.ctx
+	userID := uuid.New()
+	userName, err := userDomain.NewUsername("Test user")
+	assert.NoError(s.T(), err)
+	email, err := userDomain.NewEmail("test@example.com")
+	assert.NoError(s.T(), err)
+
+	userInput := model.CreateUserInput{
+		ID:       userID,
+		Username: userName.String(),
+		Email:    email.String(),
+	}
+	err = s.service.Create(ctx, userInput)
+	assert.NoError(s.T(), err)
+
+	// Attempt to create another user with the same email
+	userID2 := uuid.New()
+	userName2, err := userDomain.NewUsername("Test user 2")
+	assert.NoError(s.T(), err)
+
+	userInput2 := model.CreateUserInput{
+		ID:       userID2,
+		Username: userName2.String(),
+		Email:    email.String(),
+	}
+	err = s.service.Create(ctx, userInput2)
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrEmailAlreadyExists, err)
+}
 func (s *UserServiceTestSuite) TestGetUserByID() {
 	// Test code for getting a user by ID
 }
