@@ -101,6 +101,14 @@ func (s *UserServiceTestSuite) TestGetUserByID() {
 	assert.Equal(s.T(), "light", user.Settings.Theme)
 }
 
+func (s *UserServiceTestSuite) TestGetUserByIDNotFound() {
+	nonExistentID := uuid.New()
+	user, err := s.service.GetByID(s.ctx, nonExistentID)
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
 func (s *UserServiceTestSuite) TestUpdateUser() {
 	// Test code for updating a user
 }
