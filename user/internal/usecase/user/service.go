@@ -2,6 +2,8 @@ package user
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
@@ -57,7 +59,11 @@ func (s *userService) Create(ctx context.Context, input model.CreateUserInput) e
 func (s *userService) GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error) {
 	user, err := s.userRepo.FindByID(ctx, userID)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, userDomain.ErrUserNotFound) {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 
 	return model.MapToOutput(user), nil
@@ -71,7 +77,11 @@ func (s *userService) GetByEmail(ctx context.Context, email string) (*model.User
 
 	user, err := s.userRepo.FindByEmail(ctx, userEmail)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, userDomain.ErrUserNotFound) {
+			return nil, err
+		}
+
+		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 
 	return model.MapToOutput(user), nil

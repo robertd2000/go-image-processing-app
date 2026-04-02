@@ -130,6 +130,14 @@ func (s *UserServiceTestSuite) TestGetUserByEmail() {
 	assert.Equal(s.T(), input.Email, user.Email)
 }
 
+func (s *UserServiceTestSuite) TestGetUserByEmailNotFound() {
+	nonExistentEmail := "nonexistent@example.com"
+	user, err := s.service.GetByEmail(s.ctx, nonExistentEmail)
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
 func (s *UserServiceTestSuite) TestUpdateUser() {
 	// Test code for updating a user
 }
