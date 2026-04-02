@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
+	usermem "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/inmemory/user"
+	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -28,7 +30,9 @@ type UserServiceTestSuite struct {
 
 func (s *UserServiceTestSuite) SetupTest() {
 	s.ctx = context.Background()
-	// Initialize your UserService and UserRepository here, possibly using mocks
+
+	s.userRepo = usermem.NewUserRepository()
+	s.service = user.NewUserService(s.userRepo)
 }
 
 func (s *UserServiceTestSuite) TestCreateUser() {
