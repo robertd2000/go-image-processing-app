@@ -43,15 +43,15 @@ func (u *userInMemoryRepository) List(ctx context.Context, filter userDomain.Use
 		}
 	}
 
-	if filter.SortBy != "" {
-		order := strings.ToLower(filter.SortOrder)
+	if filter.SortBy() != "" {
+		order := strings.ToLower(filter.SortOrder())
 		if order != "desc" {
 			order = "asc"
 		}
 
 		sort.SliceStable(filtered, func(i, j int) bool {
 			var lhs, rhs string
-			switch strings.ToLower(filter.SortBy) {
+			switch strings.ToLower(filter.SortBy()) {
 			case "username":
 				lhs = filtered[i].Username().String()
 				rhs = filtered[j].Username().String()
@@ -69,12 +69,12 @@ func (u *userInMemoryRepository) List(ctx context.Context, filter userDomain.Use
 		})
 	}
 
-	offset := filter.Offset
+	offset := filter.Offset()
 	if offset < 0 {
 		offset = 0
 	}
 
-	limit := filter.Limit
+	limit := filter.Limit()
 	if limit < 0 {
 		limit = 0
 	}
@@ -92,12 +92,12 @@ func (u *userInMemoryRepository) List(ctx context.Context, filter userDomain.Use
 }
 
 func (u *userInMemoryRepository) matchesFilter(user *userDomain.User, filter userDomain.UserFilter) bool {
-	if filter.Status != nil && user.Status() != *filter.Status {
+	if filter.Status() != nil && user.Status() != *filter.Status() {
 		return false
 	}
 
-	if filter.Search != nil && *filter.Search != "" {
-		search := strings.ToLower(*filter.Search)
+	if filter.Search() != nil && *filter.Search() != "" {
+		search := strings.ToLower(*filter.Search())
 		username := strings.ToLower(user.Username().String())
 		email := strings.ToLower(user.Email().String())
 		if !strings.Contains(username, search) && !strings.Contains(email, search) {

@@ -540,6 +540,16 @@ func (s *UserServiceTestSuite) TestListUsersWithPaginationBeyondRange() {
 	assert.Len(s.T(), users, 0)
 }
 
+func (s *UserServiceTestSuite) TestListUsersWithInvalidPagination() {
+	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+		Limit:  -1,
+		Offset: -1,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 0)
+}
+
 func TestUserServiceSuite(t *testing.T) {
 	suite.Run(t, new(UserServiceTestSuite))
 }

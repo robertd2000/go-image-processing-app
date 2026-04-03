@@ -230,10 +230,16 @@ func (s *UserRepoTestSuite) TestList() {
 	s.createUser("test2", "test2@test.com")
 	s.createUser("test3", "test3@test.com")
 
-	filter := userDomain.UserFilter{
-		Limit:  10,
-		Offset: 0,
-	}
+	filter, err := userDomain.NewUserFilter(
+		10,
+		0,
+		nil,
+		nil,
+		"",
+		"",
+	)
+	s.NoError(err)
+
 	users, err := s.repo.List(s.ctx, filter)
 
 	s.NoError(err)
@@ -241,10 +247,16 @@ func (s *UserRepoTestSuite) TestList() {
 }
 
 func (s *UserRepoTestSuite) TestList_Empty() {
-	filter := userDomain.UserFilter{
-		Limit:  10,
-		Offset: 0,
-	}
+	filter, err := userDomain.NewUserFilter(
+		10,
+		0,
+		nil,
+		nil,
+		"",
+		"",
+	)
+	s.NoError(err)
+
 	users, err := s.repo.List(s.ctx, filter)
 
 	s.NoError(err)
@@ -255,10 +267,16 @@ func (s *UserRepoTestSuite) TestCount() {
 	s.createUser("test1", "test1@test.com")
 	s.createUser("test2", "test2@test.com")
 
-	filter := userDomain.UserFilter{
-		Limit:  10,
-		Offset: 0,
-	}
+	filter, err := userDomain.NewUserFilter(
+		10,
+		0,
+		nil,
+		nil,
+		"",
+		"",
+	)
+	s.NoError(err)
+
 	count, err := s.repo.Count(s.ctx, filter)
 
 	s.NoError(err)
@@ -266,10 +284,16 @@ func (s *UserRepoTestSuite) TestCount() {
 }
 
 func (s *UserRepoTestSuite) TestCount_Empty() {
-	filter := userDomain.UserFilter{
-		Limit:  10,
-		Offset: 0,
-	}
+	filter, err := userDomain.NewUserFilter(
+		10,
+		0,
+		nil,
+		nil,
+		"",
+		"",
+	)
+	s.NoError(err)
+
 	count, err := s.repo.Count(s.ctx, filter)
 
 	s.NoError(err)

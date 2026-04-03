@@ -469,18 +469,18 @@ func (r *userRepository) List(ctx context.Context, f userDomain.UserFilter) ([]*
 	// FILTERS
 	// =====================
 
-	if f.Status != nil {
+	if f.Status() != nil {
 		where = append(where, fmt.Sprintf("u.status = $%d", argPos))
-		args = append(args, *f.Status)
+		args = append(args, *f.Status())
 		argPos++
 	} else {
 		// по умолчанию только active
 		where = append(where, "u.status = 'active'")
 	}
 
-	if f.Search != nil && *f.Search != "" {
+	if f.Search() != nil && *f.Search() != "" {
 		where = append(where, fmt.Sprintf("(u.username ILIKE $%d OR u.email ILIKE $%d)", argPos, argPos))
-		args = append(args, "%"+*f.Search+"%")
+		args = append(args, "%"+*f.Search()+"%")
 		argPos++
 	}
 
@@ -493,7 +493,7 @@ func (r *userRepository) List(ctx context.Context, f userDomain.UserFilter) ([]*
 	// =====================
 
 	sortBy := "u.created_at"
-	switch f.SortBy {
+	switch f.SortBy() {
 	case "username":
 		sortBy = "u.username"
 	case "created_at":
@@ -501,7 +501,7 @@ func (r *userRepository) List(ctx context.Context, f userDomain.UserFilter) ([]*
 	}
 
 	order := "DESC"
-	if strings.ToLower(f.SortOrder) == "asc" {
+	if strings.ToLower(f.SortOrder()) == "asc" {
 		order = "ASC"
 	}
 
@@ -512,13 +512,13 @@ func (r *userRepository) List(ctx context.Context, f userDomain.UserFilter) ([]*
 	// =====================
 
 	limit := 20
-	if f.Limit > 0 && f.Limit <= 100 {
-		limit = f.Limit
+	if f.Limit() > 0 && f.Limit() <= 100 {
+		limit = f.Limit()
 	}
 
 	offset := 0
-	if f.Offset > 0 {
-		offset = f.Offset
+	if f.Offset() > 0 {
+		offset = f.Offset()
 	}
 
 	query += fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
@@ -559,17 +559,17 @@ func (r *userRepository) Count(ctx context.Context, f userDomain.UserFilter) (in
 		argPos = 1
 	)
 
-	if f.Status != nil {
+	if f.Status() != nil {
 		where = append(where, fmt.Sprintf("u.status = $%d", argPos))
-		args = append(args, *f.Status)
+		args = append(args, *f.Status())
 		argPos++
 	} else {
 		where = append(where, "u.status = 'active'")
 	}
 
-	if f.Search != nil && *f.Search != "" {
+	if f.Search() != nil && *f.Search() != "" {
 		where = append(where, fmt.Sprintf("(u.username ILIKE $%d OR u.email ILIKE $%d)", argPos, argPos))
-		args = append(args, "%"+*f.Search+"%")
+		args = append(args, "%"+*f.Search()+"%")
 		argPos++
 	}
 

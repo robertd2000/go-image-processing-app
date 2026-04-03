@@ -224,10 +224,9 @@ func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 }
 
 func (s *userService) List(ctx context.Context, filter model.ListUsersRequest) ([]*model.UserOutput, error) {
-	userFilter := userDomain.UserFilter{
-		Limit:  filter.Limit,
-		Offset: filter.Offset,
-		Search: &filter.Search,
+	userFilter, err := userDomain.NewUserFilter(filter.Limit, filter.Offset, nil, &filter.Search, filter.SortBy, filter.SortOrder)
+	if err != nil {
+		return nil, fmt.Errorf("create user filter: %w", err)
 	}
 
 	users, err := s.userRepo.List(ctx, userFilter)
