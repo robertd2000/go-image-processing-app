@@ -509,6 +509,19 @@ func (s *UserServiceTestSuite) TestListUsersWithPagination() {
 	assert.Len(s.T(), users, 2)
 }
 
+func (s *UserServiceTestSuite) TestListUsersWithSearchNoResults() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+		Limit:  10,
+		Offset: 0,
+		Search: "bob",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 0)
+}
+
 func TestUserServiceSuite(t *testing.T) {
 	suite.Run(t, new(UserServiceTestSuite))
 }
