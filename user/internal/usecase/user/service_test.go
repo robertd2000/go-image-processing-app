@@ -649,6 +649,24 @@ func (s *UserServiceTestSuite) TestCountUsersWithPagination() {
 	assert.Equal(s.T(), 5, count)
 }
 
+func (s *UserServiceTestSuite) TestCountUsersWithPaginationBeyondRange() {
+	for i := range 3 {
+		input := s.newCreateUserInputWith(
+			"user"+strconv.Itoa(i),
+			"user"+strconv.Itoa(i)+"@example.com",
+		)
+		s.createUser(input)
+	}
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Limit:  2,
+		Offset: 5,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 3, count)
+}
+
 func (s *UserServiceTestSuite) newCreateUserInput() model.CreateUserInput {
 	return model.CreateUserInput{
 		ID:       uuid.New(),
