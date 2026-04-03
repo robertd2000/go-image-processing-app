@@ -2,6 +2,7 @@ package user_test
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -488,6 +489,24 @@ func (s *UserServiceTestSuite) TestListUsersWithSearch() {
 	assert.NoError(s.T(), err)
 	assert.Len(s.T(), users, 1)
 	assert.Equal(s.T(), user1.ID, users[0].ID)
+}
+
+func (s *UserServiceTestSuite) TestListUsersWithPagination() {
+	for i := range 5 {
+		input := s.newCreateUserInputWith(
+			"user"+strconv.Itoa(i),
+			"user"+strconv.Itoa(i)+"@example.com",
+		)
+		s.createUser(input)
+	}
+
+	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+		Limit:  2,
+		Offset: 1,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 2)
 }
 
 func TestUserServiceSuite(t *testing.T) {
