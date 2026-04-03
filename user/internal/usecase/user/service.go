@@ -222,3 +222,23 @@ func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 
 	return s.userRepo.Delete(ctx, userID)
 }
+
+func (s *userService) List(ctx context.Context, filter model.ListUsersRequest) ([]*model.UserOutput, error) {
+	userFilter := userDomain.UserFilter{
+		Limit:  filter.Limit,
+		Offset: filter.Offset,
+		Search: &filter.Search,
+	}
+
+	users, err := s.userRepo.List(ctx, userFilter)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+
+	var outputs []*model.UserOutput
+	for _, user := range users {
+		outputs = append(outputs, model.MapToOutput(user))
+	}
+
+	return outputs, nil
+}

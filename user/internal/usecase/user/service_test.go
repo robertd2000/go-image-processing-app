@@ -14,7 +14,6 @@ import (
 )
 
 type UserService interface {
-	// Define methods for the UserService interface here
 	Create(ctx context.Context, userInput model.CreateUserInput) error
 	Update(ctx context.Context, input model.UpdateUserInput) error
 	UpdateProfile(ctx context.Context, input model.UpdateProfileInput) error
@@ -22,6 +21,7 @@ type UserService interface {
 	Delete(ctx context.Context, userID uuid.UUID) error
 	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
+	List(ctx context.Context, filter model.ListUsersRequest) ([]*model.UserOutput, error)
 }
 
 type UserServiceTestSuite struct {
@@ -440,6 +440,54 @@ func (s *UserServiceTestSuite) TestDeleteUserNotFound() {
 	err := s.service.Delete(s.ctx, nonExistentID)
 	assert.Error(s.T(), err)
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+func (s *UserServiceTestSuite) TestDeleteUserInvalidID() {
+	invalidID := uuid.Nil
+	err := s.service.Delete(s.ctx, invalidID)
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+func (s *UserServiceTestSuite) TestDeleteUserAlreadyDeleted() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+	err = s.service.Delete(s.ctx, input.ID)
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+func (s *UserServiceTestSuite) TestListUsers() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+		Limit:  10,
+		Offset: 0,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 1)
+	assert.Equal(s.T(), input.ID, users[0].ID)
+}
+
+func (s *UserServiceTestSuite) TestListUsersWithSearch() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	user2 := s.newCreateUserInputWith("bob", "bob@example.com")
+	s.createUser(user2)
+
+	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+		Limit:  10,
+		Offset: 0,
+		Search: "alice",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 1)
+	assert.Equal(s.T(), user1.ID, users[0].ID)
 }
 
 func TestUserServiceSuite(t *testing.T) {
