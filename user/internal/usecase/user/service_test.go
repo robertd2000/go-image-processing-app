@@ -522,6 +522,24 @@ func (s *UserServiceTestSuite) TestListUsersWithSearchNoResults() {
 	assert.Len(s.T(), users, 0)
 }
 
+func (s *UserServiceTestSuite) TestListUsersWithPaginationBeyondRange() {
+	for i := range 3 {
+		input := s.newCreateUserInputWith(
+			"user"+strconv.Itoa(i),
+			"user"+strconv.Itoa(i)+"@example.com",
+		)
+		s.createUser(input)
+	}
+
+	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+		Limit:  2,
+		Offset: 5,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 0)
+}
+
 func TestUserServiceSuite(t *testing.T) {
 	suite.Run(t, new(UserServiceTestSuite))
 }
