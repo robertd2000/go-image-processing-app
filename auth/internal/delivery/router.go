@@ -7,8 +7,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/config"
 	v1 "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/v1"
-	elog "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/events/log"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
+	ekafka "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/kafka"
 	tokenpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/token"
 	userpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
@@ -25,7 +25,7 @@ func SetupRouter(r *gin.Engine, cfg *config.Config, db *pgxpool.Pool, logger *za
 	tokenGen := jwt.NewJWTGenerator([]byte(cfg.JWT.Secret))
 	hasher := security.NewHasher()
 	tokenHasher := &security.TokenHasher{}
-	eventPublisher := elog.NewPublisher()
+	eventPublisher := ekafka.NewKafkaPublisher([]string{"localhost:9092"})
 
 	authSvc := auth.NewAuthService(userRepo, tokenRepo, hasher, tokenHasher, tokenGen, eventPublisher, time.Duration(cfg.JWT.AccessTTLMin)*time.Minute,
 		time.Duration(cfg.JWT.RefreshTTLMin)*time.Minute)

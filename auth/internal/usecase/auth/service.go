@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -89,13 +90,29 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 		return fmt.Errorf("create user: %w", err)
 	}
 
-	_ = s.eventPublisher.PublishUserCreated(ctx, events.UserCreatedEvent{
-		Version:   1,
-		ID:        user.ID(),
-		Username:  user.Username(),
-		Email:     *user.Email(),
-		CreatedAt: user.CreatedAt(),
-	})
+	event := events.Event[events.UserCreatedEvent]{
+		EventID:    uuid.New(),
+		EventType:  "user.created",
+		Version:    1,
+		OccurredAt: time.Now(),
+		Payload: events.UserCreatedEvent{
+			ID:        user.ID(),
+			Username:  user.Username(),
+			Email:     *user.Email(),
+			CreatedAt: user.CreatedAt(),
+		},
+	}
+
+	err = s.eventPublisher.Publish(
+		ctx,
+		"user.created.v1",
+		[]byte(user.ID().String()),
+		event,
+	)
+
+	if err != nil {
+		log.Println("failed to publish event:", err)
+	}
 
 	return nil
 }
