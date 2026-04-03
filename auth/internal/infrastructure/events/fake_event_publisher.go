@@ -1,25 +1,27 @@
-package port
+package eventpub
 
 import (
 	"context"
 	"sync"
+
+	"github.com/robertd2000/go-image-processing-app/auth/pkg/events"
 )
 
 type FakeEventPublisher struct {
 	mu sync.Mutex
 
-	Events []UserCreatedEvent
+	Events []events.UserCreatedEvent
 
 	Err error
 }
 
 func NewFakeEventPublisher() *FakeEventPublisher {
 	return &FakeEventPublisher{
-		Events: make([]UserCreatedEvent, 0),
+		Events: make([]events.UserCreatedEvent, 0),
 	}
 }
 
-func (f *FakeEventPublisher) PublishUserCreated(ctx context.Context, e UserCreatedEvent) error {
+func (f *FakeEventPublisher) PublishUserCreated(ctx context.Context, e events.UserCreatedEvent) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 

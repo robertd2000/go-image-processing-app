@@ -10,9 +10,10 @@ import (
 	"github.com/google/uuid"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/port"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/validation"
+	"github.com/robertd2000/go-image-processing-app/auth/pkg/events"
 )
 
 var sessionLimit = 5
@@ -88,11 +89,12 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 		return fmt.Errorf("create user: %w", err)
 	}
 
-	_ = s.eventPublisher.PublishUserCreated(ctx, port.UserCreatedEvent{
-		UserID:    user.ID(),
-		Email:     in.Email,
-		FirstName: in.FirstName,
-		LastName:  in.LastName,
+	_ = s.eventPublisher.PublishUserCreated(ctx, events.UserCreatedEvent{
+		Version:   1,
+		ID:        user.ID(),
+		Username:  user.Username(),
+		Email:     *user.Email(),
+		CreatedAt: user.CreatedAt(),
 	})
 
 	return nil
