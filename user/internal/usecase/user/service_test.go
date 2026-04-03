@@ -3,7 +3,6 @@ package user_test
 import (
 	"context"
 	"strconv"
-	"testing"
 
 	"github.com/google/uuid"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
@@ -614,8 +613,22 @@ func (s *UserServiceTestSuite) TestCountUsersWithInvalidSearch() {
 	assert.Equal(s.T(), 1, count)
 }
 
-func TestUserServiceSuite(t *testing.T) {
-	suite.Run(t, new(UserServiceTestSuite))
+func (s *UserServiceTestSuite) TestCountUsersWithNoUsers() {
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 0, count)
+}
+
+func (s *UserServiceTestSuite) TestCountUsersWithInvalidPagination() {
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Limit:  -1,
+		Offset: -1,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 0, count)
 }
 
 func (s *UserServiceTestSuite) newCreateUserInput() model.CreateUserInput {
