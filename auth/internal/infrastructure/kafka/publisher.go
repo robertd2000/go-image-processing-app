@@ -26,9 +26,11 @@ func (p *KafkaPublisher) Publish(ctx context.Context, topic string, key []byte, 
 		return err
 	}
 
-	return p.writer.WriteMessages(ctx, kafka.Message{
+	err = p.writer.WriteMessages(ctx, kafka.Message{
 		Topic: topic,
 		Key:   key,
 		Value: data,
 	})
+
+	return err
 }

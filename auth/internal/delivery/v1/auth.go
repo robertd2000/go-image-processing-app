@@ -20,19 +20,19 @@ type AuthService interface {
 	Logout(ctx context.Context, refreshToken string) error
 }
 
-type authHandler struct {
+type AuthHandler struct {
 	authSvc AuthService
 	logger  *zap.Logger
 }
 
-func NewAuthHandler(authSvc AuthService, logger *zap.Logger) *authHandler {
-	return &authHandler{
+func NewAuthHandler(authSvc AuthService, logger *zap.Logger) *AuthHandler {
+	return &AuthHandler{
 		authSvc: authSvc,
 		logger:  logger,
 	}
 }
 
-func (h *authHandler) SetupAuthHandler(api *gin.RouterGroup) {
+func (h *AuthHandler) SetupAuthHandler(api *gin.RouterGroup) {
 	auth := api.Group("/auth")
 	{
 		auth.POST("/login", h.login)
@@ -54,7 +54,7 @@ func (h *authHandler) SetupAuthHandler(api *gin.RouterGroup) {
 // @Failure 409 {object} dao.ErrorResponse "User already exists"
 // @Failure 500 {object} dao.ErrorResponse "Internal error"
 // @Router /auth/register [post]
-func (h *authHandler) register(c *gin.Context) {
+func (h *AuthHandler) register(c *gin.Context) {
 	var input dao.RegisterRequest
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -94,7 +94,7 @@ func (h *authHandler) register(c *gin.Context) {
 // @Failure 401 {object} dao.ErrorResponse "Wrong credentials"
 // @Failure 500 {object} dao.ErrorResponse "Internal error"
 // @Router /auth/login [post]
-func (h *authHandler) login(c *gin.Context) {
+func (h *AuthHandler) login(c *gin.Context) {
 	var input dao.LoginRequest
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -132,7 +132,7 @@ func (h *authHandler) login(c *gin.Context) {
 // @Failure 400 {object} dao.ErrorResponse "Invalid request"
 // @Failure 500 {object} dao.ErrorResponse "Internal error"
 // @Router /auth/logout [post]
-func (h *authHandler) logout(c *gin.Context) {
+func (h *AuthHandler) logout(c *gin.Context) {
 	var input dao.RefreshRequest
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -160,7 +160,7 @@ func (h *authHandler) logout(c *gin.Context) {
 // @Failure 401 {object} dao.ErrorResponse "Invalid or expired token"
 // @Failure 500 {object} dao.ErrorResponse "Internal error"
 // @Router /auth/refresh [post]
-func (h *authHandler) refresh(c *gin.Context) {
+func (h *AuthHandler) refresh(c *gin.Context) {
 	var input dao.RefreshRequest
 
 	if err := c.ShouldBindJSON(&input); err != nil {
