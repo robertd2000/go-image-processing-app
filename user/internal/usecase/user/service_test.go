@@ -592,6 +592,28 @@ func (s *UserServiceTestSuite) TestCountUsersWithSearch() {
 	assert.Equal(s.T(), 1, count)
 }
 
+func (s *UserServiceTestSuite) TestCountUsersWithSearchNoResults() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Search: "bob",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 0, count)
+}
+
+func (s *UserServiceTestSuite) TestCountUsersWithInvalidSearch() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 1, count)
+}
+
 func TestUserServiceSuite(t *testing.T) {
 	suite.Run(t, new(UserServiceTestSuite))
 }
