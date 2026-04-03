@@ -25,7 +25,7 @@ func SetupRouter(r *gin.Engine, cfg *config.Config, db *pgxpool.Pool, logger *za
 	tokenGen := jwt.NewJWTGenerator([]byte(cfg.JWT.Secret))
 	hasher := security.NewHasher()
 	tokenHasher := &security.TokenHasher{}
-	eventPublisher := ekafka.NewKafkaPublisher([]string{"localhost:9092"})
+	eventPublisher := ekafka.NewKafkaPublisher([]string{"localhost:29092"})
 
 	authSvc := auth.NewAuthService(userRepo, tokenRepo, hasher, tokenHasher, tokenGen, eventPublisher, time.Duration(cfg.JWT.AccessTTLMin)*time.Minute,
 		time.Duration(cfg.JWT.RefreshTTLMin)*time.Minute)

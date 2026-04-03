@@ -150,6 +150,18 @@ func (u *userInMemoryRepository) ExistsByUsername(ctx context.Context, username 
 	return false, nil
 }
 
+// ExistsByID implements user.UserRepository.
+func (u *userInMemoryRepository) ExistsByID(ctx context.Context, id uuid.UUID) (bool, error) {
+	u.mu.RLock()
+	defer u.mu.RUnlock()
+
+	if _, exists := u.users[id]; exists {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 // Create implements user.UserRepository.
 func (u *userInMemoryRepository) Create(ctx context.Context, user *userDomain.User) error {
 	u.mu.Lock()

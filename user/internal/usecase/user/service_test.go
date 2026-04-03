@@ -15,6 +15,7 @@ import (
 
 type UserService interface {
 	Create(ctx context.Context, userInput model.CreateUserInput) error
+	CreateFromEvent(ctx context.Context, input model.CreateUserInput) error
 	Update(ctx context.Context, input model.UpdateUserInput) error
 	UpdateProfile(ctx context.Context, input model.UpdateProfileInput) error
 	UpdateSettings(ctx context.Context, input model.UpdateSettingsInput) error
@@ -42,6 +43,7 @@ func (s *UserServiceTestSuite) SetupTest() {
 	s.service = user.NewUserService(s.userRepo)
 }
 
+// CreateUser
 func (s *UserServiceTestSuite) TestCreateUser() {
 	input := s.newCreateUserInput()
 
@@ -84,6 +86,29 @@ func (s *UserServiceTestSuite) TestCreateUserWithExistingEmail() {
 	assert.Equal(s.T(), userDomain.ErrEmailAlreadyExists, err)
 }
 
+// CreateUserFromEvent
+func (s *UserServiceTestSuite) TestCreateUserFromEvent() {
+	input := s.newCreateUserInput()
+	err := s.service.CreateFromEvent(s.ctx, input)
+	assert.NoError(s.T(), err)
+
+	user := s.mustGetUserFromRepo(input.ID)
+
+	assert.Equal(s.T(), input.ID, user.ID())
+	assert.Equal(s.T(), input.Username, user.Username().String())
+	assert.Equal(s.T(), input.Email, user.Email().String())
+}
+
+func (s *UserServiceTestSuite) TestCreateUserFromEventAlreadyExists() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.CreateFromEvent(s.ctx, input)
+
+	assert.NoError(s.T(), err) // should not return error if user already exists
+}
+
+// GetUserByID
 func (s *UserServiceTestSuite) TestGetUserByID() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -123,6 +148,7 @@ func (s *UserServiceTestSuite) TestGetUserByIDInvalidID() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+// GetUserByEmail
 func (s *UserServiceTestSuite) TestGetUserByEmail() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -143,6 +169,7 @@ func (s *UserServiceTestSuite) TestGetUserByEmailNotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+// UpdateUser
 func (s *UserServiceTestSuite) TestUpdateUser_Username() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -423,6 +450,7 @@ func (s *UserServiceTestSuite) TestUpdateSettings_NotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+// DeleteUser
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -460,6 +488,7 @@ func (s *UserServiceTestSuite) TestDeleteUserAlreadyDeleted() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+// ListUsers
 func (s *UserServiceTestSuite) TestListUsers() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -563,6 +592,7 @@ func (s *UserServiceTestSuite) TestListUsersWithInvalidSearch() {
 	assert.Len(s.T(), users, 1)
 }
 
+// CountUsers
 func (s *UserServiceTestSuite) TestCountUsers() {
 	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
 	s.createUser(user1)
@@ -690,6 +720,7 @@ func (s *UserServiceTestSuite) TestCountUsersWithInvalidSearchAndPaginationNoUse
 	assert.Equal(s.T(), 0, count)
 }
 
+// helpers
 func (s *UserServiceTestSuite) newCreateUserInput() model.CreateUserInput {
 	return model.CreateUserInput{
 		ID:       uuid.New(),

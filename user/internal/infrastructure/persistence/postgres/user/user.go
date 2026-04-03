@@ -406,6 +406,21 @@ func (r *userRepository) ExistsByEmail(ctx context.Context, email userDomain.Ema
 	return exists, nil
 }
 
+func (r *userRepository) ExistsByID(ctx context.Context, id uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM users
+			WHERE id = $1
+		)
+	`, id).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("exists by id: %w", err)
+	}
+
+	return exists, nil
+}
+
 func mapPGError(err error) error {
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) {
