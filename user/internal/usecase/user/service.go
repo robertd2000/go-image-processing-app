@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
+	"github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/postgres/dberrors"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user/model"
 )
 
@@ -54,6 +55,42 @@ func (s *userService) Create(ctx context.Context, input model.CreateUserInput) e
 	)
 
 	return s.userRepo.Create(ctx, user)
+}
+
+func (s *userService) CreateFromEvent(ctx context.Context, input model.CreateUserInput) error {
+	exists, err := s.userRepo.ExistsByID(ctx, input.ID)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	username, err := userDomain.NewUsername(input.Username)
+	if err != nil {
+		return err
+	}
+
+	email, err := userDomain.NewEmail(input.Email)
+	if err != nil {
+		return err
+	}
+
+	user := userDomain.NewUser(
+		input.ID,
+		username,
+		email,
+	)
+
+	err = s.userRepo.Create(ctx, user)
+	if err != nil {
+		if dberrors.IsUniqueViolation(err) {
+			return nil
+		}
+		return err
+	}
+
+	return nil
 }
 
 func (s *userService) GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error) {
@@ -221,4 +258,37 @@ func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 	}
 
 	return s.userRepo.Delete(ctx, userID)
+}
+
+func (s *userService) List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error) {
+	userFilter, err := userDomain.NewUserFilter(filter.Limit, filter.Offset, nil, &filter.Search, filter.SortBy, filter.SortOrder)
+	if err != nil {
+		return nil, fmt.Errorf("create user filter: %w", err)
+	}
+
+	users, err := s.userRepo.List(ctx, userFilter)
+	if err != nil {
+		return nil, fmt.Errorf("list users: %w", err)
+	}
+
+	var outputs []*model.UserOutput
+	for _, user := range users {
+		outputs = append(outputs, model.MapToOutput(user))
+	}
+
+	return outputs, nil
+}
+
+func (s *userService) Count(ctx context.Context, filter model.UserFilterInput) (int, error) {
+	userFilter, err := userDomain.NewUserFilter(filter.Limit, filter.Offset, nil, &filter.Search, filter.SortBy, filter.SortOrder)
+	if err != nil {
+		return 0, fmt.Errorf("create user filter: %w", err)
+	}
+
+	count, err := s.userRepo.Count(ctx, userFilter)
+	if err != nil {
+		return 0, fmt.Errorf("count users: %w", err)
+	}
+
+	return count, nil
 }

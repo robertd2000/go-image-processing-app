@@ -10,13 +10,14 @@ import (
 	"github.com/google/uuid"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
+	eventpub "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/events"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
 	tokenmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/token"
 	usermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/port"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -53,7 +54,7 @@ func (s *AuthTestSuite) SetupTest() {
 	s.tokenRepo = tokenmem.NewTokenRepository()
 	s.passwordHasher = &security.FakeHasher{}
 	s.tokenHasher = &security.FakeTokenHasher{}
-	s.eventPublisher = &port.FakeEventPublisher{}
+	s.eventPublisher = &eventpub.FakeEventPublisher{}
 
 	s.service = auth.NewAuthService(
 		s.userRepo,

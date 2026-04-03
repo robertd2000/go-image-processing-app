@@ -2,9 +2,10 @@ package elog
 
 import (
 	"context"
+	"fmt"
 	"log"
 
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/port"
+	"github.com/robertd2000/go-image-processing-app/auth/pkg/events"
 )
 
 type Publisher struct{}
@@ -13,13 +14,18 @@ func NewPublisher() *Publisher {
 	return &Publisher{}
 }
 
-func (p *Publisher) PublishUserCreated(ctx context.Context, e port.UserCreatedEvent) error {
+func (p *Publisher) Publish(ctx context.Context, topic string, key []byte, msg any) error {
+	event, ok := msg.(events.Event[events.UserCreatedEvent])
+	if !ok {
+		return fmt.Errorf("unexpected event type: %T", msg)
+	}
+
+	e := event.Payload
+
 	log.Printf(
-		"[EVENT] UserCreated: user_id=%s email=%s first_name=%s last_name=%s",
-		e.UserID,
-		e.Email,
-		e.FirstName,
-		e.LastName,
+		"[EVENT] UserCreated: user_id=%s email=%s username=%s created_at=%s",
+		e.ID, e.Email, e.Username, e.CreatedAt,
 	)
+
 	return nil
 }

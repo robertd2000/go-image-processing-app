@@ -1,10 +1,10 @@
 CREATE TABLE users (
     id UUID PRIMARY KEY,
 
-    username TEXT UNIQUE,
+    username VARCHAR(20) UNIQUE,
     first_name TEXT,
     last_name TEXT,
-    email TEXT,
+    email VARCHAR(64) UNIQUE,
 
     avatar_url TEXT,
 

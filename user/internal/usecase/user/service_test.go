@@ -2,7 +2,7 @@ package user_test
 
 import (
 	"context"
-	"testing"
+	"strconv"
 
 	"github.com/google/uuid"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
@@ -14,14 +14,16 @@ import (
 )
 
 type UserService interface {
-	// Define methods for the UserService interface here
 	Create(ctx context.Context, userInput model.CreateUserInput) error
+	CreateFromEvent(ctx context.Context, input model.CreateUserInput) error
 	Update(ctx context.Context, input model.UpdateUserInput) error
 	UpdateProfile(ctx context.Context, input model.UpdateProfileInput) error
 	UpdateSettings(ctx context.Context, input model.UpdateSettingsInput) error
 	Delete(ctx context.Context, userID uuid.UUID) error
 	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
+	List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error)
+	Count(ctx context.Context, filter model.UserFilterInput) (int, error)
 }
 
 type UserServiceTestSuite struct {
@@ -41,6 +43,7 @@ func (s *UserServiceTestSuite) SetupTest() {
 	s.service = user.NewUserService(s.userRepo)
 }
 
+// CreateUser
 func (s *UserServiceTestSuite) TestCreateUser() {
 	input := s.newCreateUserInput()
 
@@ -83,6 +86,29 @@ func (s *UserServiceTestSuite) TestCreateUserWithExistingEmail() {
 	assert.Equal(s.T(), userDomain.ErrEmailAlreadyExists, err)
 }
 
+// CreateUserFromEvent
+func (s *UserServiceTestSuite) TestCreateUserFromEvent() {
+	input := s.newCreateUserInput()
+	err := s.service.CreateFromEvent(s.ctx, input)
+	assert.NoError(s.T(), err)
+
+	user := s.mustGetUserFromRepo(input.ID)
+
+	assert.Equal(s.T(), input.ID, user.ID())
+	assert.Equal(s.T(), input.Username, user.Username().String())
+	assert.Equal(s.T(), input.Email, user.Email().String())
+}
+
+func (s *UserServiceTestSuite) TestCreateUserFromEventAlreadyExists() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.CreateFromEvent(s.ctx, input)
+
+	assert.NoError(s.T(), err) // should not return error if user already exists
+}
+
+// GetUserByID
 func (s *UserServiceTestSuite) TestGetUserByID() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -122,6 +148,7 @@ func (s *UserServiceTestSuite) TestGetUserByIDInvalidID() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+// GetUserByEmail
 func (s *UserServiceTestSuite) TestGetUserByEmail() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -142,6 +169,7 @@ func (s *UserServiceTestSuite) TestGetUserByEmailNotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+// UpdateUser
 func (s *UserServiceTestSuite) TestUpdateUser_Username() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -422,6 +450,7 @@ func (s *UserServiceTestSuite) TestUpdateSettings_NotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+// DeleteUser
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -442,10 +471,256 @@ func (s *UserServiceTestSuite) TestDeleteUserNotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
-func TestUserServiceSuite(t *testing.T) {
-	suite.Run(t, new(UserServiceTestSuite))
+func (s *UserServiceTestSuite) TestDeleteUserInvalidID() {
+	invalidID := uuid.Nil
+	err := s.service.Delete(s.ctx, invalidID)
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestDeleteUserAlreadyDeleted() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+	err = s.service.Delete(s.ctx, input.ID)
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+// ListUsers
+func (s *UserServiceTestSuite) TestListUsers() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
+		Limit:  10,
+		Offset: 0,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 1)
+	assert.Equal(s.T(), input.ID, users[0].ID)
+}
+
+func (s *UserServiceTestSuite) TestListUsersWithSearch() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	user2 := s.newCreateUserInputWith("bob", "bob@example.com")
+	s.createUser(user2)
+
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
+		Limit:  10,
+		Offset: 0,
+		Search: "alice",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 1)
+	assert.Equal(s.T(), user1.ID, users[0].ID)
+}
+
+func (s *UserServiceTestSuite) TestListUsersWithPagination() {
+	for i := range 5 {
+		input := s.newCreateUserInputWith(
+			"user"+strconv.Itoa(i),
+			"user"+strconv.Itoa(i)+"@example.com",
+		)
+		s.createUser(input)
+	}
+
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
+		Limit:  2,
+		Offset: 1,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 2)
+}
+
+func (s *UserServiceTestSuite) TestListUsersWithSearchNoResults() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
+		Limit:  10,
+		Offset: 0,
+		Search: "bob",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 0)
+}
+
+func (s *UserServiceTestSuite) TestListUsersWithPaginationBeyondRange() {
+	for i := range 3 {
+		input := s.newCreateUserInputWith(
+			"user"+strconv.Itoa(i),
+			"user"+strconv.Itoa(i)+"@example.com",
+		)
+		s.createUser(input)
+	}
+
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
+		Limit:  2,
+		Offset: 5,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 0)
+}
+
+func (s *UserServiceTestSuite) TestListUsersWithInvalidPagination() {
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
+		Limit:  -1,
+		Offset: -1,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 0)
+}
+
+func (s *UserServiceTestSuite) TestListUsersWithInvalidSearch() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
+		Limit:  10,
+		Offset: 0,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), users, 1)
+}
+
+// CountUsers
+func (s *UserServiceTestSuite) TestCountUsers() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	user2 := s.newCreateUserInputWith("bob", "bob@example.com")
+	s.createUser(user2)
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 2, count)
+}
+
+func (s *UserServiceTestSuite) TestCountUsersWithSearch() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	user2 := s.newCreateUserInputWith("bob", "bob@example.com")
+	s.createUser(user2)
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Search: "alice",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 1, count)
+}
+
+func (s *UserServiceTestSuite) TestCountUsersWithSearchNoResults() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Search: "bob",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 0, count)
+}
+
+func (s *UserServiceTestSuite) TestCountUsersWithInvalidSearch() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 1, count)
+}
+
+func (s *UserServiceTestSuite) TestCountUsersWithNoUsers() {
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 0, count)
+}
+
+func (s *UserServiceTestSuite) TestCountUsersWithInvalidPagination() {
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Limit:  -1,
+		Offset: -1,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 0, count)
+}
+
+func (s *UserServiceTestSuite) TestCountUsersWithPagination() {
+	for i := range 5 {
+		input := s.newCreateUserInputWith(
+			"user"+strconv.Itoa(i),
+			"user"+strconv.Itoa(i)+"@example.com",
+		)
+		s.createUser(input)
+	}
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Limit:  2,
+		Offset: 0,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 5, count)
+}
+
+func (s *UserServiceTestSuite) TestCountUsersWithPaginationBeyondRange() {
+	for i := range 3 {
+		input := s.newCreateUserInputWith(
+			"user"+strconv.Itoa(i),
+			"user"+strconv.Itoa(i)+"@example.com",
+		)
+		s.createUser(input)
+	}
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Limit:  2,
+		Offset: 5,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 3, count)
+}
+
+func (s *UserServiceTestSuite) TestCountUsersWithInvalidSearchAndPagination() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Limit:  -1,
+		Offset: -1,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 1, count)
+}
+
+func (s *UserServiceTestSuite) TestCountUsersWithInvalidSearchAndPaginationNoUsers() {
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Limit:  -1,
+		Offset: -1,
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 0, count)
+}
+
+// helpers
 func (s *UserServiceTestSuite) newCreateUserInput() model.CreateUserInput {
 	return model.CreateUserInput{
 		ID:       uuid.New(),

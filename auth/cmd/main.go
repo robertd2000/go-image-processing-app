@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	_ "github.com/robertd2000/go-image-processing-app/auth/docs"
+	"github.com/segmentio/kafka-go"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -20,6 +22,13 @@ import (
 
 	"github.com/robertd2000/go-image-processing-app/auth/internal/config"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/delivery"
+	v1 "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/v1"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
+	ekafka "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/kafka"
+	tokenpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/token"
+	userpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/user"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
 )
 
 // @title Auth Service API
@@ -61,8 +70,46 @@ func main() {
 	// ---------- swagger ----------
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// Kafka init
+	broker := "kafka:9092"
+
+	err = waitForKafka(broker, 10, 2*time.Second)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = ekafka.EnsureTopic(broker, "user.created.v1")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	publisher := ekafka.NewKafkaPublisher([]string{broker})
+
+	// repos
+	userRepo := userpg.NewUserRepository(db)
+	tokenRepo := tokenpg.NewTokenRepository(db)
+
+	// utils
+	tokenGen := jwt.NewJWTGenerator([]byte(cfg.JWT.Secret))
+	hasher := security.NewHasher()
+	tokenHasher := &security.TokenHasher{}
+
+	// service
+	authSvc := auth.NewAuthService(
+		userRepo,
+		tokenRepo,
+		hasher,
+		tokenHasher,
+		tokenGen,
+		publisher,
+		time.Duration(cfg.JWT.AccessTTLMin)*time.Minute,
+		time.Duration(cfg.JWT.RefreshTTLMin)*time.Minute,
+	)
+
+	// handler
+	authHandler := v1.NewAuthHandler(authSvc, logger)
 	// ---------- routes ----------
-	delivery.SetupRouter(r, cfg, db, logger)
+	delivery.SetupRouter(r, authHandler)
 
 	// ---------- server ----------
 	srv := &http.Server{
@@ -92,4 +139,20 @@ func main() {
 	}
 
 	logger.Info("server exited properly")
+}
+
+func waitForKafka(broker string, retries int, delay time.Duration) error {
+	for i := 0; i < retries; i++ {
+		conn, err := kafka.Dial("tcp", broker)
+		if err == nil {
+			conn.Close()
+			log.Println("Kafka is ready")
+			return nil
+		}
+
+		log.Println("waiting for Kafka...", err)
+		time.Sleep(delay)
+	}
+
+	return fmt.Errorf("kafka is not available after retries")
 }
