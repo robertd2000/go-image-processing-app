@@ -223,7 +223,7 @@ func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 	return s.userRepo.Delete(ctx, userID)
 }
 
-func (s *userService) List(ctx context.Context, filter model.ListUsersRequest) ([]*model.UserOutput, error) {
+func (s *userService) List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error) {
 	userFilter, err := userDomain.NewUserFilter(filter.Limit, filter.Offset, nil, &filter.Search, filter.SortBy, filter.SortOrder)
 	if err != nil {
 		return nil, fmt.Errorf("create user filter: %w", err)
@@ -240,4 +240,18 @@ func (s *userService) List(ctx context.Context, filter model.ListUsersRequest) (
 	}
 
 	return outputs, nil
+}
+
+func (s *userService) Count(ctx context.Context, filter model.UserFilterInput) (int, error) {
+	userFilter, err := userDomain.NewUserFilter(filter.Limit, filter.Offset, nil, &filter.Search, filter.SortBy, filter.SortOrder)
+	if err != nil {
+		return 0, fmt.Errorf("create user filter: %w", err)
+	}
+
+	count, err := s.userRepo.Count(ctx, userFilter)
+	if err != nil {
+		return 0, fmt.Errorf("count users: %w", err)
+	}
+
+	return count, nil
 }

@@ -22,7 +22,8 @@ type UserService interface {
 	Delete(ctx context.Context, userID uuid.UUID) error
 	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
-	List(ctx context.Context, filter model.ListUsersRequest) ([]*model.UserOutput, error)
+	List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error)
+	Count(ctx context.Context, filter model.UserFilterInput) (int, error)
 }
 
 type UserServiceTestSuite struct {
@@ -464,7 +465,7 @@ func (s *UserServiceTestSuite) TestListUsers() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
 
-	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
 		Limit:  10,
 		Offset: 0,
 		Search: "",
@@ -481,7 +482,7 @@ func (s *UserServiceTestSuite) TestListUsersWithSearch() {
 	user2 := s.newCreateUserInputWith("bob", "bob@example.com")
 	s.createUser(user2)
 
-	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
 		Limit:  10,
 		Offset: 0,
 		Search: "alice",
@@ -500,7 +501,7 @@ func (s *UserServiceTestSuite) TestListUsersWithPagination() {
 		s.createUser(input)
 	}
 
-	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
 		Limit:  2,
 		Offset: 1,
 		Search: "",
@@ -513,7 +514,7 @@ func (s *UserServiceTestSuite) TestListUsersWithSearchNoResults() {
 	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
 	s.createUser(user1)
 
-	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
 		Limit:  10,
 		Offset: 0,
 		Search: "bob",
@@ -531,7 +532,7 @@ func (s *UserServiceTestSuite) TestListUsersWithPaginationBeyondRange() {
 		s.createUser(input)
 	}
 
-	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
 		Limit:  2,
 		Offset: 5,
 		Search: "",
@@ -541,7 +542,7 @@ func (s *UserServiceTestSuite) TestListUsersWithPaginationBeyondRange() {
 }
 
 func (s *UserServiceTestSuite) TestListUsersWithInvalidPagination() {
-	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
 		Limit:  -1,
 		Offset: -1,
 		Search: "",
@@ -554,13 +555,27 @@ func (s *UserServiceTestSuite) TestListUsersWithInvalidSearch() {
 	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
 	s.createUser(user1)
 
-	users, err := s.service.List(s.ctx, model.ListUsersRequest{
+	users, err := s.service.List(s.ctx, model.UserFilterInput{
 		Limit:  10,
 		Offset: 0,
 		Search: "",
 	})
 	assert.NoError(s.T(), err)
 	assert.Len(s.T(), users, 1)
+}
+
+func (s *UserServiceTestSuite) TestCountUsers() {
+	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
+	s.createUser(user1)
+
+	user2 := s.newCreateUserInputWith("bob", "bob@example.com")
+	s.createUser(user2)
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{
+		Search: "",
+	})
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), 2, count)
 }
 
 func TestUserServiceSuite(t *testing.T) {

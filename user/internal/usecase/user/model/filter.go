@@ -1,6 +1,6 @@
 package model
 
-type ListUsersRequest struct {
+type UserFilterInput struct {
 	Limit     int
 	Offset    int
 	Search    string
