@@ -142,7 +142,7 @@ func main() {
 }
 
 func waitForKafka(broker string, retries int, delay time.Duration) error {
-	for i := 0; i < retries; i++ {
+	for range retries {
 		conn, err := kafka.Dial("tcp", broker)
 		if err == nil {
 			conn.Close()
