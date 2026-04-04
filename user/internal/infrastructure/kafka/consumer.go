@@ -11,6 +11,7 @@ import (
 
 type Consumer struct {
 	reader *kafka.Reader
+	dlq    DLQProducer
 }
 
 func NewConsumer(brokers []string, topic string, groupID string) *Consumer {
@@ -51,6 +52,8 @@ func (c *Consumer) Start(ctx context.Context, handler func(context.Context, []by
 		if err != nil {
 			log.Println("message failed after retries:", err)
 
+			_ = c.dlq.Publish(ctx, "user.created.dlq", msg.Key, msg.Value)
+
 			continue
 		}
 
@@ -70,7 +73,7 @@ func (c *Consumer) handleWithRetry(
 
 	var err error
 
-	for i := 0; i < maxRetries; i++ {
+	for i := range maxRetries {
 		err = handler(ctx, msg)
 		if err == nil {
 			return nil

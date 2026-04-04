@@ -80,6 +80,24 @@ image-migrate-create:
 # =========================================
 
 topics:
+# ---------- USER ----------
+	$(DC) exec kafka kafka-topics \
+		--create \
+		--if-not-exists \
+		--bootstrap-server kafka:9092 \
+		--replication-factor 1 \
+		--partitions 3 \
+		--topic user.created.v1
+
+	$(DC) exec kafka kafka-topics \
+		--create \
+		--if-not-exists \
+		--bootstrap-server kafka:9092 \
+		--replication-factor 1 \
+		--partitions 3 \
+		--topic user.created.dlq
+
+# ---------- IMAGE ----------
 	$(DC) exec kafka kafka-topics \
 		--create \
 		--if-not-exists \
