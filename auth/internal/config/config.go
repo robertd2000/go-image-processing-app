@@ -60,8 +60,7 @@ func Load() (*Config, error) {
 		env = "development"
 	}
 
-	v.SetConfigName("config-" + env)
-	v.SetConfigType("yaml")
+	v.SetConfigFile("./config/config-" + env + ".yml")
 
 	v.AddConfigPath(".")
 	v.AddConfigPath("./config")

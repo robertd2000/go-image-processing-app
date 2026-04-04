@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
 type userInMemoryRepository struct {
@@ -21,7 +22,7 @@ func NewUserRepository() userDomain.UserRepository {
 	}
 }
 
-func (r *userInMemoryRepository) Create(_ context.Context, user *userDomain.AuthUser) error {
+func (r *userInMemoryRepository) Create(_ context.Context, tx port.Tx, user *userDomain.AuthUser) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

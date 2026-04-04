@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/dberrors"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
 type userRepository struct {
@@ -24,7 +25,11 @@ func NewUserRepository(db *pgxpool.Pool) userDomain.UserRepository {
 	}
 }
 
-func (r *userRepository) Create(ctx context.Context, user *userDomain.AuthUser) error {
+func (r *userRepository) Create(
+	ctx context.Context,
+	tx port.Tx,
+	user *userDomain.AuthUser,
+) error {
 	query := `
 		INSERT INTO auth_users (
 			id,
@@ -36,16 +41,32 @@ func (r *userRepository) Create(ctx context.Context, user *userDomain.AuthUser) 
 		) VALUES ($1,$2,$3,$4,$5,$6)
 	`
 
-	_, err := r.db.Exec(
-		ctx,
-		query,
-		user.ID(),
-		user.Username(),
-		user.Email(),
-		user.PasswordHash(),
-		user.Enabled(),
-		user.CreatedAt(),
-	)
+	var err error
+
+	if tx != nil {
+		err = tx.Exec(
+			ctx,
+			query,
+			user.ID(),
+			user.Username(),
+			user.Email(),
+			user.PasswordHash(),
+			user.Enabled(),
+			user.CreatedAt(),
+		)
+	} else {
+		_, err = r.db.Exec(
+			ctx,
+			query,
+			user.ID(),
+			user.Username(),
+			user.Email(),
+			user.PasswordHash(),
+			user.Enabled(),
+			user.CreatedAt(),
+		)
+	}
+
 	if err != nil {
 		if dberrors.IsUniqueViolation(err) {
 			return userDomain.ErrUserAlreadyExists

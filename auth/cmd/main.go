@@ -25,9 +25,12 @@ import (
 	v1 "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/v1"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
 	ekafka "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/kafka"
+	outboxpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/outbox"
 	tokenpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/token"
+	postgres "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/txmanager"
 	userpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/outbox"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
 )
 
@@ -88,23 +91,31 @@ func main() {
 	// repos
 	userRepo := userpg.NewUserRepository(db)
 	tokenRepo := tokenpg.NewTokenRepository(db)
+	outboxRepo := outboxpg.NewRepository(db)
 
 	// utils
 	tokenGen := jwt.NewJWTGenerator([]byte(cfg.JWT.Secret))
 	hasher := security.NewHasher()
 	tokenHasher := &security.TokenHasher{}
 
+	txManager := postgres.NewTxManager(db)
+
 	// service
 	authSvc := auth.NewAuthService(
 		userRepo,
 		tokenRepo,
+		outboxRepo,
 		hasher,
 		tokenHasher,
 		tokenGen,
-		publisher,
 		time.Duration(cfg.JWT.AccessTTLMin)*time.Minute,
 		time.Duration(cfg.JWT.RefreshTTLMin)*time.Minute,
+		txManager,
 	)
+
+	// outbox worker
+	worker := outbox.NewWorker(outboxRepo, publisher)
+	go worker.Start(ctx)
 
 	// handler
 	authHandler := v1.NewAuthHandler(authSvc, logger)
@@ -142,7 +153,7 @@ func main() {
 }
 
 func waitForKafka(broker string, retries int, delay time.Duration) error {
-	for i := 0; i < retries; i++ {
+	for range retries {
 		conn, err := kafka.Dial("tcp", broker)
 		if err == nil {
 			conn.Close()

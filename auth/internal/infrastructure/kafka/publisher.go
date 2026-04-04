@@ -21,16 +21,26 @@ func NewKafkaPublisher(brokers []string) *KafkaPublisher {
 }
 
 func (p *KafkaPublisher) Publish(ctx context.Context, topic string, key []byte, msg any) error {
-	data, err := json.Marshal(msg)
-	if err != nil {
-		return err
+	var data []byte
+
+	switch v := msg.(type) {
+	case []byte:
+		data = v
+	default:
+		var err error
+		data, err = json.Marshal(msg)
+		if err != nil {
+			return err
+		}
 	}
 
-	err = p.writer.WriteMessages(ctx, kafka.Message{
+	err := p.writer.WriteMessages(ctx, kafka.Message{
 		Topic: topic,
 		Key:   key,
 		Value: data,
 	})
+
+	// TODO outbox pattern
 
 	return err
 }

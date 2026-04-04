@@ -1,7 +1,6 @@
 server:
-  port: 8080
+  port: 8081
   run_mode: debug
-  domain: localhost
 
 postgres:
   host: postgres-user
@@ -10,6 +9,13 @@ postgres:
   password: user_pass
   db_name: user_db
   ssl_mode: disable
+
+kafka:
+  brokers:
+    - kafka:9092
+  group_id: user-service
+  topics:
+    user_created: user.created.v1
 
 log:
   level: debug
