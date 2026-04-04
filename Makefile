@@ -2,7 +2,7 @@
 # DOCKER
 # =========================================
 
-DC=docker compose
+DC=MSYS_NO_PATHCONV=1 docker compose
 
 # =========================================
 # DOCKER LIFECYCLE

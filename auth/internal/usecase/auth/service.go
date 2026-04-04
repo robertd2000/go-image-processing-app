@@ -3,9 +3,9 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,11 +22,12 @@ var sessionLimit = 5
 type authService struct {
 	userRepo    userDomain.UserRepository
 	refreshRepo tokensDomain.TokenRepository
+	outboxRepo  port.OutboxRepository
 
 	tokenGen       port.TokenGenerator
 	passwordHasher port.PasswordHasher
 	tokenHasher    port.TokenHasher
-	eventPublisher port.EventPublisher
+	txManager      port.TxManager
 
 	accessTTL  time.Duration
 	refreshTTL time.Duration
@@ -35,22 +36,24 @@ type authService struct {
 func NewAuthService(
 	userRepo userDomain.UserRepository,
 	refreshRepo tokensDomain.TokenRepository,
+	outboxRepo port.OutboxRepository,
 	passwordHasher port.PasswordHasher,
 	tokenHasher port.TokenHasher,
 	tokenGen port.TokenGenerator,
-	eventPublisher port.EventPublisher,
 	accessTTL time.Duration,
 	refreshTTL time.Duration,
+	txManager port.TxManager,
 ) *authService {
 	return &authService{
 		userRepo:       userRepo,
 		refreshRepo:    refreshRepo,
+		outboxRepo:     outboxRepo,
 		tokenGen:       tokenGen,
 		passwordHasher: passwordHasher,
 		tokenHasher:    tokenHasher,
-		eventPublisher: eventPublisher,
 		accessTTL:      accessTTL,
 		refreshTTL:     refreshTTL,
+		txManager:      txManager,
 	}
 }
 
@@ -85,36 +88,45 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 		return err
 	}
 
-	err = s.userRepo.Create(ctx, user)
-	if err != nil {
-		return fmt.Errorf("create user: %w", err)
-	}
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
 
-	event := events.Event[events.UserCreatedEvent]{
-		EventID:    uuid.New(),
-		EventType:  "user.created",
-		Version:    1,
-		OccurredAt: time.Now(),
-		Payload: events.UserCreatedEvent{
-			ID:        user.ID(),
-			Username:  user.Username(),
-			Email:     *user.Email(),
-			CreatedAt: user.CreatedAt(),
-		},
-	}
+		if err := s.userRepo.Create(ctx, tx, user); err != nil { // pass tx if userRepo supports it
+			return err
+		}
 
-	err = s.eventPublisher.Publish(
-		ctx,
-		"user.created.v1",
-		[]byte(user.ID().String()),
-		event,
-	)
+		event := events.Event[events.UserCreatedEvent]{
+			EventID:    uuid.New(),
+			EventType:  "user.created",
+			Version:    1,
+			OccurredAt: time.Now(),
+			Payload: events.UserCreatedEvent{
+				ID:        user.ID(),
+				Username:  user.Username(),
+				Email:     *user.Email(),
+				CreatedAt: user.CreatedAt(),
+			},
+		}
 
-	if err != nil {
-		log.Println("failed to publish event:", err)
-	}
+		payload, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("marshal event: %w", err)
+		}
 
-	return nil
+		outboxEvent := port.OutboxEvent{
+			ID:        uuid.New(),
+			Type:      "user.created",
+			Topic:     "user.created.v1",
+			Key:       user.ID().String(),
+			Payload:   payload,
+			CreatedAt: time.Now(),
+		}
+
+		if err := s.outboxRepo.Create(ctx, tx, outboxEvent); err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (s *authService) Login(ctx context.Context, in model.LoginInput) (*model.TokenPair, error) {

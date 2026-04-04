@@ -39,7 +39,7 @@ func createTestUser(
 	t.Helper()
 
 	user := generateTestUserData(t, email, username, firstname, lastname)
-	require.NoError(t, repo.Create(ctx, user))
+	require.NoError(t, repo.Create(ctx, nil, user))
 	return user
 }
 
@@ -50,11 +50,11 @@ func TestUserRepository_Create(t *testing.T) {
 
 	user := generateTestUserData(t, "test@example.com", "test 1", "test", "1")
 
-	err := repo.Create(ctx, user)
+	err := repo.Create(ctx, nil, user)
 	assert.NoError(t, err)
 
 	t.Run("already exists", func(t *testing.T) {
-		err := repo.Create(ctx, user)
+		err := repo.Create(ctx, nil, user)
 		assert.Error(t, err)
 	})
 }

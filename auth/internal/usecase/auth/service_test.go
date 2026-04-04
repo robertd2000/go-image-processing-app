@@ -10,9 +10,10 @@ import (
 	"github.com/google/uuid"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
-	eventpub "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/events"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
+	outboxmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/outbox"
 	tokenmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/token"
+	txmanagermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/txmanager"
 	usermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
@@ -39,10 +40,11 @@ type (
 
 		userRepo       userDomain.UserRepository
 		tokenRepo      tokensDomain.TokenRepository
+		outboxRepo     port.OutboxRepository
 		tokenGen       port.TokenGenerator
 		passwordHasher port.PasswordHasher
 		tokenHasher    port.TokenHasher
-		eventPublisher port.EventPublisher
+		txManager      port.TxManager
 	}
 )
 
@@ -54,17 +56,19 @@ func (s *AuthTestSuite) SetupTest() {
 	s.tokenRepo = tokenmem.NewTokenRepository()
 	s.passwordHasher = &security.FakeHasher{}
 	s.tokenHasher = &security.FakeTokenHasher{}
-	s.eventPublisher = &eventpub.FakeEventPublisher{}
+	s.outboxRepo = outboxmem.NewRepository()
+	s.txManager = &txmanagermem.FakeTxManager{}
 
 	s.service = auth.NewAuthService(
 		s.userRepo,
 		s.tokenRepo,
+		s.outboxRepo,
 		s.passwordHasher,
 		s.tokenHasher,
 		s.tokenGen,
-		s.eventPublisher,
 		10*time.Minute,
 		60*time.Minute,
+		s.txManager,
 	)
 }
 
@@ -190,7 +194,7 @@ func (s *AuthTestSuite) TestAuthService_LoginSuccess() {
 	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
 	s.Require().NoError(err)
 
-	err = s.userRepo.Create(s.ctx, user)
+	err = s.userRepo.Create(s.ctx, &txmanagermem.FakeTx{}, user)
 	s.Require().NoError(err)
 	loginInput := model.LoginInput{
 		Email:    email,
@@ -257,7 +261,7 @@ func (s *AuthTestSuite) TestAuthService_LoginWrongPassword() {
 	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
 	s.Require().NoError(err)
 
-	err = s.userRepo.Create(s.ctx, user)
+	err = s.userRepo.Create(s.ctx, &txmanagermem.FakeTx{}, user)
 	s.Require().NoError(err)
 	loginInput := model.LoginInput{
 		Email:    email,
@@ -280,7 +284,7 @@ func (s *AuthTestSuite) TestAuthService_LoginDisabledUser() {
 	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
 	s.Require().NoError(err)
 
-	err = s.userRepo.Create(s.ctx, user)
+	err = s.userRepo.Create(s.ctx, &txmanagermem.FakeTx{}, user)
 	s.Require().NoError(err)
 
 	err = s.userRepo.Disable(s.ctx, user.ID())
@@ -541,12 +545,13 @@ func (s *AuthTestSuite) TestAuthService_Refresh_ExpiredToken() {
 	s.service = auth.NewAuthService(
 		s.userRepo,
 		s.tokenRepo,
+		s.outboxRepo,
 		s.passwordHasher,
 		s.tokenHasher,
 		s.tokenGen,
-		s.eventPublisher,
 		1*time.Second,
 		1*time.Second,
+		s.txManager,
 	)
 
 	registerInput := model.RegisterInput{

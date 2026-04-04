@@ -82,6 +82,10 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
 
+	if len(cfg.Kafka.Brokers) == 0 {
+		return nil, fmt.Errorf("kafka brokers is empty")
+	}
+
 	cfg.Server.Port = normalizePort(cfg.Server.Port)
 
 	if err := cfg.Validate(); err != nil {

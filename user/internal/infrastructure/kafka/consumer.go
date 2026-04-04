@@ -57,7 +57,6 @@ func (c *Consumer) Start(ctx context.Context, handler func(context.Context, []by
 			continue
 		}
 
-		// TODO DLQ
 		if err := c.reader.CommitMessages(ctx, msg); err != nil {
 			log.Println("commit error:", err)
 		}
