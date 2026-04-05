@@ -144,7 +144,7 @@ func (r *userRepository) FindByID(ctx context.Context, userID uuid.UUID) (*userD
 		FROM users u
 	LEFT JOIN user_profiles p ON u.id = p.user_id
 	LEFT JOIN user_settings s ON u.id = s.user_id
-	WHERE u.id = $1 AND u.status == 'active'
+	WHERE u.id = $1 AND u.status = 'active'
 	`
 
 	row := r.db.QueryRow(ctx, query, userID)
@@ -191,7 +191,7 @@ func (r *userRepository) FindByEmail(ctx context.Context, email userDomain.Email
 		FROM users u
 	LEFT JOIN user_profiles p ON u.id = p.user_id
 	LEFT JOIN user_settings s ON u.id = s.user_id
-	WHERE u.email = $1 AND u.status == 'active'
+	WHERE u.email = $1 AND u.status = 'active'
 	`
 	row := r.db.QueryRow(ctx, query, email)
 	user, err := scanUser(row)
@@ -236,7 +236,7 @@ func (r *userRepository) FindByUsername(ctx context.Context, username userDomain
 		FROM users u
 	LEFT JOIN user_profiles p ON u.id = p.user_id
 	LEFT JOIN user_settings s ON u.id = s.user_id
-	WHERE u.username = $1 AND u.status == 'active'
+	WHERE u.username = $1 AND u.status = 'active'
 	`
 	row := r.db.QueryRow(ctx, query, username.String())
 	user, err := scanUser(row)

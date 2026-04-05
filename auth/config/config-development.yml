@@ -16,5 +16,12 @@ jwt:
   access_ttl_min: 15
   refresh_ttl_min: 10080
 
+kafka:
+  brokers:
+    - kafka:9092
+  group_id: auth-service
+  topics:
+    user_created: user.created.v1
+
 log:
   level: debug

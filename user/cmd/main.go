@@ -9,9 +9,15 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/robertd2000/go-image-processing-app/user/docs"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robertd2000/go-image-processing-app/user/internal/config"
+	deliveryHttp "github.com/robertd2000/go-image-processing-app/user/internal/delivery/http"
+	v1 "github.com/robertd2000/go-image-processing-app/user/internal/delivery/http/v1"
 	kafkahandler "github.com/robertd2000/go-image-processing-app/user/internal/delivery/kafka"
 	ckafka "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/kafka"
 	userpg "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/postgres/user"
@@ -19,13 +25,20 @@ import (
 	"go.uber.org/zap"
 )
 
+// @title User Service API
+// @version 1.0
+// @description API for user service
+// @host localhost:8083
+// @BasePath /api/v1
 func main() {
 	// ---------- logger ----------
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("init logger: %v", err)
 	}
-	defer logger.Sync()
+	defer func() {
+		_ = logger.Sync()
+	}()
 
 	// ---------- config ----------
 	cfg, err := config.Load()
@@ -54,7 +67,10 @@ func main() {
 	}
 
 	r := gin.New()
-	r.Use(gin.Recovery())
+	r.Use(gin.Recovery(), gin.Logger())
+
+	// ---------- swagger ----------
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// ---------- repos ----------
 	userRepo := userpg.NewUserRepository(db)
@@ -70,6 +86,9 @@ func main() {
 	)
 
 	handler := kafkahandler.NewUserCreatedHandler(userService)
+	userHandler := v1.NewUserHandler(userService, logger)
+
+	deliveryHttp.SetupRouter(r, userHandler)
 
 	go func() {
 		logger.Info("Kafka consumer started")
@@ -79,8 +98,11 @@ func main() {
 
 	// ---------- http server ----------
 	srv := &http.Server{
-		Addr:    cfg.Server.Port,
-		Handler: r,
+		Addr:         cfg.Server.Port,
+		Handler:      r,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
 
 	go func() {

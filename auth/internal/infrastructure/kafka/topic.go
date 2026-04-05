@@ -1,9 +1,8 @@
 package ekafka
 
 import (
+	"fmt"
 	"log"
-	"net"
-	"strconv"
 	"strings"
 
 	"github.com/segmentio/kafka-go"
@@ -21,9 +20,20 @@ func EnsureTopic(broker string, topic string) error {
 		return err
 	}
 
+	log.Println("controller:", controller.Host, controller.Port)
+
+	host := controller.Host
+	port := controller.Port
+
+	if host == "" || port == 0 {
+		log.Println("fallback to broker")
+		host = "kafka"
+		port = 9092
+	}
+
 	controllerConn, err := kafka.Dial(
 		"tcp",
-		net.JoinHostPort(controller.Host, strconv.Itoa(controller.Port)),
+		fmt.Sprintf("%s:%d", host, port),
 	)
 	if err != nil {
 		return err
