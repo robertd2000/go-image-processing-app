@@ -29,6 +29,8 @@ COPY --from=builder /app/app .
 
 COPY --from=builder /app/config ./config
 
+COPY --from=builder /app/docs ./docs
+
 # port
 EXPOSE 8080
 

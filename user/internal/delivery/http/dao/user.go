@@ -57,3 +57,34 @@ func (r *UpdateSettingsRequest) ToInput(userID uuid.UUID) model.UpdateSettingsIn
 		Theme:              r.Theme,
 	}
 }
+
+// UserOutput represents full user data
+// @Description User with profile and settings
+type UserOutput struct {
+	ID       uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Username string    `json:"username" example:"john_doe"`
+	Email    string    `json:"email" example:"john@mail.com"`
+
+	Profile  UserProfileOutput  `json:"profile"`
+	Settings UserSettingsOutput `json:"settings"`
+}
+
+// UserProfileOutput represents user profile
+// @Description Additional profile information
+type UserProfileOutput struct {
+	Bio      *string `json:"bio" example:"Software engineer"`
+	Location *string `json:"location" example:"Berlin"`
+	Website  *string `json:"website" example:"https://example.com"`
+}
+
+// UserSettingsOutput represents user settings
+// @Description User preferences and visibility settings
+type UserSettingsOutput struct {
+	IsPublic bool   `json:"is_public" example:"true"`
+	Theme    string `json:"theme" example:"dark"`
+}
+
+type UsersListResponse struct {
+	Items []UserOutput `json:"items"`
+	Total int          `json:"total" example:"100"`
+}

@@ -9,6 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/robertd2000/go-image-processing-app/user/docs"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robertd2000/go-image-processing-app/user/internal/config"
@@ -21,6 +25,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// @title User Service API
+// @version 1.0
+// @description API for user service
+// @host localhost:8083
+// @BasePath /api/v1
 func main() {
 	// ---------- logger ----------
 	logger, err := zap.NewProduction()
@@ -59,6 +68,9 @@ func main() {
 
 	r := gin.New()
 	r.Use(gin.Recovery(), gin.Logger())
+
+	// ---------- swagger ----------
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// ---------- repos ----------
 	userRepo := userpg.NewUserRepository(db)
