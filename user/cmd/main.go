@@ -19,6 +19,7 @@ import (
 	deliveryHttp "github.com/robertd2000/go-image-processing-app/user/internal/delivery/http"
 	v1 "github.com/robertd2000/go-image-processing-app/user/internal/delivery/http/v1"
 	kafkahandler "github.com/robertd2000/go-image-processing-app/user/internal/delivery/kafka"
+	"github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/auth"
 	ckafka "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/kafka"
 	userpg "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/postgres/user"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user"
@@ -90,7 +91,9 @@ func main() {
 	dispatcher.Register("user.created", kafkahandler.NewUserCreatedHandler(userService))
 	userHandler := v1.NewUserHandler(userService, logger)
 
-	deliveryHttp.SetupRouter(r, userHandler)
+	jwtValidator := auth.NewJWTValidator(cfg.JWT.Secret)
+
+	deliveryHttp.SetupRouter(r, userHandler, jwtValidator)
 
 	go func() {
 		logger.Info("Kafka consumer started")

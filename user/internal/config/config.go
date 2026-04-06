@@ -13,6 +13,7 @@ type Config struct {
 	Postgres PostgresConfig
 	Kafka    KafkaConfig
 	Log      LogConfig
+	JWT      JWTConfig
 }
 
 type ServerConfig struct {
@@ -41,6 +42,10 @@ type Topics struct {
 
 type LogConfig struct {
 	Level string `mapstructure:"level"`
+}
+
+type JWTConfig struct {
+	Secret string `mapstructure:"secret"`
 }
 
 func (p PostgresConfig) DSN() string {
@@ -122,6 +127,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Kafka.GroupID == "" {
 		return fmt.Errorf("kafka group_id is required")
+	}
+	if c.JWT.Secret == "" {
+		return fmt.Errorf("jwt secret is required")
 	}
 	return nil
 }

@@ -17,5 +17,8 @@ kafka:
   topics:
     user_created: user.created.v1
 
+jwt:
+  secret: supersecretkey
+
 log:
   level: debug
