@@ -45,6 +45,7 @@ func (h *UserHandler) SetupUserHandler(api *gin.RouterGroup) {
 		user.GET("/:id", h.getUserByID)
 		user.GET("/email/:email", h.getUserByEmail)
 		user.GET("/", h.listUsers)
+		user.GET("/count", h.countUsers)
 	}
 }
 
@@ -267,4 +268,33 @@ func (h *UserHandler) listUsers(c *gin.Context) {
 	}
 
 	c.JSON(200, users)
+}
+
+// @Summary Count users
+// @Description Get total count of users matching filters
+// @Tags users
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search query"
+// @Success 200 {object} map[string]int
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /users/count [get]
+func (h *UserHandler) countUsers(c *gin.Context) {
+	var filter model.UserFilterInput
+
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	count, err := h.userSvc.Count(c.Request.Context(), filter)
+	if err != nil {
+		h.logger.Error("failed to count users", zap.Error(err))
+		c.JSON(500, gin.H{"error": "internal server error"})
+		return
+	}
+
+	c.JSON(200, gin.H{"count": count})
 }
