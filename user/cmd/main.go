@@ -31,6 +31,10 @@ import (
 // @description API for user service
 // @host localhost:8083
 // @BasePath /api/v1
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 func main() {
 	// ---------- logger ----------
 	logger, err := zap.NewProduction()

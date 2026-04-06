@@ -128,6 +128,12 @@ Covers:
 
 ---
 
+```bash
+$ swag init -g cmd/main.go -o docs
+```
+
+---
+
 # 🚀 Next Steps
 
 - Implement repository (Postgres mapping)

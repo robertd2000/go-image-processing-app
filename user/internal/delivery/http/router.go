@@ -12,12 +12,11 @@ func SetupRouter(r *gin.Engine, userHandler *v1.UserHandler, jwtValidator *auth.
 	authMiddleware := middleware.AuthMiddleware(jwtValidator)
 
 	api := r.Group("/api")
-	api.Use(authMiddleware)
 
 	{
 		v1 := api.Group("/v1")
 		{
-			userHandler.SetupUserHandler(v1)
+			userHandler.SetupUserHandler(v1, authMiddleware)
 		}
 	}
 }

@@ -16,13 +16,22 @@ func AuthMiddleware(jwt *auth.JWTValidator) gin.HandlerFunc {
 			return
 		}
 
-		parts := strings.Split(header, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.AbortWithStatusJSON(401, gin.H{"error": "invalid format"})
+		header = strings.TrimSpace(header)
+
+		var token string
+
+		if strings.HasPrefix(strings.ToLower(header), "bearer ") {
+			token = strings.TrimSpace(header[7:])
+		} else {
+			token = header
+		}
+
+		if token == "" {
+			c.AbortWithStatusJSON(401, gin.H{"error": "invalid token"})
 			return
 		}
 
-		userID, err := jwt.ValidateAccess(parts[1])
+		userID, err := jwt.ValidateAccess(token)
 		if err != nil {
 			c.AbortWithStatusJSON(401, gin.H{"error": "invalid token"})
 			return

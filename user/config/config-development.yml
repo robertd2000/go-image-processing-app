@@ -18,7 +18,7 @@ kafka:
     user_created: user.created.v1
 
 jwt:
-  secret: supersecretkey
+  secret: super_secret_jwt_key_change_me
 
 log:
   level: debug

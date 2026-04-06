@@ -146,6 +146,8 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - BearerAuth: []
       summary: Delete user
       tags:
       - users
@@ -212,6 +214,8 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - BearerAuth: []
       summary: Update user
       tags:
       - users
@@ -249,6 +253,8 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - BearerAuth: []
       summary: Update profile
       tags:
       - users
@@ -286,7 +292,49 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - BearerAuth: []
       summary: Update settings
+      tags:
+      - users
+  /users/count:
+    get:
+      description: Get total count of users matching filters
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search query
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Count users
       tags:
       - users
   /users/email/{email}:
@@ -314,4 +362,9 @@ paths:
       summary: Get user by email
       tags:
       - users
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
