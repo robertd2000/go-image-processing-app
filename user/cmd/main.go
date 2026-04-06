@@ -85,14 +85,16 @@ func main() {
 		cfg.Kafka.GroupID,
 	)
 
-	handler := kafkahandler.NewUserCreatedHandler(userService)
+	dispatcher := kafkahandler.NewDispatcher()
+
+	dispatcher.Register("user.created", kafkahandler.NewUserCreatedHandler(userService))
 	userHandler := v1.NewUserHandler(userService, logger)
 
 	deliveryHttp.SetupRouter(r, userHandler)
 
 	go func() {
 		logger.Info("Kafka consumer started")
-		consumer.Start(appCtx, handler.Handle)
+		consumer.Start(appCtx, dispatcher.Dispatch)
 		logger.Info("Kafka consumer stopped")
 	}()
 
