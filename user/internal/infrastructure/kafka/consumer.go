@@ -54,6 +54,8 @@ func (c *Consumer) Start(ctx context.Context, handler func(context.Context, []by
 
 			_ = c.dlq.Publish(ctx, "user.created.dlq", msg.Key, msg.Value)
 
+			_ = c.reader.CommitMessages(ctx, msg)
+
 			continue
 		}
 

@@ -34,17 +34,21 @@ func NewUserHandler(userSvc UserService, logger *zap.Logger) *UserHandler {
 	}
 }
 
-func (h *UserHandler) SetupUserHandler(api *gin.RouterGroup) {
+func (h *UserHandler) SetupUserHandler(api *gin.RouterGroup, authMiddleware gin.HandlerFunc) {
 	user := api.Group("/users")
+	user.GET("/:id", h.getUserByID)
+	user.GET("/email/:email", h.getUserByEmail)
+	user.GET("/", h.listUsers)
+	user.GET("/count", h.countUsers)
+
+	user.Use(authMiddleware)
 	{
 		// user.POST("/", h.createUser)
 		user.PUT("/:id", h.updateUser)
 		user.PUT("/:id/profile", h.updateProfile)
 		user.PUT("/:id/settings", h.updateSettings)
 		user.DELETE("/:id", h.deleteUser)
-		user.GET("/:id", h.getUserByID)
-		user.GET("/email/:email", h.getUserByEmail)
-		user.GET("/", h.listUsers)
+
 	}
 }
 
@@ -74,10 +78,18 @@ func (h *UserHandler) SetupUserHandler(api *gin.RouterGroup) {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /users/{id} [put]
+// @Security Bearer
 func (h *UserHandler) updateUser(c *gin.Context) {
-	userID, err := uuid.Parse(c.Param("id"))
+	userIDFromToken := c.MustGet("user_id").(uuid.UUID)
+
+	targetUserID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid user id"})
+		c.JSON(400, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if userIDFromToken != targetUserID {
+		c.JSON(403, gin.H{"error": "forbidden"})
 		return
 	}
 
@@ -87,7 +99,7 @@ func (h *UserHandler) updateUser(c *gin.Context) {
 		return
 	}
 
-	input := req.ToInput(userID)
+	input := req.ToInput(targetUserID)
 
 	if err := h.userSvc.Update(c.Request.Context(), input); err != nil {
 		h.logger.Error("failed to update user", zap.Error(err))
@@ -109,10 +121,18 @@ func (h *UserHandler) updateUser(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /users/{id}/profile [put]
+// @Security Bearer
 func (h *UserHandler) updateProfile(c *gin.Context) {
-	userID, err := uuid.Parse(c.Param("id"))
+	userIDFromToken := c.MustGet("user_id").(uuid.UUID)
+
+	targetUserID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid user id"})
+		c.JSON(400, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if userIDFromToken != targetUserID {
+		c.JSON(403, gin.H{"error": "forbidden"})
 		return
 	}
 
@@ -122,7 +142,7 @@ func (h *UserHandler) updateProfile(c *gin.Context) {
 		return
 	}
 
-	input := req.ToInput(userID)
+	input := req.ToInput(targetUserID)
 
 	if err := h.userSvc.UpdateProfile(c.Request.Context(), input); err != nil {
 		h.logger.Error("failed to update profile", zap.Error(err))
@@ -144,10 +164,18 @@ func (h *UserHandler) updateProfile(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /users/{id}/settings [put]
+// @Security Bearer
 func (h *UserHandler) updateSettings(c *gin.Context) {
-	userID, err := uuid.Parse(c.Param("id"))
+	userIDFromToken := c.MustGet("user_id").(uuid.UUID)
+
+	targetUserID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid user id"})
+		c.JSON(400, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if userIDFromToken != targetUserID {
+		c.JSON(403, gin.H{"error": "forbidden"})
 		return
 	}
 
@@ -157,7 +185,7 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 		return
 	}
 
-	input := req.ToInput(userID)
+	input := req.ToInput(targetUserID)
 
 	if err := h.userSvc.UpdateSettings(c.Request.Context(), input); err != nil {
 		h.logger.Error("failed to update settings", zap.Error(err))
@@ -177,14 +205,22 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /users/{id} [delete]
+// @Security Bearer
 func (h *UserHandler) deleteUser(c *gin.Context) {
-	userID, err := uuid.Parse(c.Param("id"))
+	userIDFromToken := c.MustGet("user_id").(uuid.UUID)
+
+	targetUserID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid user id"})
+		c.JSON(400, gin.H{"error": "invalid id"})
 		return
 	}
 
-	if err := h.userSvc.Delete(c.Request.Context(), userID); err != nil {
+	if userIDFromToken != targetUserID {
+		c.JSON(403, gin.H{"error": "forbidden"})
+		return
+	}
+
+	if err := h.userSvc.Delete(c.Request.Context(), targetUserID); err != nil {
 		h.logger.Error("failed to delete user", zap.Error(err))
 		c.JSON(500, gin.H{"error": "internal server error"})
 		return
@@ -267,4 +303,33 @@ func (h *UserHandler) listUsers(c *gin.Context) {
 	}
 
 	c.JSON(200, users)
+}
+
+// @Summary Count users
+// @Description Get total count of users matching filters
+// @Tags users
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search query"
+// @Success 200 {object} map[string]int
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /users/count [get]
+func (h *UserHandler) countUsers(c *gin.Context) {
+	var filter model.UserFilterInput
+
+	if err := c.ShouldBindQuery(&filter); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	count, err := h.userSvc.Count(c.Request.Context(), filter)
+	if err != nil {
+		h.logger.Error("failed to count users", zap.Error(err))
+		c.JSON(500, gin.H{"error": "internal server error"})
+		return
+	}
+
+	c.JSON(200, gin.H{"count": count})
 }

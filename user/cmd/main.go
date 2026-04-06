@@ -19,6 +19,7 @@ import (
 	deliveryHttp "github.com/robertd2000/go-image-processing-app/user/internal/delivery/http"
 	v1 "github.com/robertd2000/go-image-processing-app/user/internal/delivery/http/v1"
 	kafkahandler "github.com/robertd2000/go-image-processing-app/user/internal/delivery/kafka"
+	"github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/auth"
 	ckafka "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/kafka"
 	userpg "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/postgres/user"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user"
@@ -30,6 +31,10 @@ import (
 // @description API for user service
 // @host localhost:8083
 // @BasePath /api/v1
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 func main() {
 	// ---------- logger ----------
 	logger, err := zap.NewProduction()
@@ -85,14 +90,18 @@ func main() {
 		cfg.Kafka.GroupID,
 	)
 
-	handler := kafkahandler.NewUserCreatedHandler(userService)
+	dispatcher := kafkahandler.NewDispatcher()
+
+	dispatcher.Register("user.created", kafkahandler.NewUserCreatedHandler(userService))
 	userHandler := v1.NewUserHandler(userService, logger)
 
-	deliveryHttp.SetupRouter(r, userHandler)
+	jwtValidator := auth.NewJWTValidator(cfg.JWT.Secret)
+
+	deliveryHttp.SetupRouter(r, userHandler, jwtValidator)
 
 	go func() {
 		logger.Info("Kafka consumer started")
-		consumer.Start(appCtx, handler.Handle)
+		consumer.Start(appCtx, dispatcher.Dispatch)
 		logger.Info("Kafka consumer stopped")
 	}()
 
