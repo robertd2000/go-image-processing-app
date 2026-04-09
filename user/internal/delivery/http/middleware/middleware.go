@@ -1,10 +1,19 @@
 package middleware
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	roleDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/role"
 	"github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/auth"
+)
+
+type contextKey string
+
+const (
+	ContextUserID contextKey = "user_id"
+	ContextRoles  contextKey = "roles"
 )
 
 func AuthMiddleware(jwt *auth.JWTValidator) gin.HandlerFunc {
@@ -34,8 +43,8 @@ func AuthMiddleware(jwt *auth.JWTValidator) gin.HandlerFunc {
 			return
 		}
 
-		c.Set("user_id", claims.UserID)
-		c.Set("roles", claims.Roles)
+		c.Set(string(ContextUserID), claims.UserID)
+		c.Set(string(ContextRoles), claims.Roles)
 
 		c.Next()
 	}
@@ -43,7 +52,7 @@ func AuthMiddleware(jwt *auth.JWTValidator) gin.HandlerFunc {
 
 func RequireRole(required string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		rolesRaw, exists := c.Get("roles")
+		rolesRaw, exists := c.Get(string(ContextRoles))
 		if !exists {
 			c.AbortWithStatusJSON(403, gin.H{"error": "no roles"})
 			return
@@ -57,6 +66,49 @@ func RequireRole(required string) gin.HandlerFunc {
 
 		for _, r := range roles {
 			if r == required {
+				c.Next()
+				return
+			}
+		}
+
+		c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
+	}
+}
+
+func extractRoles(c *gin.Context) ([]roleDomain.Role, error) {
+	raw, exists := c.Get(string(ContextRoles))
+	if !exists {
+		return nil, errors.New("roles not found in context")
+	}
+
+	names, ok := raw.([]string)
+	if !ok {
+		return nil, errors.New("invalid roles type")
+	}
+
+	roles := make([]roleDomain.Role, 0, len(names))
+
+	for _, name := range names {
+		r, err := roleDomain.FromName(name)
+		if err != nil {
+			return nil, err
+		}
+		roles = append(roles, r)
+	}
+
+	return roles, nil
+}
+
+func RequirePermission(p roleDomain.Permission) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		roles, err := extractRoles(c)
+		if err != nil {
+			c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
+			return
+		}
+
+		for _, r := range roles {
+			if r.HasPermission(p) {
 				c.Next()
 				return
 			}

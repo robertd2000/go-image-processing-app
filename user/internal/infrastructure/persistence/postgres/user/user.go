@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	roleDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/role"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
 )
 
@@ -695,6 +696,10 @@ func scanUser(row pgx.Row) (*userDomain.User, error) {
 	)
 
 	// ===== aggregate
+	roleD, err := roleDomain.FromName(role)
+	if err != nil {
+		return nil, fmt.Errorf("invalid role in db: %w", err)
+	}
 	user := userDomain.RestoreUser(
 		id,
 		uName,
@@ -703,7 +708,7 @@ func scanUser(row pgx.Row) (*userDomain.User, error) {
 		lastName,
 		avatarURL,
 		userDomain.UserStatus(status),
-		userDomain.UserRole(role),
+		roleD,
 		profile,
 		settings,
 		lastSeenAt,
