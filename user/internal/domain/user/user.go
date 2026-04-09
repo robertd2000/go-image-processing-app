@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/robertd2000/go-image-processing-app/user/internal/domain/role"
 )
 
 type User struct {
@@ -19,7 +20,6 @@ type User struct {
 	avatarURL *string
 
 	status UserStatus
-	role   UserRole
 
 	profile  *UserProfile
 	settings *UserSettings
@@ -43,7 +43,6 @@ func NewUser(
 		username:  username,
 		email:     email,
 		status:    StatusActive,
-		role:      RoleUser,
 		profile:   NewProfile(),
 		settings:  NewSettings(),
 		createdAt: now,
@@ -125,10 +124,6 @@ func (u *User) ChangeEmail(email Email) error {
 	return nil
 }
 
-func (u *User) Role() UserRole {
-	return u.role
-}
-
 func (u *User) Status() UserStatus {
 	return u.status
 }
@@ -193,7 +188,7 @@ func NewUserFromDB(
 	username string,
 	email string,
 	status string,
-	role string,
+	role role.Role,
 	createdAt time.Time,
 	updatedAt time.Time,
 ) *User {
@@ -202,7 +197,6 @@ func NewUserFromDB(
 		username:  Username(username),
 		email:     Email(email),
 		status:    UserStatus(status),
-		role:      UserRole(role),
 		createdAt: createdAt,
 		updatedAt: updatedAt,
 	}
@@ -216,7 +210,6 @@ func RestoreUser(
 	lastName string,
 	avatarURL *string,
 	status UserStatus,
-	role UserRole,
 	profile *UserProfile,
 	settings *UserSettings,
 	lastSeenAt *time.Time,
@@ -232,7 +225,6 @@ func RestoreUser(
 		lastName:   lastName,
 		avatarURL:  avatarURL,
 		status:     status,
-		role:       role,
 		profile:    profile,
 		settings:   settings,
 		lastSeenAt: lastSeenAt,

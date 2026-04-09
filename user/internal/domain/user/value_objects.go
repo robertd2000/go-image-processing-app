@@ -49,10 +49,3 @@ const (
 	StatusInactive UserStatus = "inactive"
 	StatusBanned   UserStatus = "banned"
 )
-
-type UserRole string
-
-const (
-	RoleUser  UserRole = "user"
-	RoleAdmin UserRole = "admin"
-)

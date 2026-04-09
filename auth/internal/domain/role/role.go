@@ -9,6 +9,12 @@ import (
 
 type Name string
 
+func (n Name) String() string { return string(n) }
+
+func (n Name) IsValid() bool {
+	return n == Admin || n == User
+}
+
 const (
 	Admin Name = "ADMIN"
 	User  Name = "USER"
@@ -27,6 +33,22 @@ type Role struct {
 	id          uuid.UUID
 	name        Name
 	permissions []Permission
+}
+
+func adminPermissions() []Permission {
+	return []Permission{
+		PermUserRead,
+		PermUserWrite,
+		PermImageRead,
+		PermImageWrite,
+	}
+}
+
+func userPermissions() []Permission {
+	return []Permission{
+		PermImageRead,
+		PermImageWrite,
+	}
 }
 
 func New(id uuid.UUID, name Name, permissions []Permission) (*Role, error) {
@@ -71,4 +93,21 @@ func uniquePermissions(perms []Permission) []Permission {
 	}
 
 	return result
+}
+
+func FromName(name string) (Role, error) {
+	switch Name(name) {
+	case Admin:
+		return Role{
+			name:        Admin,
+			permissions: adminPermissions(),
+		}, nil
+	case User:
+		return Role{
+			name:        User,
+			permissions: userPermissions(),
+		}, nil
+	default:
+		return Role{}, ErrInvalidRoleName
+	}
 }

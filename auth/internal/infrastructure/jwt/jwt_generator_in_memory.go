@@ -5,6 +5,8 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/auth"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 )
 
 type InMemoryTokenGenerator struct {
@@ -26,7 +28,7 @@ func NewInMemoryTokenGenerator() *InMemoryTokenGenerator {
 	}
 }
 
-func (g *InMemoryTokenGenerator) Generate(userID uuid.UUID, email string) (string, error) {
+func (g *InMemoryTokenGenerator) Generate(claims model.ClaimsInput) (string, error) {
 	if g.GenerateErr != nil {
 		return "", g.GenerateErr
 	}
@@ -34,15 +36,15 @@ func (g *InMemoryTokenGenerator) Generate(userID uuid.UUID, email string) (strin
 	token := "generic_" + uuid.NewString()
 
 	g.mu.Lock()
-	g.genericTokens[token] = userID
+	g.genericTokens[token] = claims.UserID
 	g.mu.Unlock()
 
 	return token, nil
 }
 
-func (g *InMemoryTokenGenerator) Validate(token string) (uuid.UUID, error) {
+func (g *InMemoryTokenGenerator) Validate(token string) (*auth.Claims, error) {
 	if g.ValidateErr != nil {
-		return uuid.Nil, g.ValidateErr
+		return nil, g.ValidateErr
 	}
 
 	g.mu.RLock()
@@ -50,13 +52,13 @@ func (g *InMemoryTokenGenerator) Validate(token string) (uuid.UUID, error) {
 	g.mu.RUnlock()
 
 	if !ok {
-		return uuid.Nil, errors.New("invalid token")
+		return nil, errors.New("invalid token")
 	}
 
-	return id, nil
+	return &auth.Claims{UserID: id}, nil
 }
 
-func (g *InMemoryTokenGenerator) GenerateAccess(userID uuid.UUID) (string, error) {
+func (g *InMemoryTokenGenerator) GenerateAccess(input model.ClaimsInput) (string, error) {
 	if g.GenerateErr != nil {
 		return "", g.GenerateErr
 	}
@@ -64,7 +66,7 @@ func (g *InMemoryTokenGenerator) GenerateAccess(userID uuid.UUID) (string, error
 	token := "access_" + uuid.NewString()
 
 	g.mu.Lock()
-	g.accessTokens[token] = userID
+	g.accessTokens[token] = input.UserID
 	g.mu.Unlock()
 
 	return token, nil
@@ -84,9 +86,9 @@ func (g *InMemoryTokenGenerator) GenerateRefresh(userID uuid.UUID) (string, erro
 	return token, nil
 }
 
-func (g *InMemoryTokenGenerator) ValidateAccess(token string) (uuid.UUID, error) {
+func (g *InMemoryTokenGenerator) ValidateAccess(token string) (*auth.Claims, error) {
 	if g.ValidateErr != nil {
-		return uuid.Nil, g.ValidateErr
+		return nil, g.ValidateErr
 	}
 
 	g.mu.RLock()
@@ -94,10 +96,10 @@ func (g *InMemoryTokenGenerator) ValidateAccess(token string) (uuid.UUID, error)
 	g.mu.RUnlock()
 
 	if !ok {
-		return uuid.Nil, errors.New("invalid access token")
+		return nil, errors.New("invalid access token")
 	}
 
-	return id, nil
+	return &auth.Claims{UserID: id}, nil
 }
 
 func (g *InMemoryTokenGenerator) ValidateRefresh(token string) (uuid.UUID, error) {

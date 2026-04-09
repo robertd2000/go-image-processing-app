@@ -176,7 +176,20 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*model.
 		return nil, tokensDomain.ErrExpiredToken
 	}
 
-	access, err := s.tokenGen.GenerateAccess(token.UserID())
+	user, err := s.userRepo.GetByID(ctx, token.UserID())
+	if err != nil {
+		return nil, err
+	}
+
+	var roles []string
+	for _, r := range user.Roles() {
+		roles = append(roles, r.Name().String())
+	}
+
+	access, err := s.tokenGen.GenerateAccess(model.ClaimsInput{
+		UserID: user.ID(),
+		Roles:  roles,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +246,17 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 }
 
 func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (*model.TokenPair, error) {
-	access, err := s.tokenGen.GenerateAccess(userID)
+	user, err := s.userRepo.GetByID(ctx, userID)
+
+	var roles []string
+	for _, r := range user.Roles() {
+		roles = append(roles, r.Name().String())
+	}
+
+	access, err := s.tokenGen.GenerateAccess(model.ClaimsInput{
+		UserID: user.ID(),
+		Roles:  roles,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}

@@ -8,7 +8,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/role"
+	roleDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/role"
 )
 
 type AuthUser struct {
@@ -17,7 +17,7 @@ type AuthUser struct {
 	email        *string
 	passwordHash string
 	enabled      bool
-	roles        []role.Role
+	roles        []roleDomain.Role
 
 	createdAt time.Time
 }
@@ -46,7 +46,7 @@ func NewAuthUser(
 		email:        email,
 		passwordHash: passwordHash,
 		enabled:      true,
-		roles:        []role.Role{},
+		roles:        []roleDomain.Role{},
 		createdAt:    now,
 	}, nil
 }
@@ -57,14 +57,14 @@ func (u *AuthUser) Username() string     { return u.username }
 func (u *AuthUser) Email() *string       { return u.email }
 func (u *AuthUser) PasswordHash() string { return u.passwordHash }
 func (u *AuthUser) Enabled() bool        { return u.enabled }
-func (u *AuthUser) Roles() []role.Role {
-	rolesCopy := make([]role.Role, len(u.roles))
+func (u *AuthUser) Roles() []roleDomain.Role {
+	rolesCopy := make([]roleDomain.Role, len(u.roles))
 	copy(rolesCopy, u.roles)
 	return rolesCopy
 }
 func (u *AuthUser) CreatedAt() time.Time { return u.createdAt }
 
-func (u *AuthUser) AddRole(r role.Role) error {
+func (u *AuthUser) AddRole(r roleDomain.Role) error {
 	for _, existing := range u.roles {
 		if existing.ID() == r.ID() {
 			return ErrRoleAlreadyAssigned
@@ -84,7 +84,7 @@ func (u *AuthUser) RemoveRole(roleID uuid.UUID) error {
 	return ErrRoleNotAssigned
 }
 
-func (u *AuthUser) HasPermission(p role.Permission) bool {
+func (u *AuthUser) HasPermission(p roleDomain.Permission) bool {
 	for _, r := range u.roles {
 		if r.HasPermission(p) {
 			return true
@@ -166,6 +166,8 @@ func NewUserFromDB(
 	passwordHash string,
 	enabled bool,
 	createdAt time.Time,
+	roles []roleDomain.Role,
+
 ) *AuthUser {
 	return &AuthUser{
 		id:           id,
@@ -174,5 +176,6 @@ func NewUserFromDB(
 		passwordHash: passwordHash,
 		enabled:      enabled,
 		createdAt:    createdAt,
+		roles:        roles,
 	}
 }

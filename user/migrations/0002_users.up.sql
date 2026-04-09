@@ -9,7 +9,6 @@ CREATE TABLE users (
     avatar_url TEXT,
 
     status TEXT NOT NULL DEFAULT 'active',
-    role TEXT NOT NULL DEFAULT 'user',
 
     last_seen_at TIMESTAMP,
 

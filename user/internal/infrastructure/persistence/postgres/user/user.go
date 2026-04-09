@@ -40,10 +40,10 @@ func (r *userRepository) Create(ctx context.Context, user *userDomain.User) erro
 			id, username, email,
 			first_name, last_name,
 			avatar_url,
-			status, role,
+			status, 
 			last_seen_at,
 			created_at, updated_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 	`,
 		user.ID(),
 		user.Username().String(),
@@ -52,7 +52,6 @@ func (r *userRepository) Create(ctx context.Context, user *userDomain.User) erro
 		user.LastName(),
 		user.AvatarURL(),
 		user.Status(),
-		user.Role(),
 		user.LastSeenAt(),
 		user.CreatedAt(),
 		user.UpdatedAt(),
@@ -123,7 +122,6 @@ func (r *userRepository) FindByID(ctx context.Context, userID uuid.UUID) (*userD
 		u.last_name,
 		u.avatar_url,
 		u.status,
-		u.role,
 		u.last_seen_at,
 		u.created_at,
 		u.updated_at,
@@ -170,7 +168,6 @@ func (r *userRepository) FindByEmail(ctx context.Context, email userDomain.Email
 		u.last_name,
 		u.avatar_url,
 		u.status,
-		u.role,
 		u.last_seen_at,
 		u.created_at,
 		u.updated_at,
@@ -215,7 +212,6 @@ func (r *userRepository) FindByUsername(ctx context.Context, username userDomain
 		u.last_name,
 		u.avatar_url,
 		u.status,
-		u.role,
 		u.last_seen_at,
 		u.created_at,
 		u.updated_at,
@@ -268,11 +264,10 @@ func (r *userRepository) Update(ctx context.Context, user *userDomain.User) erro
 			last_name = $4,
 			avatar_url = $5,
 			status = $6,
-			role = $7,
-			last_seen_at = $8,
-			updated_at = $9,
-			deleted_at = $10
-		WHERE id = $11
+			last_seen_at = $7,
+			updated_at = $8,
+			deleted_at = $9
+		WHERE id = $10
 	`,
 		user.Username().String(),
 		user.Email().String(),
@@ -280,7 +275,6 @@ func (r *userRepository) Update(ctx context.Context, user *userDomain.User) erro
 		user.LastName(),
 		user.AvatarURL(),
 		user.Status(),
-		user.Role(),
 		user.LastSeenAt(),
 		user.UpdatedAt(),
 		user.DeletedAt(),
@@ -450,7 +444,6 @@ func (r *userRepository) List(ctx context.Context, f userDomain.UserFilter) ([]*
 			u.last_name,
 			u.avatar_url,
 			u.status,
-			u.role,
 			u.last_seen_at,
 			u.created_at,
 			u.updated_at,
@@ -611,7 +604,6 @@ func scanUser(row pgx.Row) (*userDomain.User, error) {
 		lastName   string
 		avatarURL  *string
 		status     string
-		role       string
 		lastSeenAt *time.Time
 		createdAt  time.Time
 		updatedAt  time.Time
@@ -641,7 +633,6 @@ func scanUser(row pgx.Row) (*userDomain.User, error) {
 		&lastName,
 		&avatarURL,
 		&status,
-		&role,
 		&lastSeenAt,
 		&createdAt,
 		&updatedAt,
@@ -695,6 +686,7 @@ func scanUser(row pgx.Row) (*userDomain.User, error) {
 	)
 
 	// ===== aggregate
+
 	user := userDomain.RestoreUser(
 		id,
 		uName,
@@ -703,7 +695,6 @@ func scanUser(row pgx.Row) (*userDomain.User, error) {
 		lastName,
 		avatarURL,
 		userDomain.UserStatus(status),
-		userDomain.UserRole(role),
 		profile,
 		settings,
 		lastSeenAt,
