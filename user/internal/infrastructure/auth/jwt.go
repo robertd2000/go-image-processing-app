@@ -9,6 +9,7 @@ import (
 
 type Claims struct {
 	UserID uuid.UUID `json:"user_id"`
+	Roles  []string  `json:"roles"`
 	jwt.RegisteredClaims
 }
 
@@ -20,7 +21,7 @@ func NewJWTValidator(secret string) *JWTValidator {
 	return &JWTValidator{secret: []byte(secret)}
 }
 
-func (j *JWTValidator) ValidateAccess(tokenStr string) (uuid.UUID, error) {
+func (j *JWTValidator) ValidateAccess(tokenStr string) (*Claims, error) {
 	var claims Claims
 
 	token, err := jwt.ParseWithClaims(tokenStr, &claims, func(t *jwt.Token) (any, error) {
@@ -31,20 +32,20 @@ func (j *JWTValidator) ValidateAccess(tokenStr string) (uuid.UUID, error) {
 	})
 
 	if err != nil {
-		return uuid.Nil, errors.New("invalid token")
+		return nil, errors.New("invalid token")
 	}
 
 	if !token.Valid {
-		return uuid.Nil, errors.New("invalid token")
+		return nil, errors.New("invalid token")
 	}
 
 	if claims.ID != "access" {
-		return uuid.Nil, errors.New("invalid token type")
+		return nil, errors.New("invalid token type")
 	}
 
 	if claims.UserID == uuid.Nil {
-		return uuid.Nil, errors.New("invalid token")
+		return nil, errors.New("invalid token")
 	}
 
-	return claims.UserID, nil
+	return &claims, nil
 }
