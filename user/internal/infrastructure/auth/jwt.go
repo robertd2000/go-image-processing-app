@@ -39,10 +39,6 @@ func (j *JWTValidator) ValidateAccess(tokenStr string) (*Claims, error) {
 		return nil, errors.New("invalid token")
 	}
 
-	if claims.ID != "access" {
-		return nil, errors.New("invalid token type")
-	}
-
 	if claims.UserID == uuid.Nil {
 		return nil, errors.New("invalid token")
 	}

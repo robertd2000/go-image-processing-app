@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/robertd2000/go-image-processing-app/user/internal/delivery/http/dao"
+	"github.com/robertd2000/go-image-processing-app/user/internal/delivery/http/middleware"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user/model"
 	"go.uber.org/zap"
 )
@@ -41,31 +42,16 @@ func (h *UserHandler) SetupUserHandler(api *gin.RouterGroup, authMiddleware gin.
 	user.GET("/", h.listUsers)
 	user.GET("/count", h.countUsers)
 
-	user.Use(authMiddleware)
+	protected := user.Group("/")
+	protected.Use(authMiddleware)
 	{
-		// user.POST("/", h.createUser)
-		user.PUT("/:id", h.updateUser)
-		user.PUT("/:id/profile", h.updateProfile)
-		user.PUT("/:id/settings", h.updateSettings)
-		user.DELETE("/:id", h.deleteUser)
+		protected.PUT("/:id", middleware.OwnerOrAdmin(), h.updateUser)
+		protected.PUT("/:id/profile", middleware.OwnerOrAdmin(), h.updateProfile)
+		protected.PUT("/:id/settings", middleware.OwnerOrAdmin(), h.updateSettings)
+		protected.DELETE("/:id", middleware.OwnerOrAdmin(), h.deleteUser)
 
 	}
 }
-
-// func (h *UserHandler) createUser(c *gin.Context) {
-// 	var input model.CreateUserInput
-// 	if err := c.ShouldBindJSON(&input); err != nil {
-// 		c.JSON(400, gin.H{"error": err.Error()})
-// 		return
-// 	}
-// 	err := h.userSvc.CreateFromEvent(c.Request.Context(), input)
-// 	if err != nil {
-// 		h.logger.Error("failed to create user", zap.Error(err))
-// 		c.JSON(500, gin.H{"error": "internal server error"})
-// 		return
-// 	}
-// 	c.JSON(201, gin.H{"message": "user created"})
-// }
 
 // @Summary Update user
 // @Description Update basic user fields
@@ -80,16 +66,9 @@ func (h *UserHandler) SetupUserHandler(api *gin.RouterGroup, authMiddleware gin.
 // @Router /users/{id} [put]
 // @Security Bearer
 func (h *UserHandler) updateUser(c *gin.Context) {
-	userIDFromToken := c.MustGet("user_id").(uuid.UUID)
-
 	targetUserID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
-		return
-	}
-
-	if userIDFromToken != targetUserID {
-		c.JSON(403, gin.H{"error": "forbidden"})
 		return
 	}
 
@@ -123,16 +102,9 @@ func (h *UserHandler) updateUser(c *gin.Context) {
 // @Router /users/{id}/profile [put]
 // @Security Bearer
 func (h *UserHandler) updateProfile(c *gin.Context) {
-	userIDFromToken := c.MustGet("user_id").(uuid.UUID)
-
 	targetUserID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
-		return
-	}
-
-	if userIDFromToken != targetUserID {
-		c.JSON(403, gin.H{"error": "forbidden"})
 		return
 	}
 
@@ -166,16 +138,10 @@ func (h *UserHandler) updateProfile(c *gin.Context) {
 // @Router /users/{id}/settings [put]
 // @Security Bearer
 func (h *UserHandler) updateSettings(c *gin.Context) {
-	userIDFromToken := c.MustGet("user_id").(uuid.UUID)
 
 	targetUserID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
-		return
-	}
-
-	if userIDFromToken != targetUserID {
-		c.JSON(403, gin.H{"error": "forbidden"})
 		return
 	}
 
@@ -207,16 +173,9 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 // @Router /users/{id} [delete]
 // @Security Bearer
 func (h *UserHandler) deleteUser(c *gin.Context) {
-	userIDFromToken := c.MustGet("user_id").(uuid.UUID)
-
 	targetUserID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
-		return
-	}
-
-	if userIDFromToken != targetUserID {
-		c.JSON(403, gin.H{"error": "forbidden"})
 		return
 	}
 

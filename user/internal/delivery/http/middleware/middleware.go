@@ -2,9 +2,12 @@ package middleware
 
 import (
 	"errors"
+	"slices"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+
 	roleDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/role"
 	"github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/auth"
 )
@@ -64,11 +67,9 @@ func RequireRole(required string) gin.HandlerFunc {
 			return
 		}
 
-		for _, r := range roles {
-			if r == required {
-				c.Next()
-				return
-			}
+		if slices.Contains(roles, required) {
+			c.Next()
+			return
 		}
 
 		c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
@@ -109,6 +110,35 @@ func RequirePermission(p roleDomain.Permission) gin.HandlerFunc {
 
 		for _, r := range roles {
 			if r.HasPermission(p) {
+				c.Next()
+				return
+			}
+		}
+
+		c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
+	}
+}
+
+func OwnerOrAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID := c.MustGet("user_id").(uuid.UUID)
+		roles := c.MustGet("roles").([]string)
+
+		targetID, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.AbortWithStatusJSON(400, gin.H{"error": "invalid id"})
+			return
+		}
+
+		// owner
+		if userID == targetID {
+			c.Next()
+			return
+		}
+
+		// admin
+		for _, r := range roles {
+			if r == "ADMIN" {
 				c.Next()
 				return
 			}

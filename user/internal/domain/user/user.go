@@ -20,7 +20,6 @@ type User struct {
 	avatarURL *string
 
 	status UserStatus
-	role   role.Role
 
 	profile  *UserProfile
 	settings *UserSettings
@@ -125,10 +124,6 @@ func (u *User) ChangeEmail(email Email) error {
 	return nil
 }
 
-func (u *User) Role() role.Role {
-	return u.role
-}
-
 func (u *User) Status() UserStatus {
 	return u.status
 }
@@ -202,7 +197,6 @@ func NewUserFromDB(
 		username:  Username(username),
 		email:     Email(email),
 		status:    UserStatus(status),
-		role:      role,
 		createdAt: createdAt,
 		updatedAt: updatedAt,
 	}
@@ -216,7 +210,6 @@ func RestoreUser(
 	lastName string,
 	avatarURL *string,
 	status UserStatus,
-	role role.Role,
 	profile *UserProfile,
 	settings *UserSettings,
 	lastSeenAt *time.Time,
@@ -232,7 +225,6 @@ func RestoreUser(
 		lastName:   lastName,
 		avatarURL:  avatarURL,
 		status:     status,
-		role:       role,
 		profile:    profile,
 		settings:   settings,
 		lastSeenAt: lastSeenAt,
