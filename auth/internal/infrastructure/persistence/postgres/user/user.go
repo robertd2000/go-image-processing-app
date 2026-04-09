@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	roleDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/role"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/dberrors"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
@@ -80,14 +81,18 @@ func (r *userRepository) Create(
 func (r *userRepository) GetByEmail(ctx context.Context, email string) (*userDomain.AuthUser, error) {
 	query := `
 		SELECT
-			id,
-			username,
-			email,
-			password_hash,
-			enabled,
-			created_at
-		FROM auth_users
-		WHERE email = $1
+			u.id,
+			u.username,
+			u.email,
+			u.password_hash,
+			u.enabled,
+			u.created_at,
+			COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
+		FROM auth_users u
+		LEFT JOIN user_roles ur ON ur.user_id = u.id
+		LEFT JOIN roles r ON r.id = ur.role_id
+		WHERE u.email = $1
+		GROUP BY u.id
 	`
 
 	row := r.db.QueryRow(ctx, query, email)
@@ -106,18 +111,18 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*userDom
 func (r *userRepository) GetByUsername(ctx context.Context, username string) (*userDomain.AuthUser, error) {
 	query := `
 		SELECT
-			id,
-			username,
-			first_name,
-			last_name,
-			email,
-			password_hash,
-			enabled,
-			created_at,
-			modified_at,
-			deleted_at
-		FROM auth_users
-		WHERE username = $1
+			u.id,
+			u.username,
+			u.email,
+			u.password_hash,
+			u.enabled,
+			u.created_at,
+			COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
+		FROM auth_users u
+		LEFT JOIN user_roles ur ON ur.user_id = u.id
+		LEFT JOIN roles r ON r.id = ur.role_id
+		WHERE u.username = $1
+		GROUP BY u.id
 	`
 
 	row := r.db.QueryRow(ctx, query, username)
@@ -137,18 +142,18 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*u
 func (r *userRepository) GetByID(ctx context.Context, userID uuid.UUID) (*userDomain.AuthUser, error) {
 	query := `
 		SELECT
-			id,
-			username,
-			first_name,
-			last_name,
-			email,
-			password_hash,
-			enabled,
-			created_at,
-			modified_at,
-			deleted_at
-		FROM auth_users
-		WHERE id = $1
+			u.id,
+			u.username,
+			u.email,
+			u.password_hash,
+			u.enabled,
+			u.created_at,
+			COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
+		FROM auth_users u
+		LEFT JOIN user_roles ur ON ur.user_id = u.id
+		LEFT JOIN roles r ON r.id = ur.role_id
+		WHERE u.id = $1
+		GROUP BY u.id
 	`
 
 	row := r.db.QueryRow(ctx, query, userID)
@@ -249,6 +254,7 @@ func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 		passwordHash string
 		enabled      bool
 		createdAt    time.Time
+		roleNames    []string
 	)
 
 	err := row.Scan(
@@ -258,9 +264,20 @@ func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 		&passwordHash,
 		&enabled,
 		&createdAt,
+		&roleNames,
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	roles := make([]roleDomain.Role, 0, len(roleNames))
+
+	for _, name := range roleNames {
+		r, err := roleDomain.FromName(name)
+		if err != nil {
+			return nil, err
+		}
+		roles = append(roles, r)
 	}
 
 	return userDomain.NewUserFromDB(
@@ -270,5 +287,6 @@ func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 		passwordHash,
 		enabled,
 		createdAt,
+		roles,
 	), nil
 }

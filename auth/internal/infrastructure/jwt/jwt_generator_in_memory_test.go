@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 )
 
 func TestInMemoryTokenGenerator_GenerateAccess(t *testing.T) {
@@ -33,7 +34,10 @@ func TestInMemoryTokenGenerator_GenerateAccess(t *testing.T) {
 				g.GenerateErr = assertTestError()
 			}
 
-			got, err := g.GenerateAccess(userID)
+			got, err := g.GenerateAccess(model.ClaimsInput{
+				UserID: userID,
+				Roles:  []string{"user"},
+			})
 
 			if tt.wantErr {
 				if err == nil {
@@ -46,24 +50,21 @@ func TestInMemoryTokenGenerator_GenerateAccess(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			// ✅ проверяем, что токен есть
 			if got == "" {
 				t.Fatal("expected non-empty token")
 			}
 
-			// ✅ проверяем префикс
 			if !strings.HasPrefix(got, "access_") {
 				t.Fatalf("unexpected token format: %s", got)
 			}
 
-			// ✅ проверяем, что он валидируется
-			id, err := g.ValidateAccess(got)
+			claims, err := g.ValidateAccess(got)
 			if err != nil {
 				t.Fatalf("validate failed: %v", err)
 			}
 
-			if id != userID {
-				t.Fatalf("userID mismatch: got %v want %v", id, userID)
+			if claims.UserID != userID {
+				t.Fatalf("userID mismatch: got %v want %v", claims.UserID, userID)
 			}
 		})
 	}
