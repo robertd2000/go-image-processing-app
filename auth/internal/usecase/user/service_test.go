@@ -38,7 +38,7 @@ func (s *UserSyncServiceTestSuite) SetupTest() {
 	s.service = user.NewUserSyncService(s.userRepo)
 }
 
-func (s *UserSyncServiceTestSuite) TestUpdateStatus() {
+func (s *UserSyncServiceTestSuite) TestUpdateStatusSuccess() {
 	password := "!Secure123"
 	email := "test_user1@example.com"
 	username := "test_user"
@@ -57,6 +57,22 @@ func (s *UserSyncServiceTestSuite) TestUpdateStatus() {
 	s.Require().NoError(err)
 
 	s.Require().Equal("inactive", updated.Status())
+}
+
+func (s *UserSyncServiceTestSuite) TestUpdateStatusInvalidUserID() {
+	password := "!Secure123"
+	email := "test_user1@example.com"
+	username := "test_user"
+	userID := uuid.New()
+	passwordHash, err := s.passwordHasher.Hash(password)
+	s.Require().NoError(err)
+
+	user, err := userDomain.NewAuthUser(userID, username, &email, passwordHash)
+	s.Require().NoError(err)
+	s.Require().NoError(s.userRepo.Create(s.ctx, nil, user))
+
+	err = s.service.UpdateStatus(s.ctx, uuid.Nil, "inactive")
+	s.Require().Error(err)
 }
 
 func TestUserSyncServiceTestSuite(t *testing.T) {
