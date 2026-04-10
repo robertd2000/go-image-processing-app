@@ -13,4 +13,6 @@ var (
 	ErrInvalidPassword     = errors.New("invalid password")
 	ErrWrongCredentials    = errors.New("wrong password or email")
 	ErrUserDisabled        = errors.New("user is disabled")
+	ErrInvalidUserID       = errors.New("invalid userID")
+	ErrInvalidUserStatus   = errors.New("invalid user status")
 )

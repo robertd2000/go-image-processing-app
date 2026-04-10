@@ -37,7 +37,7 @@ func (r *userRepository) Create(
 			username,
 			email,
 			password_hash,
-			enabled,
+			status,
 			created_at
 		) VALUES ($1,$2,$3,$4,$5,$6)
 	`
@@ -52,7 +52,7 @@ func (r *userRepository) Create(
 			user.Username(),
 			user.Email(),
 			user.PasswordHash(),
-			user.Enabled(),
+			user.Status(),
 			user.CreatedAt(),
 		)
 	} else {
@@ -63,7 +63,7 @@ func (r *userRepository) Create(
 			user.Username(),
 			user.Email(),
 			user.PasswordHash(),
-			user.Enabled(),
+			user.Status(),
 			user.CreatedAt(),
 		)
 	}
@@ -246,13 +246,24 @@ func (r *userRepository) Enable(ctx context.Context, userID uuid.UUID) error {
 	return nil
 }
 
+func (r *userRepository) UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.Status) error {
+	query := `
+        UPDATE auth_users
+        SET status = $1
+        WHERE id = $2
+    `
+	_, err := r.db.Exec(ctx, query, status, userID)
+
+	return err
+}
+
 func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 	var (
 		id           uuid.UUID
 		username     string
 		email        *string
 		passwordHash string
-		enabled      bool
+		status       userDomain.Status
 		createdAt    time.Time
 		roleNames    []string
 	)
@@ -262,7 +273,7 @@ func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 		&username,
 		&email,
 		&passwordHash,
-		&enabled,
+		&status,
 		&createdAt,
 		&roleNames,
 	)
@@ -285,7 +296,7 @@ func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 		username,
 		email,
 		passwordHash,
-		enabled,
+		status,
 		createdAt,
 		roles,
 	), nil

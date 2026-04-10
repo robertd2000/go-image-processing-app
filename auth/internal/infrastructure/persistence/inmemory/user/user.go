@@ -143,30 +143,32 @@ func (r *userInMemoryRepository) ExistsByUsername(_ context.Context, username st
 	return user != nil, nil
 }
 
-func (r *userInMemoryRepository) Disable(ctx context.Context, userID uuid.UUID) error {
-	user, err := r.findByID(ctx, userID)
-	if err != nil {
-		return err
-	}
-
+func (r *userInMemoryRepository) UpdateStatus(_ context.Context, userID uuid.UUID, status userDomain.Status) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	user.Disable()
-
-	return nil
-}
-
-func (r *userInMemoryRepository) Enable(ctx context.Context, userID uuid.UUID) error {
-	user, err := r.findByID(ctx, userID)
+	user, exists := r.data[userID]
+	if !exists {
+		return userDomain.ErrUserNotFound
+	}
+	userStatus := user.Status()
+	if userStatus == status {
+		return nil
+	}
+	userWithUpdatedStatus, err := userDomain.NewAuthUser(
+		user.ID(),
+		user.Username(),
+		user.Email(),
+		user.PasswordHash(),
+	)
 	if err != nil {
 		return err
 	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	user.Enable()
+	for _, role := range user.Roles() {
+		userWithUpdatedStatus.AddRole(role)
+	}
+	userWithUpdatedStatus.UpdateStatus(status)
+	r.data[userID] = userWithUpdatedStatus
 
 	return nil
 }

@@ -16,7 +16,7 @@ type AuthUser struct {
 	username     string
 	email        *string
 	passwordHash string
-	enabled      bool
+	status       Status
 	roles        []roleDomain.Role
 
 	createdAt time.Time
@@ -45,9 +45,9 @@ func NewAuthUser(
 		username:     username,
 		email:        email,
 		passwordHash: passwordHash,
-		enabled:      true,
 		roles:        []roleDomain.Role{},
 		createdAt:    now,
+		status:       "active",
 	}, nil
 }
 
@@ -56,7 +56,7 @@ func (u *AuthUser) ID() uuid.UUID { return u.id }
 func (u *AuthUser) Username() string     { return u.username }
 func (u *AuthUser) Email() *string       { return u.email }
 func (u *AuthUser) PasswordHash() string { return u.passwordHash }
-func (u *AuthUser) Enabled() bool        { return u.enabled }
+func (u *AuthUser) Status() Status       { return u.status }
 func (u *AuthUser) Roles() []roleDomain.Role {
 	rolesCopy := make([]roleDomain.Role, len(u.roles))
 	copy(rolesCopy, u.roles)
@@ -93,20 +93,21 @@ func (u *AuthUser) HasPermission(p roleDomain.Permission) bool {
 	return false
 }
 
-func (u *AuthUser) Enable() {
-	u.enabled = true
-}
-
-func (u *AuthUser) Disable() {
-	u.enabled = false
-}
-
 func (u *AuthUser) UpdateEmail(e string) error {
 	if err := validateEmail(&e); err != nil {
 		return err
 	}
 
 	u.email = &e
+	return nil
+}
+
+func (u *AuthUser) UpdateStatus(s Status) error {
+	if ok := s.IsValid(); !ok {
+		return ErrInvalidUserStatus
+	}
+
+	u.status = s
 	return nil
 }
 
@@ -164,7 +165,7 @@ func NewUserFromDB(
 	username string,
 	email *string,
 	passwordHash string,
-	enabled bool,
+	status Status,
 	createdAt time.Time,
 	roles []roleDomain.Role,
 
@@ -174,7 +175,7 @@ func NewUserFromDB(
 		username:     username,
 		email:        email,
 		passwordHash: passwordHash,
-		enabled:      enabled,
+		status:       status,
 		createdAt:    createdAt,
 		roles:        roles,
 	}
