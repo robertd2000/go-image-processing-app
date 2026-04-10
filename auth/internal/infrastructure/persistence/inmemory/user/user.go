@@ -143,7 +143,7 @@ func (r *userInMemoryRepository) ExistsByUsername(_ context.Context, username st
 	return user != nil, nil
 }
 
-func (r *userInMemoryRepository) UpdateStatus(_ context.Context, userID uuid.UUID, status string) error {
+func (r *userInMemoryRepository) UpdateStatus(_ context.Context, userID uuid.UUID, status userDomain.Status) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

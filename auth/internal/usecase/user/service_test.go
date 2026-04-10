@@ -14,7 +14,7 @@ import (
 )
 
 type UserSyncService interface {
-	UpdateStatus(ctx context.Context, userID uuid.UUID, status string) error
+	UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.Status) error
 }
 
 type UserSyncServiceTestSuite struct {
@@ -56,7 +56,10 @@ func (s *UserSyncServiceTestSuite) TestUpdateStatusSuccess() {
 	updated, err := s.userRepo.GetByID(s.ctx, userID)
 	s.Require().NoError(err)
 
-	s.Require().Equal("inactive", updated.Status())
+	expectedStatus, err := userDomain.ParseStatus("inactive")
+	s.Require().NoError(err)
+
+	s.Require().Equal(expectedStatus, updated.Status())
 }
 
 func (s *UserSyncServiceTestSuite) TestUpdateStatusInvalidUserID() {
@@ -100,7 +103,10 @@ func (s *UserSyncServiceTestSuite) TestUpdateStatusIgnoreIfSameStatus() {
 	updated, err := s.userRepo.GetByID(s.ctx, userID)
 	s.Require().NoError(err)
 
-	s.Require().Equal("active", updated.Status())
+	expectedStatus, err := userDomain.ParseStatus("active")
+	s.Require().NoError(err)
+
+	s.Require().Equal(expectedStatus, updated.Status())
 }
 
 func TestUserSyncServiceTestSuite(t *testing.T) {

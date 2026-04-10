@@ -246,7 +246,7 @@ func (r *userRepository) Enable(ctx context.Context, userID uuid.UUID) error {
 	return nil
 }
 
-func (r *userRepository) UpdateStatus(ctx context.Context, userID uuid.UUID, status string) error {
+func (r *userRepository) UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.Status) error {
 	query := `
         UPDATE auth_users
         SET status = $1
@@ -263,7 +263,7 @@ func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 		username     string
 		email        *string
 		passwordHash string
-		status       string
+		status       userDomain.Status
 		createdAt    time.Time
 		roleNames    []string
 	)

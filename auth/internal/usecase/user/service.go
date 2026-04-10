@@ -18,7 +18,7 @@ func NewUserSyncService(userRepo userDomain.UserRepository) *userSyncService {
 	}
 }
 
-func (s *userSyncService) UpdateStatus(ctx context.Context, userID uuid.UUID, status string) error {
+func (s *userSyncService) UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.Status) error {
 	if userID == uuid.Nil {
 		return userDomain.ErrInvalidUserID
 	}
