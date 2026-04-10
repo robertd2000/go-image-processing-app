@@ -16,4 +16,6 @@ type UserRepository interface {
 
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	ExistsByUsername(ctx context.Context, username string) (bool, error)
+
+	UpdateStatus(ctx context.Context, userID uuid.UUID, status string) error
 }

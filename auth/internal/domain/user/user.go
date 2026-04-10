@@ -102,6 +102,13 @@ func (u *AuthUser) UpdateEmail(e string) error {
 	return nil
 }
 
+func (u *AuthUser) UpdateStatus(s string) error {
+	s = strings.TrimSpace(s)
+
+	u.status = s
+	return nil
+}
+
 func validateUsername(username string) error {
 	username = strings.TrimSpace(username)
 

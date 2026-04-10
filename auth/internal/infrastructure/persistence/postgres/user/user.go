@@ -246,6 +246,17 @@ func (r *userRepository) Enable(ctx context.Context, userID uuid.UUID) error {
 	return nil
 }
 
+func (r *userRepository) UpdateStatus(ctx context.Context, userID uuid.UUID, status string) error {
+	query := `
+        UPDATE auth_users
+        SET status = $1
+        WHERE id = $2
+    `
+	_, err := r.db.Exec(ctx, query, status, userID)
+
+	return err
+}
+
 func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 	var (
 		id           uuid.UUID
