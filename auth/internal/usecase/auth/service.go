@@ -146,7 +146,7 @@ func (s *authService) Login(ctx context.Context, in model.LoginInput) (*model.To
 		return nil, err
 	}
 
-	if !user.Enabled() {
+	if user.Status() != "active" {
 		return nil, userDomain.ErrUserDisabled
 	}
 

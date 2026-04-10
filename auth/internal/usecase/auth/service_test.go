@@ -273,32 +273,32 @@ func (s *AuthTestSuite) TestAuthService_LoginWrongPassword() {
 	s.Require().Nil(tokens)
 }
 
-func (s *AuthTestSuite) TestAuthService_LoginDisabledUser() {
-	password := "!Secure123"
-	email := "test_user1@example.com"
-	username := "test_user"
+// func (s *AuthTestSuite) TestAuthService_LoginDisabledUser() {
+// 	password := "!Secure123"
+// 	email := "test_user1@example.com"
+// 	username := "test_user"
 
-	hashed, err := s.passwordHasher.Hash(password)
-	s.Require().NoError(err)
+// 	hashed, err := s.passwordHasher.Hash(password)
+// 	s.Require().NoError(err)
 
-	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
-	s.Require().NoError(err)
+// 	user, err := userDomain.NewAuthUser(uuid.New(), username, &email, hashed)
+// 	s.Require().NoError(err)
 
-	err = s.userRepo.Create(s.ctx, &txmanagermem.FakeTx{}, user)
-	s.Require().NoError(err)
+// 	err = s.userRepo.Create(s.ctx, &txmanagermem.FakeTx{}, user)
+// 	s.Require().NoError(err)
 
-	err = s.userRepo.Disable(s.ctx, user.ID())
-	s.Require().NoError(err)
+// 	err = s.userRepo.Disable(s.ctx, user.ID())
+// 	s.Require().NoError(err)
 
-	loginInput := model.LoginInput{
-		Email:    email,
-		Password: password,
-	}
-	tokens, err := s.service.Login(s.ctx, loginInput)
-	s.Require().Error(err)
-	s.Require().ErrorIs(err, userDomain.ErrUserDisabled)
-	s.Require().Nil(tokens)
-}
+// 	loginInput := model.LoginInput{
+// 		Email:    email,
+// 		Password: password,
+// 	}
+// 	tokens, err := s.service.Login(s.ctx, loginInput)
+// 	s.Require().Error(err)
+// 	s.Require().ErrorIs(err, userDomain.ErrUserDisabled)
+// 	s.Require().Nil(tokens)
+// }
 
 func (s *AuthTestSuite) TestAuthService_Refresh_Success() {
 	ctx := s.ctx

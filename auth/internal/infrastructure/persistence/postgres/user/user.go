@@ -37,7 +37,7 @@ func (r *userRepository) Create(
 			username,
 			email,
 			password_hash,
-			enabled,
+			status,
 			created_at
 		) VALUES ($1,$2,$3,$4,$5,$6)
 	`
@@ -52,7 +52,7 @@ func (r *userRepository) Create(
 			user.Username(),
 			user.Email(),
 			user.PasswordHash(),
-			user.Enabled(),
+			user.Status(),
 			user.CreatedAt(),
 		)
 	} else {
@@ -63,7 +63,7 @@ func (r *userRepository) Create(
 			user.Username(),
 			user.Email(),
 			user.PasswordHash(),
-			user.Enabled(),
+			user.Status(),
 			user.CreatedAt(),
 		)
 	}
@@ -252,7 +252,7 @@ func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 		username     string
 		email        *string
 		passwordHash string
-		enabled      bool
+		status       string
 		createdAt    time.Time
 		roleNames    []string
 	)
@@ -262,7 +262,7 @@ func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 		&username,
 		&email,
 		&passwordHash,
-		&enabled,
+		&status,
 		&createdAt,
 		&roleNames,
 	)
@@ -285,7 +285,7 @@ func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 		username,
 		email,
 		passwordHash,
-		enabled,
+		status,
 		createdAt,
 		roles,
 	), nil

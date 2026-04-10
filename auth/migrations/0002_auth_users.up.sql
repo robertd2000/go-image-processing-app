@@ -3,7 +3,7 @@ CREATE TABLE auth_users (
     username      VARCHAR(20) NOT NULL UNIQUE,
     email         VARCHAR(64) UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    enabled       BOOLEAN NOT NULL DEFAULT TRUE,
+    status        TEXT NOT NULL,
 
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
