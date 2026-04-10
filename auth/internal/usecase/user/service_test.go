@@ -75,6 +75,12 @@ func (s *UserSyncServiceTestSuite) TestUpdateStatusInvalidUserID() {
 	s.Require().Error(err)
 }
 
+func (s *UserSyncServiceTestSuite) TestUpdateStatusUserNotFoundIgnoreErr() {
+	userID := uuid.New()
+
+	err := s.service.UpdateStatus(s.ctx, userID, "inactive")
+	s.Require().NoError(err)
+}
 func TestUserSyncServiceTestSuite(t *testing.T) {
 	suite.Run(t, new(UserSyncServiceTestSuite))
 }
