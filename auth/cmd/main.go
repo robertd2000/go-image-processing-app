@@ -112,6 +112,7 @@ func main() {
 		time.Duration(cfg.JWT.RefreshTTLMin)*time.Minute,
 		txManager,
 	)
+	// userSvc := user.NewUserSyncService(userRepo)
 
 	// outbox worker
 	worker := outbox.NewWorker(outboxRepo, publisher)
