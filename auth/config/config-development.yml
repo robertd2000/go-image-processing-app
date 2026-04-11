@@ -22,6 +22,7 @@ kafka:
   group_id: auth-service
   topics:
     user_created: user.created.v1
+    user_status_updated: user.status.updated.v1
 
 log:
   level: debug

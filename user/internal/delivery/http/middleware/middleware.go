@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"errors"
-	"slices"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -53,7 +52,7 @@ func AuthMiddleware(jwt *auth.JWTValidator) gin.HandlerFunc {
 	}
 }
 
-func RequireRole(required string) gin.HandlerFunc {
+func RequireRole(required roleDomain.Name) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		rolesRaw, exists := c.Get(string(ContextRoles))
 		if !exists {
@@ -67,9 +66,11 @@ func RequireRole(required string) gin.HandlerFunc {
 			return
 		}
 
-		if slices.Contains(roles, required) {
-			c.Next()
-			return
+		for _, r := range roles {
+			if roleDomain.Name(r) == required {
+				c.Next()
+				return
+			}
 		}
 
 		c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
@@ -121,8 +122,8 @@ func RequirePermission(p roleDomain.Permission) gin.HandlerFunc {
 
 func OwnerOrAdmin() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID := c.MustGet("user_id").(uuid.UUID)
-		roles := c.MustGet("roles").([]string)
+		userID := c.MustGet(string(ContextUserID)).(uuid.UUID)
+		roles := c.MustGet(string(ContextRoles)).([]string)
 
 		targetID, err := uuid.Parse(c.Param("id"))
 		if err != nil {
@@ -138,7 +139,7 @@ func OwnerOrAdmin() gin.HandlerFunc {
 
 		// admin
 		for _, r := range roles {
-			if r == "ADMIN" {
+			if roleDomain.Name(r) == roleDomain.Admin {
 				c.Next()
 				return
 			}

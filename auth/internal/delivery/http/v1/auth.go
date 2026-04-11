@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/delivery/dao"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/delivery/http/dao"
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"

@@ -22,7 +22,7 @@ import (
 
 	"github.com/robertd2000/go-image-processing-app/auth/internal/config"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/delivery"
-	v1 "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/v1"
+	v1 "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/http/v1"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
 	ekafka "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/kafka"
 	outboxpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/outbox"
@@ -112,6 +112,7 @@ func main() {
 		time.Duration(cfg.JWT.RefreshTTLMin)*time.Minute,
 		txManager,
 	)
+	// userSvc := user.NewUserSyncService(userRepo)
 
 	// outbox worker
 	worker := outbox.NewWorker(outboxRepo, publisher)
