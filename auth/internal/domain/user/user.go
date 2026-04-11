@@ -47,7 +47,7 @@ func NewAuthUser(
 		passwordHash: passwordHash,
 		roles:        []roleDomain.Role{},
 		createdAt:    now,
-		status:       "active",
+		status:       StatusActive,
 	}, nil
 }
 
