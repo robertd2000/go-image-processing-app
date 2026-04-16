@@ -23,6 +23,7 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/config"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/delivery"
 	v1 "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/http/v1"
+	kafkahandler "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/kafka"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
 	ekafka "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/kafka"
 	outboxpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/outbox"
@@ -32,6 +33,7 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/outbox"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/user"
 )
 
 // @title Auth Service API
@@ -112,11 +114,28 @@ func main() {
 		time.Duration(cfg.JWT.RefreshTTLMin)*time.Minute,
 		txManager,
 	)
-	// userSvc := user.NewUserSyncService(userRepo)
+	userSvc := user.NewUserSyncService(userRepo)
 
 	// outbox worker
 	worker := outbox.NewWorker(outboxRepo, publisher)
 	go worker.Start(ctx)
+
+	consumer := ekafka.NewConsumer(
+		[]string{"kafka:9092"},
+		"auth-service",
+		"user.status.updated.v1",
+	)
+
+	dispatcher := kafkahandler.NewDispatcher()
+
+	dispatcher.Register("user.status.updated", kafkahandler.NewUserStatusChangeHandler(userSvc))
+
+	go func() {
+		err := consumer.Start(ctx, dispatcher.Dispatch)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	// handler
 	authHandler := v1.NewAuthHandler(authSvc, logger)
