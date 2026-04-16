@@ -35,6 +35,10 @@ func (c *Consumer) Start(ctx context.Context, handler func(context.Context, []by
 			log.Printf("failed to handle message: %v", err)
 			continue
 		}
+
+		if err := c.reader.CommitMessages(ctx, m); err != nil {
+			return err
+		}
 	}
 }
 

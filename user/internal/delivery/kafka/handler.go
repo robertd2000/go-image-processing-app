@@ -23,7 +23,7 @@ func NewUserCreatedHandler(s UserService) *UserCreatedHandler {
 
 func (h *UserCreatedHandler) Handle(ctx context.Context, evt events.RawEvent) error {
 	if evt.Version != 1 {
-		return nil
+		return fmt.Errorf("unsupported version: %d", evt.Version)
 	}
 
 	var payload events.UserCreatedEvent
