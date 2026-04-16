@@ -18,7 +18,7 @@ type UserStatusUpdatedHandler struct {
 	userSyncSvc UserSyncService
 }
 
-func NewUserStatusChangeHandler(userSyncSvc UserSyncService) *UserStatusUpdatedHandler {
+func NewUserStatusUpdatedHandler(userSyncSvc UserSyncService) *UserStatusUpdatedHandler {
 	return &UserStatusUpdatedHandler{
 		userSyncSvc: userSyncSvc,
 	}

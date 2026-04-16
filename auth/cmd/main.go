@@ -24,6 +24,7 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/delivery"
 	v1 "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/http/v1"
 	kafkahandler "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/kafka"
+	kafkamiddleware "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/kafka/middleware"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
 	ekafka "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/kafka"
 	outboxpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/outbox"
@@ -128,7 +129,22 @@ func main() {
 
 	dispatcher := kafkahandler.NewDispatcher()
 
-	dispatcher.Register("user.status.updated", kafkahandler.NewUserStatusChangeHandler(userSvc))
+	dlq := kafkamiddleware.NewDLQProducer(
+		[]string{"kafka:9092"},
+		"user.status.updated.dlq",
+	)
+
+	dispatcher.Use(kafkamiddleware.RetryMiddleware(kafkamiddleware.RetryConfig{
+		MaxAttempts: 3,
+		Backoff:     500 * time.Millisecond,
+	}))
+
+	dispatcher.Use(kafkamiddleware.DLQMiddleware(dlq))
+
+	dispatcher.Register(
+		"user.status.updated",
+		kafkahandler.NewUserStatusUpdatedHandler(userSvc),
+	)
 
 	go func() {
 		err := consumer.Start(ctx, dispatcher.Dispatch)
