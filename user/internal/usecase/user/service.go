@@ -2,22 +2,30 @@ package user
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/postgres/dberrors"
+	"github.com/robertd2000/go-image-processing-app/user/internal/port"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user/model"
+	"github.com/robertd2000/go-image-processing-app/user/pkg/events"
 )
 
 type userService struct {
-	userRepo userDomain.UserRepository
+	userRepo   userDomain.UserRepository
+	outboxRepo port.OutboxRepository
+	txManager  port.TxManager
 }
 
-func NewUserService(userRepo userDomain.UserRepository) *userService {
+func NewUserService(userRepo userDomain.UserRepository, outboxRepo port.OutboxRepository, txManager port.TxManager) *userService {
 	return &userService{
-		userRepo: userRepo,
+		userRepo:   userRepo,
+		outboxRepo: outboxRepo,
+		txManager:  txManager,
 	}
 }
 
@@ -291,4 +299,50 @@ func (s *userService) Count(ctx context.Context, filter model.UserFilterInput) (
 	}
 
 	return count, nil
+}
+
+func (s *userService) UpdateStatus(
+	ctx context.Context,
+	userID uuid.UUID,
+	status userDomain.UserStatus,
+) error {
+
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+		if err := s.userRepo.UpdateStatus(ctx, userID, status); err != nil {
+			return err
+		}
+
+		event := events.Event[events.UserStatusUpdatedEvent]{
+			EventID:    uuid.New(),
+			EventType:  "user.status.updated.v1",
+			Version:    1,
+			OccurredAt: time.Now(),
+			Payload: events.UserStatusUpdatedEvent{
+				Version:   1,
+				ID:        userID,
+				Status:    status.String(),
+				UpdatedAt: time.Now(),
+			},
+		}
+
+		payload, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("marshal event: %w", err)
+		}
+
+		outboxEvent := port.OutboxEvent{
+			ID:        uuid.New(),
+			Type:      "user.status.updated",
+			Topic:     "user.status.updated.v1",
+			Key:       userID.String(),
+			Payload:   payload,
+			CreatedAt: time.Now(),
+		}
+
+		if err := s.outboxRepo.Create(ctx, tx, outboxEvent); err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

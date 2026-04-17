@@ -44,6 +44,10 @@ func (e Email) String() string {
 
 type UserStatus string
 
+func (u UserStatus) String() string {
+	return string(u)
+}
+
 const (
 	StatusActive   UserStatus = "active"
 	StatusInactive UserStatus = "inactive"
