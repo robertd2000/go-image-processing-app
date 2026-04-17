@@ -85,7 +85,7 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*userDom
 			u.username,
 			u.email,
 			u.password_hash,
-			u.enabled,
+			u.status,
 			u.created_at,
 			COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
 		FROM auth_users u
@@ -115,7 +115,7 @@ func (r *userRepository) GetByUsername(ctx context.Context, username string) (*u
 			u.username,
 			u.email,
 			u.password_hash,
-			u.enabled,
+			u.status,
 			u.created_at,
 			COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
 		FROM auth_users u
@@ -146,7 +146,7 @@ func (r *userRepository) GetByID(ctx context.Context, userID uuid.UUID) (*userDo
 			u.username,
 			u.email,
 			u.password_hash,
-			u.enabled,
+			u.status,
 			u.created_at,
 			COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles
 		FROM auth_users u
@@ -206,44 +206,6 @@ func (r *userRepository) ExistsByUsername(ctx context.Context, username string) 
 	}
 
 	return exists, nil
-}
-
-func (r *userRepository) Disable(ctx context.Context, userID uuid.UUID) error {
-	query := `
-		UPDATE auth_users
-		SET enabled = false
-		WHERE id = $1
-	`
-
-	cmd, err := r.db.Exec(ctx, query, userID)
-	if err != nil {
-		return fmt.Errorf("disable user: %w", err)
-	}
-
-	if cmd.RowsAffected() == 0 {
-		return userDomain.ErrUserNotFound
-	}
-
-	return nil
-}
-
-func (r *userRepository) Enable(ctx context.Context, userID uuid.UUID) error {
-	query := `
-		UPDATE auth_users
-		SET enabled = true
-		WHERE id = $1
-	`
-
-	cmd, err := r.db.Exec(ctx, query, userID)
-	if err != nil {
-		return fmt.Errorf("enable user: %w", err)
-	}
-
-	if cmd.RowsAffected() == 0 {
-		return userDomain.ErrUserNotFound
-	}
-
-	return nil
 }
 
 func (r *userRepository) UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.Status) error {
