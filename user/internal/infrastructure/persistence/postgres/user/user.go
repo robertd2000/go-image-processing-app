@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
+	"github.com/robertd2000/go-image-processing-app/user/internal/port"
 )
 
 type userRepository struct {
@@ -343,20 +344,16 @@ func (r *userRepository) Update(ctx context.Context, user *userDomain.User) erro
 	return nil
 }
 
-func (r *userRepository) UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.UserStatus) error {
+func (r *userRepository) UpdateStatus(ctx context.Context, tx port.Tx, userID uuid.UUID, status userDomain.UserStatus) error {
 	query := `
 		UPDATE users SET
 			status = $1
 		WHERE user_id = $2
 	`
 
-	cmd, err := r.db.Exec(ctx, query, status, userID)
+	err := tx.Exec(ctx, query, status, userID)
 	if err != nil {
 		return fmt.Errorf("update user status: %w", err)
-	}
-
-	if cmd.RowsAffected() == 0 {
-		return userDomain.ErrUserNotFound
 	}
 
 	return nil

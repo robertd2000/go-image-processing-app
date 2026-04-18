@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
+	"github.com/robertd2000/go-image-processing-app/user/internal/port"
 )
 
 type userInMemoryRepository struct {
@@ -227,7 +228,7 @@ func (u *userInMemoryRepository) Update(ctx context.Context, user *userDomain.Us
 }
 
 // UpdateStatus implements user.UserRepository.
-func (u *userInMemoryRepository) UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.UserStatus) error {
+func (u *userInMemoryRepository) UpdateStatus(ctx context.Context, tx port.Tx, userID uuid.UUID, status userDomain.UserStatus) error {
 	panic("unimplemented")
 }
 

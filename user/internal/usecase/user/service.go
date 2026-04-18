@@ -308,7 +308,7 @@ func (s *userService) UpdateStatus(
 ) error {
 
 	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
-		if err := s.userRepo.UpdateStatus(ctx, userID, status); err != nil {
+		if err := s.userRepo.UpdateStatus(ctx, tx, userID, status); err != nil {
 			return err
 		}
 

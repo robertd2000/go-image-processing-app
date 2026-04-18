@@ -90,7 +90,7 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 
 	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
 
-		if err := s.userRepo.Create(ctx, tx, user); err != nil { // pass tx if userRepo supports it
+		if err := s.userRepo.Create(ctx, tx, user); err != nil {
 			return err
 		}
 
