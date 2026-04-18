@@ -347,8 +347,9 @@ func (r *userRepository) Update(ctx context.Context, user *userDomain.User) erro
 func (r *userRepository) UpdateStatus(ctx context.Context, tx port.Tx, userID uuid.UUID, status userDomain.UserStatus) error {
 	query := `
 		UPDATE users SET
-			status = $1
-		WHERE user_id = $2
+			status = $1,
+			updated_at = NOW()
+		WHERE id = $2
 	`
 
 	err := tx.Exec(ctx, query, status, userID)

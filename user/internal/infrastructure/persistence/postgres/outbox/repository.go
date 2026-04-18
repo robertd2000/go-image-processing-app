@@ -37,6 +37,7 @@ func (r *Repository) GetUnprocessed(ctx context.Context, limit int) ([]port.Outb
 		FROM outbox_events
 		WHERE processed_at IS NULL
 		ORDER BY created_at
+		FOR UPDATE SKIP LOCKED
 		LIMIT $1
 	`, limit)
 	if err != nil {
