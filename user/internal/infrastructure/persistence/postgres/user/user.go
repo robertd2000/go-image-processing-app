@@ -343,6 +343,25 @@ func (r *userRepository) Update(ctx context.Context, user *userDomain.User) erro
 	return nil
 }
 
+func (r *userRepository) UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.UserStatus) error {
+	query := `
+		UPDATE users SET
+			status = $1
+		WHERE user_id = $2
+	`
+
+	cmd, err := r.db.Exec(ctx, query, status, userID)
+	if err != nil {
+		return fmt.Errorf("update user status: %w", err)
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return userDomain.ErrUserNotFound
+	}
+
+	return nil
+}
+
 func (r *userRepository) Delete(ctx context.Context, userID uuid.UUID) error {
 	cmd, err := r.db.Exec(ctx, `
 		UPDATE users

@@ -226,6 +226,11 @@ func (u *userInMemoryRepository) Update(ctx context.Context, user *userDomain.Us
 	return nil
 }
 
+// UpdateStatus implements user.UserRepository.
+func (u *userInMemoryRepository) UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.UserStatus) error {
+	panic("unimplemented")
+}
+
 func (u *userInMemoryRepository) findByID(ctx context.Context, id uuid.UUID) (*userDomain.User, error) {
 	if user, exists := u.users[id]; exists {
 		return user, nil
