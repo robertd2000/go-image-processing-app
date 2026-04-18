@@ -89,6 +89,12 @@ func main() {
 		log.Fatal(err)
 	}
 
+	err = ekafka.EnsureTopic(broker, "user.status.updated.v1")
+	if err != nil {
+		log.Fatal(err)
+	}
+	ekafka.EnsureTopic(broker, "user.status.updated.dlq")
+
 	publisher := ekafka.NewKafkaPublisher([]string{broker})
 
 	// repos
@@ -142,7 +148,7 @@ func main() {
 	dispatcher.Use(kafkamiddleware.DLQMiddleware(dlq))
 
 	dispatcher.Register(
-		"user.status.updated",
+		"user.status.updated.v1",
 		kafkahandler.NewUserStatusUpdatedHandler(userSvc),
 	)
 

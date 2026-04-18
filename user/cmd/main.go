@@ -21,7 +21,10 @@ import (
 	kafkahandler "github.com/robertd2000/go-image-processing-app/user/internal/delivery/kafka"
 	"github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/auth"
 	ckafka "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/kafka"
+	outboxpg "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/postgres/outbox"
+	txmanagerpg "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/postgres/txmanager"
 	userpg "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/postgres/user"
+	"github.com/robertd2000/go-image-processing-app/user/internal/outbox"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user"
 	"go.uber.org/zap"
 )
@@ -79,9 +82,12 @@ func main() {
 
 	// ---------- repos ----------
 	userRepo := userpg.NewUserRepository(db)
+	outboxRepo := outboxpg.NewRepository(db)
+
+	txManager := txmanagerpg.NewTxManager(db)
 
 	// ---------- service ----------
-	userService := user.NewUserService(userRepo)
+	userService := user.NewUserService(userRepo, outboxRepo, txManager)
 
 	// ---------- kafka ----------
 	consumer := ckafka.NewConsumer(
@@ -91,6 +97,15 @@ func main() {
 	)
 
 	dispatcher := kafkahandler.NewDispatcher()
+
+	broker := "kafka:9092"
+
+	publisher := ckafka.NewKafkaPublisher([]string{broker})
+	defer publisher.Close()
+
+	// outbox worker
+	worker := outbox.NewWorker(outboxRepo, publisher)
+	go worker.Start(appCtx)
 
 	dispatcher.Register("user.created", kafkahandler.NewUserCreatedHandler(userService))
 	userHandler := v1.NewUserHandler(userService, logger)

@@ -90,12 +90,13 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 
 	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
 
-		if err := s.userRepo.Create(ctx, tx, user); err != nil { // pass tx if userRepo supports it
+		if err := s.userRepo.Create(ctx, tx, user); err != nil {
 			return err
 		}
+		eventID := uuid.New()
 
 		event := events.Event[events.UserCreatedEvent]{
-			EventID:    uuid.New(),
+			EventID:    eventID,
 			EventType:  "user.created",
 			Version:    1,
 			OccurredAt: time.Now(),
@@ -113,7 +114,7 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 		}
 
 		outboxEvent := port.OutboxEvent{
-			ID:        uuid.New(),
+			ID:        eventID,
 			Type:      "user.created",
 			Topic:     "user.created.v1",
 			Key:       user.ID().String(),

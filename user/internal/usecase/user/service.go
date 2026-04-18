@@ -265,7 +265,7 @@ func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 		return userDomain.ErrUserNotFound
 	}
 
-	return s.userRepo.Delete(ctx, userID)
+	return s.UpdateStatus(ctx, userID, userDomain.StatusInactive)
 }
 
 func (s *userService) List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error) {
@@ -308,12 +308,14 @@ func (s *userService) UpdateStatus(
 ) error {
 
 	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
-		if err := s.userRepo.UpdateStatus(ctx, userID, status); err != nil {
+		if err := s.userRepo.UpdateStatus(ctx, tx, userID, status); err != nil {
 			return err
 		}
 
+		eventID := uuid.New()
+
 		event := events.Event[events.UserStatusUpdatedEvent]{
-			EventID:    uuid.New(),
+			EventID:    eventID,
 			EventType:  "user.status.updated.v1",
 			Version:    1,
 			OccurredAt: time.Now(),
@@ -331,8 +333,8 @@ func (s *userService) UpdateStatus(
 		}
 
 		outboxEvent := port.OutboxEvent{
-			ID:        uuid.New(),
-			Type:      "user.status.updated",
+			ID:        eventID,
+			Type:      "user.status.updated.v1",
 			Topic:     "user.status.updated.v1",
 			Key:       userID.String(),
 			Payload:   payload,

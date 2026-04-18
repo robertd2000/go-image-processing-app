@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
+	"github.com/robertd2000/go-image-processing-app/user/internal/port"
 )
 
 type userRepository struct {
@@ -338,6 +339,22 @@ func (r *userRepository) Update(ctx context.Context, user *userDomain.User) erro
 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit tx: %w", err)
+	}
+
+	return nil
+}
+
+func (r *userRepository) UpdateStatus(ctx context.Context, tx port.Tx, userID uuid.UUID, status userDomain.UserStatus) error {
+	query := `
+		UPDATE users SET
+			status = $1,
+			updated_at = NOW()
+		WHERE id = $2
+	`
+
+	err := tx.Exec(ctx, query, status, userID)
+	if err != nil {
+		return fmt.Errorf("update user status: %w", err)
 	}
 
 	return nil

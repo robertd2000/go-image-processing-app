@@ -6,7 +6,10 @@ import (
 
 	"github.com/google/uuid"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
+	outboxmem "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/inmemory/outbox"
+	txmanagermem "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/inmemory/txmanager"
 	usermem "github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/inmemory/user"
+	"github.com/robertd2000/go-image-processing-app/user/internal/port"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user/model"
 	"github.com/stretchr/testify/assert"
@@ -33,14 +36,21 @@ type UserServiceTestSuite struct {
 
 	service UserService
 
-	userRepo userDomain.UserRepository
+	userRepo   userDomain.UserRepository
+	outboxRepo port.OutboxRepository
+
+	tx port.TxManager
 }
 
 func (s *UserServiceTestSuite) SetupTest() {
 	s.ctx = context.Background()
 
 	s.userRepo = usermem.NewUserRepository()
-	s.service = user.NewUserService(s.userRepo)
+	s.outboxRepo = outboxmem.NewRepository()
+
+	s.tx = &txmanagermem.FakeTxManager{}
+
+	s.service = user.NewUserService(s.userRepo, s.outboxRepo, s.tx)
 }
 
 // CreateUser

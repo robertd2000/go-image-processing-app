@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/robertd2000/go-image-processing-app/user/internal/port"
 )
 
 type UserRepository interface {
@@ -22,5 +23,5 @@ type UserRepository interface {
 	List(ctx context.Context, filter UserFilter) ([]*User, error)
 	Count(ctx context.Context, filter UserFilter) (int, error)
 
-	UpdateStatus(ctx context.Context, userID uuid.UUID, status UserStatus) error
+	UpdateStatus(ctx context.Context, tx port.Tx, userID uuid.UUID, status UserStatus) error
 }
