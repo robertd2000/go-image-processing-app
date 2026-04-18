@@ -334,7 +334,7 @@ func (s *userService) UpdateStatus(
 
 		outboxEvent := port.OutboxEvent{
 			ID:        eventID,
-			Type:      "user.status.updated",
+			Type:      "user.status.updated.v1",
 			Topic:     "user.status.updated.v1",
 			Key:       userID.String(),
 			Payload:   payload,
