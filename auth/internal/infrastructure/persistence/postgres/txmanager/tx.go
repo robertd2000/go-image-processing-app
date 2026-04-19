@@ -1,4 +1,5 @@
-package postgres
+// Package txmanagerpg
+package txmanagerpg
 
 import (
 	"context"

@@ -1,3 +1,4 @@
+// Package elog
 package elog
 
 import (

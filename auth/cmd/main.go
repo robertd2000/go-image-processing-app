@@ -29,7 +29,7 @@ import (
 	ekafka "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/kafka"
 	outboxpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/outbox"
 	tokenpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/token"
-	postgres "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/txmanager"
+	txmanagerpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/txmanager"
 	userpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/outbox"
@@ -107,7 +107,7 @@ func main() {
 	hasher := security.NewHasher()
 	tokenHasher := &security.TokenHasher{}
 
-	txManager := postgres.NewTxManager(db)
+	txManager := txmanagerpg.NewTxManager(db)
 
 	// service
 	authSvc := auth.NewAuthService(
