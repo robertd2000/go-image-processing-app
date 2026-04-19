@@ -1,3 +1,4 @@
+// Package eventpub
 package eventpub
 
 import (

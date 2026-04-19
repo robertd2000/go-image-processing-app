@@ -1,3 +1,4 @@
+// Package ekafka
 package ekafka
 
 import (

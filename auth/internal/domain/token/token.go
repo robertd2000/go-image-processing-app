@@ -1,3 +1,4 @@
+// Package token
 package token
 
 import (

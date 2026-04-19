@@ -1,3 +1,4 @@
+// Package jwt
 package jwt
 
 import (
