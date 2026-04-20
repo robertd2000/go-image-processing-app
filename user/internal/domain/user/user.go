@@ -233,3 +233,20 @@ func RestoreUser(
 		deletedAt:  deletedAt,
 	}
 }
+
+func (u *User) CanTransitionTo(newStatus UserStatus) bool {
+	switch u.status {
+
+	case StatusActive:
+		return newStatus == StatusInactive || newStatus == StatusBanned
+
+	case StatusBanned:
+		return newStatus == StatusActive
+
+	case StatusInactive:
+		return newStatus == StatusActive
+
+	default:
+		return false
+	}
+}

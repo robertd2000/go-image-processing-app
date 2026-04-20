@@ -14,7 +14,7 @@ import (
 )
 
 type UserSyncService interface {
-	UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.Status) error
+	Delete(ctx context.Context, userID uuid.UUID) error
 }
 
 type UserSyncServiceTestSuite struct {
@@ -50,7 +50,7 @@ func (s *UserSyncServiceTestSuite) TestUpdateStatusSuccess() {
 	s.Require().NoError(err)
 	s.Require().NoError(s.userRepo.Create(s.ctx, nil, user))
 
-	err = s.service.UpdateStatus(s.ctx, userID, "inactive")
+	err = s.service.Delete(s.ctx, userID)
 	s.Require().NoError(err)
 
 	updated, err := s.userRepo.GetByID(s.ctx, userID)
@@ -74,14 +74,14 @@ func (s *UserSyncServiceTestSuite) TestUpdateStatusInvalidUserID() {
 	s.Require().NoError(err)
 	s.Require().NoError(s.userRepo.Create(s.ctx, nil, user))
 
-	err = s.service.UpdateStatus(s.ctx, uuid.Nil, "inactive")
+	err = s.service.Delete(s.ctx, uuid.Nil)
 	s.Require().Error(err)
 }
 
 func (s *UserSyncServiceTestSuite) TestUpdateStatusUserNotFoundIgnoreErr() {
 	userID := uuid.New()
 
-	err := s.service.UpdateStatus(s.ctx, userID, "inactive")
+	err := s.service.Delete(s.ctx, userID)
 	s.Require().NoError(err)
 }
 
@@ -97,7 +97,7 @@ func (s *UserSyncServiceTestSuite) TestUpdateStatusIgnoreIfSameStatus() {
 	s.Require().NoError(err)
 	s.Require().NoError(s.userRepo.Create(s.ctx, nil, user))
 
-	err = s.service.UpdateStatus(s.ctx, userID, "active")
+	err = s.service.Delete(s.ctx, userID)
 	s.Require().NoError(err)
 
 	updated, err := s.userRepo.GetByID(s.ctx, userID)

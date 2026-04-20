@@ -18,15 +18,9 @@ func NewUserSyncService(userRepo userDomain.UserRepository) *userSyncService {
 	}
 }
 
-func (s *userSyncService) UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.Status) error {
+func (s *userSyncService) Delete(ctx context.Context, userID uuid.UUID) error {
 	if userID == uuid.Nil {
 		return userDomain.ErrInvalidUserID
-	}
-
-	switch status {
-	case "active", "inactive":
-	default:
-		return userDomain.ErrInvalidUserStatus
 	}
 
 	user, err := s.userRepo.GetByID(ctx, userID)
@@ -37,9 +31,9 @@ func (s *userSyncService) UpdateStatus(ctx context.Context, userID uuid.UUID, st
 		return err
 	}
 
-	if user.Status() == status {
+	if user.Status() == userDomain.StatusInactive {
 		return nil
 	}
 
-	return s.userRepo.UpdateStatus(ctx, userID, status)
+	return s.userRepo.UpdateStatus(ctx, userID, userDomain.StatusInactive)
 }

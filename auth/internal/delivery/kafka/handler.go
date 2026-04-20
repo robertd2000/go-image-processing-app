@@ -1,3 +1,4 @@
+// Package kafkahandler
 package kafkahandler
 
 import (
@@ -6,39 +7,34 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
+	domainevents "github.com/robertd2000/go-image-processing-app/auth/internal/domain/events"
 	"github.com/robertd2000/go-image-processing-app/auth/pkg/events"
 )
 
 type UserSyncService interface {
-	UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.Status) error
+	Delete(ctx context.Context, userID uuid.UUID) error
 }
 
-type UserStatusUpdatedHandler struct {
+type UserDeletedHandler struct {
 	userSyncSvc UserSyncService
 }
 
-func NewUserStatusUpdatedHandler(userSyncSvc UserSyncService) *UserStatusUpdatedHandler {
-	return &UserStatusUpdatedHandler{
+func NewUserDeletedHandler(userSyncSvc UserSyncService) *UserDeletedHandler {
+	return &UserDeletedHandler{
 		userSyncSvc: userSyncSvc,
 	}
 }
 
-func (s *UserStatusUpdatedHandler) Handle(ctx context.Context, evt events.RawEvent) error {
+func (s *UserDeletedHandler) Handle(ctx context.Context, evt events.RawEvent) error {
 	if evt.Version != 1 {
 		return fmt.Errorf("unsupported version: %d", evt.Version)
 	}
 
-	var event events.UserStatusUpdatedEvent
+	var event domainevents.UserDeletedEvent
 
 	if err := json.Unmarshal(evt.Payload, &event); err != nil {
 		return fmt.Errorf("invalid payload: %w", err)
 	}
 
-	status, err := userDomain.ParseStatus(event.Status)
-	if err != nil {
-		return fmt.Errorf("update status: %w", err)
-	}
-
-	return s.userSyncSvc.UpdateStatus(ctx, event.ID, status)
+	return s.userSyncSvc.Delete(ctx, event.ID)
 }
