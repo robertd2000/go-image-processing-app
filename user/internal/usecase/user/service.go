@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	domainevents "github.com/robertd2000/go-image-processing-app/user/internal/domain/events"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/postgres/dberrors"
 	"github.com/robertd2000/go-image-processing-app/user/internal/port"
@@ -253,19 +254,49 @@ func (s *userService) UpdateSettings(ctx context.Context, input model.UpdateSett
 }
 
 func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
-	user, err := s.userRepo.FindByID(ctx, userID)
-	if err != nil {
-		if errors.Is(err, userDomain.ErrUserNotFound) {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+		user, err := s.userRepo.FindByID(ctx, userID)
+		if err != nil {
 			return err
 		}
-		return fmt.Errorf("find user: %w", err)
-	}
 
-	if user.Status() == userDomain.StatusInactive {
-		return userDomain.ErrUserNotFound
-	}
+		if user.Status() == userDomain.StatusInactive {
+			return userDomain.ErrUserNotFound
+		}
 
-	return s.UpdateStatus(ctx, userID, userDomain.StatusInactive)
+		if err := s.userRepo.UpdateStatus(ctx, tx, userID, userDomain.StatusInactive); err != nil {
+			return err
+		}
+
+		now := time.Now()
+
+		event := events.Event[domainevents.UserDeletedEvent]{
+			EventID:    uuid.New(),
+			EventType:  "user.deleted.v1",
+			Version:    1,
+			OccurredAt: now,
+			Payload: domainevents.UserDeletedEvent{
+				ID:        userID,
+				DeletedAt: now,
+			},
+		}
+
+		payload, err := json.Marshal(event)
+		if err != nil {
+			return err
+		}
+
+		outboxEvent := port.OutboxEvent{
+			ID:        uuid.New(),
+			Type:      "user.deleted",
+			Topic:     "user.deleted.v1",
+			Key:       userID.String(),
+			Payload:   payload,
+			CreatedAt: now,
+		}
+
+		return s.outboxRepo.Create(ctx, tx, outboxEvent)
+	})
 }
 
 func (s *userService) List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error) {
@@ -299,52 +330,4 @@ func (s *userService) Count(ctx context.Context, filter model.UserFilterInput) (
 	}
 
 	return count, nil
-}
-
-func (s *userService) UpdateStatus(
-	ctx context.Context,
-	userID uuid.UUID,
-	status userDomain.UserStatus,
-) error {
-
-	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
-		if err := s.userRepo.UpdateStatus(ctx, tx, userID, status); err != nil {
-			return err
-		}
-
-		eventID := uuid.New()
-
-		event := events.Event[events.UserStatusUpdatedEvent]{
-			EventID:    eventID,
-			EventType:  "user.status.updated.v1",
-			Version:    1,
-			OccurredAt: time.Now(),
-			Payload: events.UserStatusUpdatedEvent{
-				Version:   1,
-				ID:        userID,
-				Status:    status.String(),
-				UpdatedAt: time.Now(),
-			},
-		}
-
-		payload, err := json.Marshal(event)
-		if err != nil {
-			return fmt.Errorf("marshal event: %w", err)
-		}
-
-		outboxEvent := port.OutboxEvent{
-			ID:        eventID,
-			Type:      "user.status.updated.v1",
-			Topic:     "user.status.updated.v1",
-			Key:       userID.String(),
-			Payload:   payload,
-			CreatedAt: time.Now(),
-		}
-
-		if err := s.outboxRepo.Create(ctx, tx, outboxEvent); err != nil {
-			return err
-		}
-
-		return nil
-	})
 }

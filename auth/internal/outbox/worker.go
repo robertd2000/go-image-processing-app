@@ -1,3 +1,4 @@
+// Package outbox
 package outbox
 
 import (

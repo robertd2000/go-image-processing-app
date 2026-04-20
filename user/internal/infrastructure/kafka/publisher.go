@@ -44,8 +44,6 @@ func (p *KafkaPublisher) Publish(ctx context.Context, topic string, key []byte, 
 		Value: data,
 	})
 
-	// TODO outbox pattern
-
 	return err
 }
 
