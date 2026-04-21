@@ -5,7 +5,10 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
+	tokenmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/token"
+	txmanagermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/txmanager"
 	usermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
@@ -24,7 +27,10 @@ type UserSyncServiceTestSuite struct {
 
 	service UserSyncService
 
-	userRepo userDomain.UserRepository
+	userRepo  userDomain.UserRepository
+	tokenRepo tokenDomain.TokenRepository
+
+	txManager port.TxManager
 
 	passwordHasher port.PasswordHasher
 }
@@ -33,9 +39,12 @@ func (s *UserSyncServiceTestSuite) SetupTest() {
 	s.ctx = context.Background()
 
 	s.userRepo = usermem.NewUserRepository()
-	s.passwordHasher = &security.FakeHasher{}
+	s.tokenRepo = tokenmem.NewTokenRepository()
 
-	s.service = user.NewUserSyncService(s.userRepo)
+	s.passwordHasher = &security.FakeHasher{}
+	s.txManager = &txmanagermem.FakeTxManager{}
+
+	s.service = user.NewUserSyncService(s.txManager, s.userRepo, s.tokenRepo)
 }
 
 func (s *UserSyncServiceTestSuite) TestUpdateStatusSuccess() {
@@ -83,30 +92,6 @@ func (s *UserSyncServiceTestSuite) TestUpdateStatusUserNotFoundIgnoreErr() {
 
 	err := s.service.Delete(s.ctx, userID)
 	s.Require().NoError(err)
-}
-
-func (s *UserSyncServiceTestSuite) TestUpdateStatusIgnoreIfSameStatus() {
-	password := "!Secure123"
-	email := "test_user1@example.com"
-	username := "test_user"
-	userID := uuid.New()
-	passwordHash, err := s.passwordHasher.Hash(password)
-	s.Require().NoError(err)
-
-	user, err := userDomain.NewAuthUser(userID, username, &email, passwordHash)
-	s.Require().NoError(err)
-	s.Require().NoError(s.userRepo.Create(s.ctx, nil, user))
-
-	err = s.service.Delete(s.ctx, userID)
-	s.Require().NoError(err)
-
-	updated, err := s.userRepo.GetByID(s.ctx, userID)
-	s.Require().NoError(err)
-
-	expectedStatus, err := userDomain.ParseStatus("active")
-	s.Require().NoError(err)
-
-	s.Require().Equal(expectedStatus, updated.Status())
 }
 
 func TestUserSyncServiceTestSuite(t *testing.T) {

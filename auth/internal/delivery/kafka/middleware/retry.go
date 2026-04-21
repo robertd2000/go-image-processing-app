@@ -15,7 +15,7 @@ type RetryConfig struct {
 
 func RetryMiddleware(cfg RetryConfig) kafkahandler.Middleware {
 	return func(next kafkahandler.Handler) kafkahandler.Handler {
-		return HandlerFunc(func(ctx context.Context, evt events.RawEvent) error {
+		return HandlerFunc(func(ctx context.Context, evt events.Event) error {
 			var err error
 
 			for i := 1; i <= cfg.MaxAttempts; i++ {
@@ -34,7 +34,7 @@ func RetryMiddleware(cfg RetryConfig) kafkahandler.Middleware {
 
 func DLQMiddleware(dlq *DLQProducer) kafkahandler.Middleware {
 	return func(next kafkahandler.Handler) kafkahandler.Handler {
-		return HandlerFunc(func(ctx context.Context, evt events.RawEvent) error {
+		return HandlerFunc(func(ctx context.Context, evt events.Event) error {
 			err := next.Handle(ctx, evt)
 			if err != nil {
 				_ = dlq.Send(ctx, evt, err)
@@ -46,8 +46,8 @@ func DLQMiddleware(dlq *DLQProducer) kafkahandler.Middleware {
 }
 
 // helper
-type HandlerFunc func(ctx context.Context, evt events.RawEvent) error
+type HandlerFunc func(ctx context.Context, evt events.Event) error
 
-func (f HandlerFunc) Handle(ctx context.Context, evt events.RawEvent) error {
+func (f HandlerFunc) Handle(ctx context.Context, evt events.Event) error {
 	return f(ctx, evt)
 }

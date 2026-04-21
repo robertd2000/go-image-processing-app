@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/dberrors"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
 type tokenRepository struct {
@@ -205,14 +206,12 @@ func (r tokenRepository) Rotate(
 	oldToken *tokenDomain.Tokens,
 	newToken *tokenDomain.Tokens,
 ) (bool, error) {
-
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return false, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Пытаемся "захватить" токен (revoke)
 	cmd, err := tx.Exec(ctx, `
         UPDATE refresh_tokens
         SET revoked_at = NOW()
@@ -222,13 +221,10 @@ func (r tokenRepository) Rotate(
 		return false, fmt.Errorf("revoke old token: %w", err)
 	}
 
-	// ❗ КЛЮЧЕВОЙ МОМЕНТ
 	if cmd.RowsAffected() == 0 {
-		// токен уже был использован → REUSE ATTACK
-		return true, tx.Commit(ctx) // commit чтобы зафиксировать "факт"
+		return true, tx.Commit(ctx)
 	}
 
-	// 2. Вставляем новый токен
 	_, err = tx.Exec(ctx, `
         INSERT INTO refresh_tokens (
             id,
@@ -258,6 +254,21 @@ func (r tokenRepository) Rotate(
 	}
 
 	return false, nil
+}
+
+func (r tokenRepository) DeleteByUserID(ctx context.Context, tx port.Tx, userID uuid.UUID) error {
+	query := `
+		UPDATE refresh_tokens
+		SET revoked_at = NOW()	
+		WHERE user_id = $1
+	`
+
+	err := tx.Exec(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("delete token by user id: %w", err)
+	}
+
+	return nil
 }
 
 func scanToken(row pgx.Row) (*tokenDomain.Tokens, error) {

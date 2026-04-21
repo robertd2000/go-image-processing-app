@@ -208,13 +208,13 @@ func (r *userRepository) ExistsByUsername(ctx context.Context, username string) 
 	return exists, nil
 }
 
-func (r *userRepository) UpdateStatus(ctx context.Context, userID uuid.UUID, status userDomain.Status) error {
+func (r *userRepository) UpdateStatus(ctx context.Context, tx port.Tx, userID uuid.UUID, status userDomain.Status) error {
 	query := `
         UPDATE auth_users
         SET status = $1
         WHERE id = $2
     `
-	_, err := r.db.Exec(ctx, query, status, userID)
+	err := tx.Exec(ctx, query, status, userID)
 
 	return err
 }

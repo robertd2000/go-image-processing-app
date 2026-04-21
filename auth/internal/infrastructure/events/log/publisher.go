@@ -16,7 +16,7 @@ func NewPublisher() *Publisher {
 }
 
 func (p *Publisher) Publish(ctx context.Context, topic string, key []byte, msg any) error {
-	event, ok := msg.(events.Event[events.UserCreatedEvent])
+	event, ok := msg.(events.Event)
 	if !ok {
 		return fmt.Errorf("unexpected event type: %T", msg)
 	}
@@ -25,7 +25,7 @@ func (p *Publisher) Publish(ctx context.Context, topic string, key []byte, msg a
 
 	log.Printf(
 		"[EVENT] UserCreated: user_id=%s email=%s username=%s created_at=%s",
-		e.ID, e.Email, e.Username, e.CreatedAt,
+		e,
 	)
 
 	return nil

@@ -84,16 +84,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = ekafka.EnsureTopic(broker, "user.created.v1")
+	err = ekafka.EnsureTopic(broker, "user.events.v1")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = ekafka.EnsureTopic(broker, "user.deleted.v1")
-	if err != nil {
-		log.Fatal(err)
-	}
-	ekafka.EnsureTopic(broker, "user.deleted.dlq")
+	ekafka.EnsureTopic(broker, "user.events.dlq")
 
 	publisher := ekafka.NewKafkaPublisher([]string{broker})
 
@@ -121,7 +117,7 @@ func main() {
 		time.Duration(cfg.JWT.RefreshTTLMin)*time.Minute,
 		txManager,
 	)
-	userSvc := user.NewUserSyncService(userRepo)
+	userSvc := user.NewUserSyncService(txManager, userRepo, tokenRepo)
 
 	// outbox worker
 	worker := outbox.NewWorker(outboxRepo, publisher)
@@ -130,14 +126,14 @@ func main() {
 	consumer := ekafka.NewConsumer(
 		[]string{"kafka:9092"},
 		"auth-service",
-		"user.deleted.v1",
+		"user.events.v1",
 	)
 
 	dispatcher := kafkahandler.NewDispatcher()
 
 	dlq := kafkamiddleware.NewDLQProducer(
 		[]string{"kafka:9092"},
-		"user.deleted.dlq",
+		"user.events.dlq",
 	)
 
 	dispatcher.Use(kafkamiddleware.RetryMiddleware(kafkamiddleware.RetryConfig{
@@ -148,7 +144,7 @@ func main() {
 	dispatcher.Use(kafkamiddleware.DLQMiddleware(dlq))
 
 	dispatcher.Register(
-		"user.deleted.v1",
+		"user.deleted",
 		kafkahandler.NewUserDeletedHandler(userSvc),
 	)
 
@@ -158,6 +154,8 @@ func main() {
 			log.Fatal(err)
 		}
 	}()
+
+	defer consumer.Close()
 
 	// handler
 	authHandler := v1.NewAuthHandler(authSvc, logger)

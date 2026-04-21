@@ -1,3 +1,4 @@
+// Package tokenmem
 package tokenmem
 
 import (
@@ -8,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
 type tokenInMemoryRepository struct {
@@ -146,7 +148,6 @@ func (t *tokenInMemoryRepository) Rotate(
 	oldToken *tokenDomain.Tokens,
 	newToken *tokenDomain.Tokens,
 ) (bool, error) {
-
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -188,4 +189,19 @@ func (t *tokenInMemoryRepository) getByToken(_ context.Context, token string) (*
 	}
 
 	return tokens, nil
+}
+
+func (r *tokenInMemoryRepository) DeleteByUserID(ctx context.Context, tx port.Tx, userID uuid.UUID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	now := time.Now()
+
+	for _, token := range r.data {
+		if token.UserID() == userID {
+			token.Revoke(now)
+		}
+	}
+
+	return nil
 }
