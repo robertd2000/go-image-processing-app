@@ -12,14 +12,14 @@ import (
 type FakeEventPublisher struct {
 	mu sync.Mutex
 
-	Events []events.Event[events.UserCreatedEvent]
+	Events []events.Event
 
 	Err error
 }
 
 func NewFakeEventPublisher() *FakeEventPublisher {
 	return &FakeEventPublisher{
-		Events: make([]events.Event[events.UserCreatedEvent], 0),
+		Events: make([]events.Event, 0),
 	}
 }
 
@@ -31,7 +31,7 @@ func (f *FakeEventPublisher) Publish(ctx context.Context, topic string, key []by
 		return f.Err
 	}
 
-	event, ok := msg.(events.Event[events.UserCreatedEvent])
+	event, ok := msg.(events.Event)
 	if !ok {
 		return fmt.Errorf("unexpected event type: %T", msg)
 	}

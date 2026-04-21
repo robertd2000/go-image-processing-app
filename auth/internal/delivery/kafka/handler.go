@@ -25,7 +25,7 @@ func NewUserDeletedHandler(userSyncSvc UserSyncService) *UserDeletedHandler {
 	}
 }
 
-func (s *UserDeletedHandler) Handle(ctx context.Context, evt events.RawEvent) error {
+func (s *UserDeletedHandler) Handle(ctx context.Context, evt events.Event) error {
 	if evt.Version != 1 {
 		return fmt.Errorf("unsupported version: %d", evt.Version)
 	}

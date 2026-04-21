@@ -92,7 +92,7 @@ func main() {
 	// ---------- kafka ----------
 	consumer := ckafka.NewConsumer(
 		cfg.Kafka.Brokers,
-		cfg.Kafka.Topics.UserCreated,
+		"user.events.v1",
 		cfg.Kafka.GroupID,
 	)
 

@@ -95,17 +95,18 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 		}
 		eventID := uuid.New()
 
-		event := events.Event[events.UserCreatedEvent]{
-			EventID:    eventID,
-			EventType:  "user.created",
-			Version:    1,
-			OccurredAt: time.Now(),
-			Payload: events.UserCreatedEvent{
+		event, err := events.NewEvent(
+			"user.created",
+			1,
+			events.UserCreatedEvent{
 				ID:        user.ID(),
 				Username:  user.Username(),
 				Email:     *user.Email(),
 				CreatedAt: user.CreatedAt(),
 			},
+		)
+		if err != nil {
+			return err
 		}
 
 		payload, err := json.Marshal(event)
@@ -116,7 +117,7 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 		outboxEvent := port.OutboxEvent{
 			ID:        eventID,
 			Type:      "user.created",
-			Topic:     "user.created.v1",
+			Topic:     "user.events.v1",
 			Key:       user.ID().String(),
 			Payload:   payload,
 			CreatedAt: time.Now(),

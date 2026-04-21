@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	domainevents "github.com/robertd2000/go-image-processing-app/user/internal/domain/events"
+	userEvents "github.com/robertd2000/go-image-processing-app/user/internal/domain/events"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/postgres/dberrors"
 	"github.com/robertd2000/go-image-processing-app/user/internal/port"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user/model"
-	"github.com/robertd2000/go-image-processing-app/user/pkg/events"
+	sharedEvents "github.com/robertd2000/go-image-processing-app/user/pkg/events"
 )
 
 type userService struct {
@@ -270,15 +270,16 @@ func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 
 		now := time.Now()
 
-		event := events.Event[domainevents.UserDeletedEvent]{
-			EventID:    uuid.New(),
-			EventType:  "user.deleted",
-			Version:    1,
-			OccurredAt: now,
-			Payload: domainevents.UserDeletedEvent{
+		event, err := sharedEvents.NewEvent(
+			"user.deleted",
+			1,
+			userEvents.UserDeletedEvent{
 				ID:        userID,
 				DeletedAt: now,
 			},
+		)
+		if err != nil {
+			return err
 		}
 
 		payload, err := json.Marshal(event)
@@ -289,7 +290,7 @@ func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 		outboxEvent := port.OutboxEvent{
 			ID:        uuid.New(),
 			Type:      "user.deleted",
-			Topic:     "user.deleted.v1",
+			Topic:     "user.events.v1",
 			Key:       userID.String(),
 			Payload:   payload,
 			CreatedAt: now,
