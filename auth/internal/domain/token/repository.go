@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
 type TokenRepository interface {
@@ -16,6 +17,7 @@ type TokenRepository interface {
 		oldToken *Tokens,
 		newToken *Tokens) (bool, error)
 	GetByHash(ctx context.Context, token string) (*Tokens, error)
+	DeleteByUserID(ctx context.Context, tx port.Tx, userID uuid.UUID) error
 }
 
 type TokenGenerator interface {

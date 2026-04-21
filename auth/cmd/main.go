@@ -121,7 +121,7 @@ func main() {
 		time.Duration(cfg.JWT.RefreshTTLMin)*time.Minute,
 		txManager,
 	)
-	userSvc := user.NewUserSyncService(userRepo)
+	userSvc := user.NewUserSyncService(txManager, userRepo, tokenRepo)
 
 	// outbox worker
 	worker := outbox.NewWorker(outboxRepo, publisher)
@@ -158,6 +158,8 @@ func main() {
 			log.Fatal(err)
 		}
 	}()
+
+	defer consumer.Close()
 
 	// handler
 	authHandler := v1.NewAuthHandler(authSvc, logger)
