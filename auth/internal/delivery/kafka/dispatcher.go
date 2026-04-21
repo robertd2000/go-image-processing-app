@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/robertd2000/go-image-processing-app/auth/pkg/events"
 )
@@ -47,8 +48,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, msg []byte) error {
 		return fmt.Errorf("invalid event: %w", err)
 	}
 
+	log.Println("EVENT TYPE:", evt.EventType)
+
 	h, ok := d.handlers[evt.EventType]
 	if !ok {
+		log.Println("NO HANDLER FOR:", evt.EventType)
 		return nil
 	}
 

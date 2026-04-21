@@ -272,7 +272,7 @@ func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 
 		event := events.Event[domainevents.UserDeletedEvent]{
 			EventID:    uuid.New(),
-			EventType:  "user.deleted.v1",
+			EventType:  "user.deleted",
 			Version:    1,
 			OccurredAt: now,
 			Payload: domainevents.UserDeletedEvent{

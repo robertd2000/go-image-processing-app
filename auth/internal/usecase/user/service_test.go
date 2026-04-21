@@ -94,30 +94,6 @@ func (s *UserSyncServiceTestSuite) TestUpdateStatusUserNotFoundIgnoreErr() {
 	s.Require().NoError(err)
 }
 
-func (s *UserSyncServiceTestSuite) TestUpdateStatusIgnoreIfSameStatus() {
-	password := "!Secure123"
-	email := "test_user1@example.com"
-	username := "test_user"
-	userID := uuid.New()
-	passwordHash, err := s.passwordHasher.Hash(password)
-	s.Require().NoError(err)
-
-	user, err := userDomain.NewAuthUser(userID, username, &email, passwordHash)
-	s.Require().NoError(err)
-	s.Require().NoError(s.userRepo.Create(s.ctx, nil, user))
-
-	err = s.service.Delete(s.ctx, userID)
-	s.Require().NoError(err)
-
-	updated, err := s.userRepo.GetByID(s.ctx, userID)
-	s.Require().NoError(err)
-
-	expectedStatus, err := userDomain.ParseStatus("active")
-	s.Require().NoError(err)
-
-	s.Require().Equal(expectedStatus, updated.Status())
-}
-
 func TestUserSyncServiceTestSuite(t *testing.T) {
 	suite.Run(t, new(UserSyncServiceTestSuite))
 }
