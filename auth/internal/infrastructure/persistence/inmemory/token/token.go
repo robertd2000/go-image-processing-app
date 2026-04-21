@@ -192,5 +192,16 @@ func (t *tokenInMemoryRepository) getByToken(_ context.Context, token string) (*
 }
 
 func (r *tokenInMemoryRepository) DeleteByUserID(ctx context.Context, tx port.Tx, userID uuid.UUID) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	now := time.Now()
+
+	for _, token := range r.data {
+		if token.UserID() == userID {
+			token.Revoke(now)
+		}
+	}
+
 	return nil
 }

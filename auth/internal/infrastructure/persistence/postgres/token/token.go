@@ -257,6 +257,17 @@ func (r tokenRepository) Rotate(
 }
 
 func (r tokenRepository) DeleteByUserID(ctx context.Context, tx port.Tx, userID uuid.UUID) error {
+	query := `
+		UPDATE refresh_tokens
+		SET revoked_at = NOW()	
+		WHERE user_id = $1
+	`
+
+	err := tx.Exec(ctx, query, userID)
+	if err != nil {
+		return fmt.Errorf("delete token by user id: %w", err)
+	}
+
 	return nil
 }
 
