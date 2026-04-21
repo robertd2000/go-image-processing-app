@@ -148,7 +148,7 @@ func main() {
 	dispatcher.Use(kafkamiddleware.DLQMiddleware(dlq))
 
 	dispatcher.Register(
-		"user.deleted.v1",
+		"user.deleted",
 		kafkahandler.NewUserDeletedHandler(userSvc),
 	)
 
