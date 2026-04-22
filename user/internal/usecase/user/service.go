@@ -113,7 +113,7 @@ func (s *userService) GetByID(ctx context.Context, userID uuid.UUID) (*model.Use
 		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 
-	if user.Status() == userDomain.StatusInactive {
+	if user.Status() != userDomain.StatusActive {
 		return nil, userDomain.ErrUserNotFound
 	}
 

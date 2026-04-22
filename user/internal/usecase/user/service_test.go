@@ -161,6 +161,20 @@ func (s *UserServiceTestSuite) TestGetUserByIDInvalidID() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestGetBannedUserByID() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "rules violation")
+	assert.NoError(s.T(), err)
+
+	user, err := s.service.GetByID(s.ctx, input.ID)
+
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
+}
+
 // GetUserByEmail
 func (s *UserServiceTestSuite) TestGetUserByEmail() {
 	input := s.newCreateUserInput()
