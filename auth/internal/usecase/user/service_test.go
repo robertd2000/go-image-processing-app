@@ -19,6 +19,7 @@ import (
 type UserSyncService interface {
 	Delete(ctx context.Context, userID uuid.UUID) error
 	Ban(ctx context.Context, userID uuid.UUID) error
+	Unban(ctx context.Context, userID uuid.UUID) error
 }
 
 type UserSyncServiceTestSuite struct {
@@ -95,6 +96,7 @@ func (s *UserSyncServiceTestSuite) TestDeleteUserNotFoundIgnoreErr() {
 	s.Require().NoError(err)
 }
 
+// Ban
 func (s *UserSyncServiceTestSuite) TestBanSuccess() {
 	password := "!Secure123"
 	email := "test_user1@example.com"
@@ -140,6 +142,42 @@ func (s *UserSyncServiceTestSuite) TestBanUserNotFoundIgnoreErr() {
 
 	err := s.service.Ban(s.ctx, userID)
 	s.Require().NoError(err)
+}
+
+// Unban
+func (s *UserSyncServiceTestSuite) TestUnbanSuccess() {
+	password := "!Secure123"
+	email := "test_user1@example.com"
+	username := "test_user"
+	userID := uuid.New()
+	passwordHash, err := s.passwordHasher.Hash(password)
+	s.Require().NoError(err)
+
+	user, err := userDomain.NewAuthUser(userID, username, &email, passwordHash)
+	s.Require().NoError(err)
+	s.Require().NoError(s.userRepo.Create(s.ctx, nil, user))
+
+	err = s.service.Ban(s.ctx, userID)
+	s.Require().NoError(err)
+
+	updated, err := s.userRepo.GetByID(s.ctx, userID)
+	s.Require().NoError(err)
+
+	expectedStatus, err := userDomain.ParseStatus("banned")
+	s.Require().NoError(err)
+
+	s.Require().Equal(expectedStatus, updated.Status())
+
+	err = s.service.Unban(s.ctx, userID)
+	s.Require().NoError(err)
+
+	updated, err = s.userRepo.GetByID(s.ctx, userID)
+	s.Require().NoError(err)
+
+	expectedStatus, err = userDomain.ParseStatus("active")
+	s.Require().NoError(err)
+
+	s.Require().Equal(expectedStatus, updated.Status())
 }
 
 func TestUserSyncServiceTestSuite(t *testing.T) {
