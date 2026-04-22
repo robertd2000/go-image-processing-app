@@ -488,6 +488,21 @@ func (s *UserServiceTestSuite) TestBanUser() {
 	assert.Equal(s.T(), user.Status(), userDomain.StatusBanned)
 }
 
+func (s *UserServiceTestSuite) TestBanDeletedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	err = s.service.Ban(s.ctx, input.ID)
+	assert.Error(s.T(), err)
+
+	user, err := s.service.GetByID(s.ctx, input.ID)
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+}
+
 func (s *UserServiceTestSuite) TestDeleteUserNotFound() {
 	nonExistentID := uuid.New()
 	err := s.service.Delete(s.ctx, nonExistentID)
