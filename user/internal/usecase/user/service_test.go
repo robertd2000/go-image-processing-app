@@ -541,7 +541,7 @@ func (s *UserServiceTestSuite) TestRestoreUser() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
 
-	err := s.service.Ban(s.ctx, input.ID, "violate rules")
+	err := s.service.Delete(s.ctx, input.ID)
 	assert.NoError(s.T(), err)
 
 	err = s.service.Restore(s.ctx, input.ID)
@@ -552,19 +552,20 @@ func (s *UserServiceTestSuite) TestRestoreUser() {
 	assert.Equal(s.T(), user.Status(), userDomain.StatusActive)
 }
 
-func (s *UserServiceTestSuite) TestRestoreDeletedUser() {
+func (s *UserServiceTestSuite) TestRestoreBannedUser() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
 
-	err := s.service.Delete(s.ctx, input.ID)
+	err := s.service.Ban(s.ctx, input.ID, "violate rules")
 	assert.NoError(s.T(), err)
 
 	err = s.service.Restore(s.ctx, input.ID)
 	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 
-	user, err := s.service.GetByID(s.ctx, input.ID)
-	assert.Error(s.T(), err)
-	assert.Nil(s.T(), user)
+	user, err := s.userRepo.FindByID(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), user.Status(), userDomain.StatusBanned)
 }
 
 func (s *UserServiceTestSuite) TestRestoreActiveUser() {

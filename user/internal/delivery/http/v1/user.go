@@ -18,6 +18,7 @@ type UserService interface {
 	UpdateSettings(ctx context.Context, input model.UpdateSettingsInput) error
 	Delete(ctx context.Context, userID uuid.UUID) error
 	Ban(ctx context.Context, userID uuid.UUID, reason string) error
+	Restore(ctx context.Context, userID uuid.UUID) error
 	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
 	List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error)

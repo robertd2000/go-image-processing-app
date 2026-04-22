@@ -355,11 +355,7 @@ func (s *userService) Restore(ctx context.Context, userID uuid.UUID) error {
 			return err
 		}
 
-		if user.Status() == userDomain.StatusActive {
-			return userDomain.ErrUserStatusAlready
-		}
-
-		if user.Status() == userDomain.StatusInactive {
+		if user.Status() != userDomain.StatusInactive {
 			return userDomain.ErrUserNotFound
 		}
 
