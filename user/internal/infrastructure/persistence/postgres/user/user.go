@@ -584,6 +584,8 @@ func (r *userRepository) Count(ctx context.Context, f userDomain.UserFilter) (in
 		where = append(where, fmt.Sprintf("u.status = $%d", argPos))
 		args = append(args, *f.Status())
 		argPos++
+	} else {
+		where = append(where, "u.status = 'active'")
 	}
 
 	if f.Search() != nil && *f.Search() != "" {

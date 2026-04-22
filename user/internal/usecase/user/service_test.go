@@ -1096,6 +1096,36 @@ func (s *UserServiceTestSuite) TestCountUsersWithInvalidSearchAndPaginationNoUse
 	assert.Equal(s.T(), 0, count)
 }
 
+func (s *UserServiceTestSuite) Test_Count_OnlyActive() {
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "active",
+		Email:    "a@test.com",
+	})
+
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "banned",
+		Email:    "b@test.com",
+	})
+
+	filter, _ := userDomain.NewUserFilter(10, 0, nil, nil, "", "")
+
+	users, _ := s.userRepo.List(s.ctx, filter)
+
+	for _, u := range users {
+		if u.Username().String() == "banned" {
+			u.UpdateStatus(userDomain.StatusBanned)
+			_ = s.userRepo.Update(s.ctx, u)
+		}
+	}
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{})
+	s.Require().NoError(err)
+
+	s.Equal(1, count)
+}
+
 // helpers
 func (s *UserServiceTestSuite) newCreateUserInput() model.CreateUserInput {
 	return model.CreateUserInput{

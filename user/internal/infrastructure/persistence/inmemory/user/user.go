@@ -24,7 +24,7 @@ func (u *userInMemoryRepository) Count(ctx context.Context, filter userDomain.Us
 
 	count := 0
 	for _, user := range u.users {
-		if u.matchesFilter(user, filter) {
+		if u.matchesFilter(user, filter) && user.Status() == userDomain.StatusActive {
 			count++
 		}
 	}
