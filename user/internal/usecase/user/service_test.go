@@ -937,6 +937,30 @@ func (s *UserServiceTestSuite) Test_List_LimitOffset() {
 	s.Require().Len(result, 2)
 }
 
+func (s *UserServiceTestSuite) Test_List_Search() {
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "john",
+		Email:    "john@test.com",
+	})
+
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "alice",
+		Email:    "alice@test.com",
+	})
+
+	search := "john"
+
+	result, err := s.service.List(s.ctx, model.UserFilterInput{
+		Search: search,
+	})
+	s.Require().NoError(err)
+
+	s.Require().Len(result, 1)
+	s.Equal("john", result[0].Username)
+}
+
 // CountUsers
 func (s *UserServiceTestSuite) TestCountUsers() {
 	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
