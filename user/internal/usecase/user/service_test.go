@@ -961,6 +961,13 @@ func (s *UserServiceTestSuite) Test_List_Search() {
 	s.Equal("john", result[0].Username)
 }
 
+func (s *UserServiceTestSuite) Test_List_Empty() {
+	result, err := s.service.List(s.ctx, model.UserFilterInput{})
+	s.Require().NoError(err)
+
+	s.Require().Len(result, 0)
+}
+
 // CountUsers
 func (s *UserServiceTestSuite) TestCountUsers() {
 	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
