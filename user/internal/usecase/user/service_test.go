@@ -899,6 +899,25 @@ func (s *UserServiceTestSuite) Test_List_ReturnsOnlyActiveUsers() {
 	s.Equal("active", result[0].Username)
 }
 
+func (s *UserServiceTestSuite) Test_List_MapsToOutput() {
+	input := model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "test",
+		Email:    "test@test.com",
+	}
+
+	s.createUser(input)
+
+	result, err := s.service.List(s.ctx, model.UserFilterInput{})
+	s.Require().NoError(err)
+
+	s.Require().Len(result, 1)
+
+	user := result[0]
+	s.Equal("test", user.Username)
+	s.Equal("test@test.com", user.Email)
+}
+
 // CountUsers
 func (s *UserServiceTestSuite) TestCountUsers() {
 	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
