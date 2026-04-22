@@ -67,7 +67,7 @@ func (h *UserHandler) SetupUserHandler(api *gin.RouterGroup, authMiddleware gin.
 // @Router /users/{id} [put]
 // @Security Bearer
 func (h *UserHandler) updateUser(c *gin.Context) {
-	targetUserID, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
 		return
@@ -79,11 +79,11 @@ func (h *UserHandler) updateUser(c *gin.Context) {
 		return
 	}
 
-	input := req.ToInput(targetUserID)
+	input := req.ToInput(id)
 
 	if err := h.userSvc.Update(c.Request.Context(), input); err != nil {
-		h.logger.Error("failed to update user", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("update user failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -103,7 +103,7 @@ func (h *UserHandler) updateUser(c *gin.Context) {
 // @Router /users/{id}/profile [put]
 // @Security Bearer
 func (h *UserHandler) updateProfile(c *gin.Context) {
-	targetUserID, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
 		return
@@ -115,11 +115,11 @@ func (h *UserHandler) updateProfile(c *gin.Context) {
 		return
 	}
 
-	input := req.ToInput(targetUserID)
+	input := req.ToInput(id)
 
 	if err := h.userSvc.UpdateProfile(c.Request.Context(), input); err != nil {
-		h.logger.Error("failed to update profile", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("update profile failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -139,8 +139,7 @@ func (h *UserHandler) updateProfile(c *gin.Context) {
 // @Router /users/{id}/settings [put]
 // @Security Bearer
 func (h *UserHandler) updateSettings(c *gin.Context) {
-
-	targetUserID, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
 		return
@@ -152,11 +151,11 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 		return
 	}
 
-	input := req.ToInput(targetUserID)
+	input := req.ToInput(id)
 
 	if err := h.userSvc.UpdateSettings(c.Request.Context(), input); err != nil {
-		h.logger.Error("failed to update settings", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("update settings failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -174,15 +173,15 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 // @Router /users/{id} [delete]
 // @Security Bearer
 func (h *UserHandler) deleteUser(c *gin.Context) {
-	targetUserID, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
 		return
 	}
 
-	if err := h.userSvc.Delete(c.Request.Context(), targetUserID); err != nil {
-		h.logger.Error("failed to delete user", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+	if err := h.userSvc.Delete(c.Request.Context(), id); err != nil {
+		h.logger.Error("delete user failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -214,12 +213,12 @@ func (h *UserHandler) banUser(c *gin.Context) {
 
 	if userID == targetUserID {
 		h.logger.Error("failed to ban user")
-		c.JSON(500, gin.H{"error": "сфте ифт нщгкыуда"})
+		c.JSON(500, gin.H{"error": "cant ban yourself"})
 	}
 
 	if err := h.userSvc.Ban(c.Request.Context(), targetUserID); err != nil {
 		h.logger.Error("failed to ban user", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		respondError(c, err)
 		return
 	}
 
@@ -236,16 +235,16 @@ func (h *UserHandler) banUser(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /users/{id} [get]
 func (h *UserHandler) getUserByID(c *gin.Context) {
-	userID, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid user id"})
+		c.JSON(400, gin.H{"error": "invalid id"})
 		return
 	}
 
-	user, err := h.userSvc.GetByID(c.Request.Context(), userID)
+	user, err := h.userSvc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		h.logger.Error("failed to get user", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("get user failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -265,8 +264,8 @@ func (h *UserHandler) getUserByEmail(c *gin.Context) {
 
 	user, err := h.userSvc.GetByEmail(c.Request.Context(), email)
 	if err != nil {
-		h.logger.Error("failed to get user by email", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("get user by email failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -294,8 +293,8 @@ func (h *UserHandler) listUsers(c *gin.Context) {
 
 	users, err := h.userSvc.List(c.Request.Context(), filter)
 	if err != nil {
-		h.logger.Error("failed to list users", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("list users failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -323,8 +322,8 @@ func (h *UserHandler) countUsers(c *gin.Context) {
 
 	count, err := h.userSvc.Count(c.Request.Context(), filter)
 	if err != nil {
-		h.logger.Error("failed to count users", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("count users failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
