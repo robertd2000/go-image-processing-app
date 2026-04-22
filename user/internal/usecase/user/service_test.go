@@ -2,6 +2,7 @@ package user_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -916,6 +917,24 @@ func (s *UserServiceTestSuite) Test_List_MapsToOutput() {
 	user := result[0]
 	s.Equal("test", user.Username)
 	s.Equal("test@test.com", user.Email)
+}
+
+func (s *UserServiceTestSuite) Test_List_LimitOffset() {
+	for i := range 5 {
+		s.createUser(model.CreateUserInput{
+			ID:       uuid.New(),
+			Username: fmt.Sprintf("user%d", i),
+			Email:    fmt.Sprintf("user%d@test.com", i),
+		})
+	}
+
+	result, err := s.service.List(s.ctx, model.UserFilterInput{
+		Limit:  2,
+		Offset: 1,
+	})
+	s.Require().NoError(err)
+
+	s.Require().Len(result, 2)
 }
 
 // CountUsers
