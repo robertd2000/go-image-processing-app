@@ -135,7 +135,7 @@ func (s *userService) GetByEmail(ctx context.Context, email string) (*model.User
 		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 
-	if user.Status() == userDomain.StatusInactive {
+	if user.Status() != userDomain.StatusActive {
 		return nil, userDomain.ErrUserNotFound
 	}
 

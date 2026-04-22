@@ -210,6 +210,34 @@ func (s *UserServiceTestSuite) TestGetUserByEmailNotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestGetDeletedUserByEmail() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	user, err := s.service.GetByEmail(s.ctx, input.Email)
+
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
+}
+
+func (s *UserServiceTestSuite) TestGetBannedUserByEmail() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "rules violation")
+	assert.NoError(s.T(), err)
+
+	user, err := s.service.GetByEmail(s.ctx, input.Email)
+
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
+}
+
 // UpdateUser
 func (s *UserServiceTestSuite) TestUpdateUser_Username() {
 	input := s.newCreateUserInput()
