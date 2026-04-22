@@ -476,6 +476,31 @@ func (s *UserServiceTestSuite) TestDeleteUser() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestDeleteUserNotFound() {
+	nonExistentID := uuid.New()
+	err := s.service.Delete(s.ctx, nonExistentID)
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+func (s *UserServiceTestSuite) TestDeleteUserInvalidID() {
+	invalidID := uuid.Nil
+	err := s.service.Delete(s.ctx, invalidID)
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+func (s *UserServiceTestSuite) TestDeleteUserAlreadyDeleted() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+	err = s.service.Delete(s.ctx, input.ID)
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+// BanUser
 func (s *UserServiceTestSuite) TestBanUser() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -503,26 +528,9 @@ func (s *UserServiceTestSuite) TestBanDeletedUser() {
 	assert.Nil(s.T(), user)
 }
 
-func (s *UserServiceTestSuite) TestDeleteUserNotFound() {
+func (s *UserServiceTestSuite) TestBanUserNotFound() {
 	nonExistentID := uuid.New()
-	err := s.service.Delete(s.ctx, nonExistentID)
-	assert.Error(s.T(), err)
-	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
-}
-
-func (s *UserServiceTestSuite) TestDeleteUserInvalidID() {
-	invalidID := uuid.Nil
-	err := s.service.Delete(s.ctx, invalidID)
-	assert.Error(s.T(), err)
-	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
-}
-
-func (s *UserServiceTestSuite) TestDeleteUserAlreadyDeleted() {
-	input := s.newCreateUserInput()
-	s.createUser(input)
-	err := s.service.Delete(s.ctx, input.ID)
-	assert.NoError(s.T(), err)
-	err = s.service.Delete(s.ctx, input.ID)
+	err := s.service.Ban(s.ctx, nonExistentID)
 	assert.Error(s.T(), err)
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
