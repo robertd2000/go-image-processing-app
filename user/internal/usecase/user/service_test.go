@@ -854,6 +854,51 @@ func (s *UserServiceTestSuite) TestListUsersWithInvalidSearch() {
 	assert.Len(s.T(), users, 1)
 }
 
+func (s *UserServiceTestSuite) Test_List_ReturnsOnlyActiveUsers() {
+	// active
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "active",
+		Email:    "active@test.com",
+	})
+
+	// banned
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "banned",
+		Email:    "banned@test.com",
+	})
+
+	// deleted
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "deleted",
+		Email:    "deleted@test.com",
+	})
+
+	filter, _ := userDomain.NewUserFilter(10, 0, nil, nil, "", "")
+	users, err := s.userRepo.List(s.ctx, filter)
+	s.Require().NoError(err)
+
+	for _, u := range users {
+		switch u.Username().String() {
+		case "banned":
+			u.UpdateStatus(userDomain.StatusBanned)
+			_ = s.userRepo.Update(s.ctx, u)
+
+		case "deleted":
+			u.UpdateStatus(userDomain.StatusInactive)
+			_ = s.userRepo.Update(s.ctx, u)
+		}
+	}
+
+	result, err := s.service.List(s.ctx, model.UserFilterInput{})
+	s.Require().NoError(err)
+
+	s.Require().Len(result, 1)
+	s.Equal("active", result[0].Username)
+}
+
 // CountUsers
 func (s *UserServiceTestSuite) TestCountUsers() {
 	user1 := s.newCreateUserInputWith("alice", "alice@example.com")
@@ -1019,4 +1064,20 @@ func boolPtr(b bool) *bool    { return &b }
 
 func TestUserServiceTestSuite(t *testing.T) {
 	suite.Run(t, new(UserServiceTestSuite))
+}
+
+func mustUsername(s string) userDomain.Username {
+	u, err := userDomain.NewUsername(s)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
+func mustEmail(s string) userDomain.Email {
+	e, err := userDomain.NewEmail(s)
+	if err != nil {
+		panic(err)
+	}
+	return e
 }

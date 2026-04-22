@@ -419,7 +419,9 @@ func (s *userService) List(ctx context.Context, filter model.UserFilterInput) ([
 
 	var outputs []*model.UserOutput
 	for _, user := range users {
-		outputs = append(outputs, model.MapToOutput(user))
+		if user.Status() == userDomain.StatusActive {
+			outputs = append(outputs, model.MapToOutput(user))
+		}
 	}
 
 	return outputs, nil
