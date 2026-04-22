@@ -567,6 +567,25 @@ func (s *UserServiceTestSuite) TestRestoreDeletedUser() {
 	assert.Nil(s.T(), user)
 }
 
+func (s *UserServiceTestSuite) TestRestoreActiveUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Restore(s.ctx, input.ID)
+	assert.Error(s.T(), err)
+
+	user, err := s.service.GetByID(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+	assert.NotNil(s.T(), user)
+}
+
+func (s *UserServiceTestSuite) TestRestoreUserNotFound() {
+	nonExistentID := uuid.New()
+	err := s.service.Restore(s.ctx, nonExistentID)
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
 // ListUsers
 func (s *UserServiceTestSuite) TestListUsers() {
 	input := s.newCreateUserInput()
