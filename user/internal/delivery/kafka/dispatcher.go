@@ -9,7 +9,7 @@ import (
 )
 
 type Handler interface {
-	Handle(ctx context.Context, evt events.RawEvent) error
+	Handle(ctx context.Context, evt events.Event) error
 }
 
 type Dispatcher struct {
@@ -27,7 +27,7 @@ func (d *Dispatcher) Register(eventType string, h Handler) {
 }
 
 func (d *Dispatcher) Dispatch(ctx context.Context, msg []byte) error {
-	var evt events.RawEvent
+	var evt events.Event
 
 	if err := json.Unmarshal(msg, &evt); err != nil {
 		return fmt.Errorf("invalid event: %w", err)

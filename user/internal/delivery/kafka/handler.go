@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	domainevents "github.com/robertd2000/go-image-processing-app/user/internal/domain/events"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user/model"
 	"github.com/robertd2000/go-image-processing-app/user/pkg/events"
 )
@@ -21,12 +22,12 @@ func NewUserCreatedHandler(s UserService) *UserCreatedHandler {
 	return &UserCreatedHandler{userService: s}
 }
 
-func (h *UserCreatedHandler) Handle(ctx context.Context, evt events.RawEvent) error {
+func (h *UserCreatedHandler) Handle(ctx context.Context, evt events.Event) error {
 	if evt.Version != 1 {
 		return fmt.Errorf("unsupported version: %d", evt.Version)
 	}
 
-	var payload events.UserCreatedEvent
+	var payload domainevents.UserCreatedEvent
 
 	if err := json.Unmarshal(evt.Payload, &payload); err != nil {
 		return fmt.Errorf("invalid payload: %w", err)
