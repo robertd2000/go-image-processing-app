@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	domainevents "github.com/robertd2000/go-image-processing-app/auth/internal/domain/events"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
@@ -96,9 +97,9 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 		eventID := uuid.New()
 
 		event, err := events.NewEvent(
-			"user.created",
+			events.EventUserCreated,
 			1,
-			events.UserCreatedEvent{
+			domainevents.UserCreatedEvent{
 				ID:        user.ID(),
 				Username:  user.Username(),
 				Email:     *user.Email(),
@@ -116,8 +117,8 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 
 		outboxEvent := port.OutboxEvent{
 			ID:        eventID,
-			Type:      "user.created",
-			Topic:     "user.events.v1",
+			Type:      events.EventUserCreated,
+			Topic:     events.UserEventsTopic,
 			Key:       user.ID().String(),
 			Payload:   payload,
 			CreatedAt: time.Now(),

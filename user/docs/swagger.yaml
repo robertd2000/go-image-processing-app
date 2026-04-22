@@ -33,6 +33,12 @@ definitions:
       username:
         type: string
     type: object
+  dao.UserBanInput:
+    properties:
+      reason:
+        example: rule violation
+        type: string
+    type: object
   dao.UserOutput:
     description: User with profile and settings
     properties:
@@ -147,7 +153,7 @@ paths:
               type: string
             type: object
       security:
-      - BearerAuth: []
+      - Bearer: []
       summary: Delete user
       tags:
       - users
@@ -215,8 +221,47 @@ paths:
               type: string
             type: object
       security:
-      - BearerAuth: []
+      - Bearer: []
       summary: Update user
+      tags:
+      - users
+  /users/{id}/ban:
+    post:
+      consumes:
+      - application/json
+      description: Ban user by ID
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Settings data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/dao.UserBanInput'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: Ban user
       tags:
       - users
   /users/{id}/profile:
@@ -254,7 +299,7 @@ paths:
               type: string
             type: object
       security:
-      - BearerAuth: []
+      - Bearer: []
       summary: Update profile
       tags:
       - users
@@ -293,7 +338,7 @@ paths:
               type: string
             type: object
       security:
-      - BearerAuth: []
+      - Bearer: []
       summary: Update settings
       tags:
       - users
@@ -363,7 +408,8 @@ paths:
       tags:
       - users
 securityDefinitions:
-  BearerAuth:
+  Bearer:
+    description: Type "Bearer" followed by a space and JWT token.
     in: header
     name: Authorization
     type: apiKey

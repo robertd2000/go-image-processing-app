@@ -7,6 +7,7 @@ import (
 )
 
 type UserCreatedEvent struct {
+	Version   int       `json:"version"`
 	ID        uuid.UUID `json:"id"`
 	Username  string    `json:"username"`
 	Email     string    `json:"email"`

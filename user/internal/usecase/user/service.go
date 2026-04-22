@@ -13,6 +13,7 @@ import (
 	"github.com/robertd2000/go-image-processing-app/user/internal/infrastructure/persistence/postgres/dberrors"
 	"github.com/robertd2000/go-image-processing-app/user/internal/port"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user/model"
+	"github.com/robertd2000/go-image-processing-app/user/pkg/events"
 	sharedEvents "github.com/robertd2000/go-image-processing-app/user/pkg/events"
 )
 
@@ -271,7 +272,7 @@ func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 		now := time.Now()
 
 		event, err := sharedEvents.NewEvent(
-			"user.deleted",
+			events.EventUserDeleted,
 			1,
 			userEvents.UserDeletedEvent{
 				ID:        userID,
@@ -289,8 +290,55 @@ func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 
 		outboxEvent := port.OutboxEvent{
 			ID:        uuid.New(),
-			Type:      "user.deleted",
-			Topic:     "user.events.v1",
+			Type:      events.EventUserDeleted,
+			Topic:     events.UserEventsTopic,
+			Key:       userID.String(),
+			Payload:   payload,
+			CreatedAt: now,
+		}
+
+		return s.outboxRepo.Create(ctx, tx, outboxEvent)
+	})
+}
+
+func (s *userService) Ban(ctx context.Context, userID uuid.UUID, reason string) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+		user, err := s.userRepo.FindByID(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		if user.Status() != userDomain.StatusActive {
+			return userDomain.ErrUserNotFound
+		}
+
+		if err := s.userRepo.UpdateStatus(ctx, tx, userID, userDomain.StatusBanned); err != nil {
+			return err
+		}
+
+		now := time.Now()
+
+		event, err := sharedEvents.NewEvent(
+			events.EventUserBanned,
+			1,
+			userEvents.UserBannedEvent{
+				ID:     userID,
+				Reason: reason,
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		payload, err := json.Marshal(event)
+		if err != nil {
+			return err
+		}
+
+		outboxEvent := port.OutboxEvent{
+			ID:        uuid.New(),
+			Type:      events.EventUserBanned,
+			Topic:     events.UserEventsTopic,
 			Key:       userID.String(),
 			Payload:   payload,
 			CreatedAt: now,

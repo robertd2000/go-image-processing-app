@@ -10,6 +10,7 @@ import (
 	"time"
 
 	_ "github.com/robertd2000/go-image-processing-app/user/docs"
+	"github.com/robertd2000/go-image-processing-app/user/pkg/events"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
@@ -92,7 +93,7 @@ func main() {
 	// ---------- kafka ----------
 	consumer := ckafka.NewConsumer(
 		cfg.Kafka.Brokers,
-		"user.events.v1",
+		events.UserEventsTopic,
 		cfg.Kafka.GroupID,
 	)
 
@@ -107,7 +108,7 @@ func main() {
 	worker := outbox.NewWorker(outboxRepo, publisher)
 	go worker.Start(appCtx)
 
-	dispatcher.Register("user.created", kafkahandler.NewUserCreatedHandler(userService))
+	dispatcher.Register(events.EventUserCreated, kafkahandler.NewUserCreatedHandler(userService))
 	userHandler := v1.NewUserHandler(userService, logger)
 
 	jwtValidator := auth.NewJWTValidator(cfg.JWT.Secret)

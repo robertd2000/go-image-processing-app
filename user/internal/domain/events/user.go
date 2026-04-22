@@ -13,12 +13,17 @@ type UserDeletedEvent struct {
 }
 
 type UserBannedEvent struct {
-	ID       uuid.UUID `json:"id"`
-	Reason   string    `json:"reason"`
-	BannedAt time.Time `json:"banned_at"`
+	ID     uuid.UUID `json:"id"`
+	Reason string    `json:"reason"`
 }
 
 type UserRestoredEvent struct {
-	ID         uuid.UUID `json:"id"`
-	RestoredAt time.Time `json:"restored_at"`
+	ID uuid.UUID `json:"id"`
+}
+
+type UserCreatedEvent struct {
+	ID        uuid.UUID `json:"id"`
+	Username  string    `json:"username"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
 }

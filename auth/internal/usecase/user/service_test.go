@@ -18,6 +18,7 @@ import (
 
 type UserSyncService interface {
 	Delete(ctx context.Context, userID uuid.UUID) error
+	Ban(ctx context.Context, userID uuid.UUID) error
 }
 
 type UserSyncServiceTestSuite struct {
@@ -47,7 +48,7 @@ func (s *UserSyncServiceTestSuite) SetupTest() {
 	s.service = user.NewUserSyncService(s.txManager, s.userRepo, s.tokenRepo)
 }
 
-func (s *UserSyncServiceTestSuite) TestUpdateStatusSuccess() {
+func (s *UserSyncServiceTestSuite) TestDeleteSuccess() {
 	password := "!Secure123"
 	email := "test_user1@example.com"
 	username := "test_user"
@@ -71,7 +72,7 @@ func (s *UserSyncServiceTestSuite) TestUpdateStatusSuccess() {
 	s.Require().Equal(expectedStatus, updated.Status())
 }
 
-func (s *UserSyncServiceTestSuite) TestUpdateStatusInvalidUserID() {
+func (s *UserSyncServiceTestSuite) TestDeleteInvalidUserID() {
 	password := "!Secure123"
 	email := "test_user1@example.com"
 	username := "test_user"
@@ -87,10 +88,57 @@ func (s *UserSyncServiceTestSuite) TestUpdateStatusInvalidUserID() {
 	s.Require().Error(err)
 }
 
-func (s *UserSyncServiceTestSuite) TestUpdateStatusUserNotFoundIgnoreErr() {
+func (s *UserSyncServiceTestSuite) TestDeleteUserNotFoundIgnoreErr() {
 	userID := uuid.New()
 
 	err := s.service.Delete(s.ctx, userID)
+	s.Require().NoError(err)
+}
+
+func (s *UserSyncServiceTestSuite) TestBanSuccess() {
+	password := "!Secure123"
+	email := "test_user1@example.com"
+	username := "test_user"
+	userID := uuid.New()
+	passwordHash, err := s.passwordHasher.Hash(password)
+	s.Require().NoError(err)
+
+	user, err := userDomain.NewAuthUser(userID, username, &email, passwordHash)
+	s.Require().NoError(err)
+	s.Require().NoError(s.userRepo.Create(s.ctx, nil, user))
+
+	err = s.service.Ban(s.ctx, userID)
+	s.Require().NoError(err)
+
+	updated, err := s.userRepo.GetByID(s.ctx, userID)
+	s.Require().NoError(err)
+
+	expectedStatus, err := userDomain.ParseStatus("banned")
+	s.Require().NoError(err)
+
+	s.Require().Equal(expectedStatus, updated.Status())
+}
+
+func (s *UserSyncServiceTestSuite) TestBanInvalidUserID() {
+	password := "!Secure123"
+	email := "test_user1@example.com"
+	username := "test_user"
+	userID := uuid.New()
+	passwordHash, err := s.passwordHasher.Hash(password)
+	s.Require().NoError(err)
+
+	user, err := userDomain.NewAuthUser(userID, username, &email, passwordHash)
+	s.Require().NoError(err)
+	s.Require().NoError(s.userRepo.Create(s.ctx, nil, user))
+
+	err = s.service.Ban(s.ctx, uuid.Nil)
+	s.Require().Error(err)
+}
+
+func (s *UserSyncServiceTestSuite) TestBanUserNotFoundIgnoreErr() {
+	userID := uuid.New()
+
+	err := s.service.Ban(s.ctx, userID)
 	s.Require().NoError(err)
 }
 

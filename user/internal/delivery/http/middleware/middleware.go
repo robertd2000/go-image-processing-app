@@ -148,3 +148,28 @@ func OwnerOrAdmin() gin.HandlerFunc {
 		c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
 	}
 }
+
+func Admin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		raw, exists := c.Get(string(ContextRoles))
+		if !exists {
+			c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
+			return
+		}
+
+		roles, ok := raw.([]string)
+		if !ok {
+			c.AbortWithStatusJSON(500, gin.H{"error": "invalid roles type"})
+			return
+		}
+
+		for _, r := range roles {
+			if roleDomain.Name(r) == roleDomain.Admin {
+				c.Next()
+				return
+			}
+		}
+
+		c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
+	}
+}

@@ -183,6 +183,10 @@ func (u *User) UpdateSettings(
 	return nil
 }
 
+func (u *User) UpdateStatus(status UserStatus) {
+	u.status = status
+}
+
 func NewUserFromDB(
 	id uuid.UUID,
 	username string,

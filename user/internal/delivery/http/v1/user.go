@@ -17,6 +17,7 @@ type UserService interface {
 	UpdateProfile(ctx context.Context, input model.UpdateProfileInput) error
 	UpdateSettings(ctx context.Context, input model.UpdateSettingsInput) error
 	Delete(ctx context.Context, userID uuid.UUID) error
+	Ban(ctx context.Context, userID uuid.UUID, reason string) error
 	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
 	List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error)
@@ -49,7 +50,7 @@ func (h *UserHandler) SetupUserHandler(api *gin.RouterGroup, authMiddleware gin.
 		protected.PUT("/:id/profile", middleware.OwnerOrAdmin(), h.updateProfile)
 		protected.PUT("/:id/settings", middleware.OwnerOrAdmin(), h.updateSettings)
 		protected.DELETE("/:id", middleware.OwnerOrAdmin(), h.deleteUser)
-
+		protected.POST("/:id/ban", middleware.Admin(), h.banUser)
 	}
 }
 
@@ -66,7 +67,7 @@ func (h *UserHandler) SetupUserHandler(api *gin.RouterGroup, authMiddleware gin.
 // @Router /users/{id} [put]
 // @Security Bearer
 func (h *UserHandler) updateUser(c *gin.Context) {
-	targetUserID, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
 		return
@@ -78,11 +79,11 @@ func (h *UserHandler) updateUser(c *gin.Context) {
 		return
 	}
 
-	input := req.ToInput(targetUserID)
+	input := req.ToInput(id)
 
 	if err := h.userSvc.Update(c.Request.Context(), input); err != nil {
-		h.logger.Error("failed to update user", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("update user failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -102,7 +103,7 @@ func (h *UserHandler) updateUser(c *gin.Context) {
 // @Router /users/{id}/profile [put]
 // @Security Bearer
 func (h *UserHandler) updateProfile(c *gin.Context) {
-	targetUserID, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
 		return
@@ -114,11 +115,11 @@ func (h *UserHandler) updateProfile(c *gin.Context) {
 		return
 	}
 
-	input := req.ToInput(targetUserID)
+	input := req.ToInput(id)
 
 	if err := h.userSvc.UpdateProfile(c.Request.Context(), input); err != nil {
-		h.logger.Error("failed to update profile", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("update profile failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -138,8 +139,7 @@ func (h *UserHandler) updateProfile(c *gin.Context) {
 // @Router /users/{id}/settings [put]
 // @Security Bearer
 func (h *UserHandler) updateSettings(c *gin.Context) {
-
-	targetUserID, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
 		return
@@ -151,11 +151,11 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 		return
 	}
 
-	input := req.ToInput(targetUserID)
+	input := req.ToInput(id)
 
 	if err := h.userSvc.UpdateSettings(c.Request.Context(), input); err != nil {
-		h.logger.Error("failed to update settings", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("update settings failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -173,15 +173,54 @@ func (h *UserHandler) updateSettings(c *gin.Context) {
 // @Router /users/{id} [delete]
 // @Security Bearer
 func (h *UserHandler) deleteUser(c *gin.Context) {
-	targetUserID, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
 		return
 	}
 
-	if err := h.userSvc.Delete(c.Request.Context(), targetUserID); err != nil {
-		h.logger.Error("failed to delete user", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+	if err := h.userSvc.Delete(c.Request.Context(), id); err != nil {
+		h.logger.Error("delete user failed", zap.Error(err))
+		respondError(c, err)
+		return
+	}
+
+	c.Status(204)
+}
+
+// @Summary Ban user
+// @Description Ban user by ID
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID (UUID)"
+// @Param input body dao.UserBanInput true "Settings data"
+// @Success 204
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /users/{id}/ban [post]
+// @Security Bearer
+func (h *UserHandler) banUser(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid id"})
+		return
+	}
+
+	var req dao.UserBanInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Reason == "" {
+		c.JSON(400, gin.H{"error": "please provide reason"})
+		return
+	}
+
+	if err := h.userSvc.Ban(c.Request.Context(), id, req.Reason); err != nil {
+		h.logger.Error("ban user failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -198,16 +237,16 @@ func (h *UserHandler) deleteUser(c *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /users/{id} [get]
 func (h *UserHandler) getUserByID(c *gin.Context) {
-	userID, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid user id"})
+		c.JSON(400, gin.H{"error": "invalid id"})
 		return
 	}
 
-	user, err := h.userSvc.GetByID(c.Request.Context(), userID)
+	user, err := h.userSvc.GetByID(c.Request.Context(), id)
 	if err != nil {
-		h.logger.Error("failed to get user", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("get user failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -227,8 +266,8 @@ func (h *UserHandler) getUserByEmail(c *gin.Context) {
 
 	user, err := h.userSvc.GetByEmail(c.Request.Context(), email)
 	if err != nil {
-		h.logger.Error("failed to get user by email", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("get user by email failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -256,8 +295,8 @@ func (h *UserHandler) listUsers(c *gin.Context) {
 
 	users, err := h.userSvc.List(c.Request.Context(), filter)
 	if err != nil {
-		h.logger.Error("failed to list users", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("list users failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 
@@ -285,8 +324,8 @@ func (h *UserHandler) countUsers(c *gin.Context) {
 
 	count, err := h.userSvc.Count(c.Request.Context(), filter)
 	if err != nil {
-		h.logger.Error("failed to count users", zap.Error(err))
-		c.JSON(500, gin.H{"error": "internal server error"})
+		h.logger.Error("count users failed", zap.Error(err))
+		respondError(c, err)
 		return
 	}
 

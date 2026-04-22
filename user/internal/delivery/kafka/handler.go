@@ -21,7 +21,7 @@ func NewUserCreatedHandler(s UserService) *UserCreatedHandler {
 	return &UserCreatedHandler{userService: s}
 }
 
-func (h *UserCreatedHandler) Handle(ctx context.Context, evt events.RawEvent) error {
+func (h *UserCreatedHandler) Handle(ctx context.Context, evt events.Event) error {
 	if evt.Version != 1 {
 		return fmt.Errorf("unsupported version: %d", evt.Version)
 	}
