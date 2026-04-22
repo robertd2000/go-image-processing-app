@@ -301,6 +301,52 @@ func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 	})
 }
 
+func (s *userService) Ban(ctx context.Context, userID uuid.UUID) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+		user, err := s.userRepo.FindByID(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		if user.Status() != userDomain.StatusActive {
+			return userDomain.ErrUserNotFound
+		}
+
+		if err := s.userRepo.UpdateStatus(ctx, tx, userID, userDomain.StatusBanned); err != nil {
+			return err
+		}
+
+		now := time.Now()
+
+		event, err := sharedEvents.NewEvent(
+			events.EventUserDeleted,
+			1,
+			userEvents.UserBannedEvent{
+				ID: userID,
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		payload, err := json.Marshal(event)
+		if err != nil {
+			return err
+		}
+
+		outboxEvent := port.OutboxEvent{
+			ID:        uuid.New(),
+			Type:      events.EventUserDeleted,
+			Topic:     events.UserEventsTopic,
+			Key:       userID.String(),
+			Payload:   payload,
+			CreatedAt: now,
+		}
+
+		return s.outboxRepo.Create(ctx, tx, outboxEvent)
+	})
+}
+
 func (s *userService) List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error) {
 	userFilter, err := userDomain.NewUserFilter(filter.Limit, filter.Offset, nil, &filter.Search, filter.SortBy, filter.SortOrder)
 	if err != nil {

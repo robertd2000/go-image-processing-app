@@ -3,6 +3,7 @@ package user_test
 import (
 	"context"
 	"strconv"
+	"testing"
 
 	"github.com/google/uuid"
 	userDomain "github.com/robertd2000/go-image-processing-app/user/internal/domain/user"
@@ -27,6 +28,7 @@ type UserService interface {
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
 	List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error)
 	Count(ctx context.Context, filter model.UserFilterInput) (int, error)
+	Ban(ctx context.Context, userID uuid.UUID) error
 }
 
 type UserServiceTestSuite struct {
@@ -474,6 +476,18 @@ func (s *UserServiceTestSuite) TestDeleteUser() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestBanUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	user, err := s.userRepo.FindByID(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), user.Status(), userDomain.StatusBanned)
+}
+
 func (s *UserServiceTestSuite) TestDeleteUserNotFound() {
 	nonExistentID := uuid.New()
 	err := s.service.Delete(s.ctx, nonExistentID)
@@ -764,3 +778,7 @@ func (s *UserServiceTestSuite) mustGetUserFromRepo(id uuid.UUID) *userDomain.Use
 
 func strPtr(s string) *string { return &s }
 func boolPtr(b bool) *bool    { return &b }
+
+func TestUserServiceTestSuite(t *testing.T) {
+	suite.Run(t, new(UserServiceTestSuite))
+}

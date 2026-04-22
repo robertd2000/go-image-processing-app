@@ -229,10 +229,21 @@ func (u *userInMemoryRepository) Update(ctx context.Context, user *userDomain.Us
 
 // UpdateStatus implements user.UserRepository.
 func (u *userInMemoryRepository) UpdateStatus(ctx context.Context, tx port.Tx, userID uuid.UUID, status userDomain.UserStatus) error {
-	panic("unimplemented")
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	user, err := u.findByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	user.UpdateStatus(status)
+	u.users[user.ID()] = user
+
+	return nil
 }
 
-func (u *userInMemoryRepository) findByID(ctx context.Context, id uuid.UUID) (*userDomain.User, error) {
+func (u *userInMemoryRepository) findByID(_ context.Context, id uuid.UUID) (*userDomain.User, error) {
 	if user, exists := u.users[id]; exists {
 		return user, nil
 	}
