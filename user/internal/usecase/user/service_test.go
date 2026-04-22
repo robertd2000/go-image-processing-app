@@ -475,6 +475,41 @@ func (s *UserServiceTestSuite) TestUpdateProfile_ClearBio() {
 	assert.Equal(s.T(), "", *user.Profile().Bio())
 }
 
+func (s *UserServiceTestSuite) TestUpdateProfileDeletedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	update := model.UpdateProfileInput{
+		UserID: input.ID,
+		Bio:    strPtr("hello world"),
+	}
+
+	err = s.service.UpdateProfile(s.ctx, update)
+
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
+}
+
+func (s *UserServiceTestSuite) TestUpdateProfileBannedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "rules violation")
+	assert.NoError(s.T(), err)
+
+	update := model.UpdateProfileInput{
+		UserID: input.ID,
+		Bio:    strPtr("hello world"),
+	}
+
+	err = s.service.UpdateProfile(s.ctx, update)
+
+	assert.Error(s.T(), err)
+}
+
 // UpdateSettings
 func (s *UserServiceTestSuite) TestUpdateSettings_IsPublic() {
 	input := s.newCreateUserInput()

@@ -220,6 +220,10 @@ func (s *userService) UpdateProfile(ctx context.Context, input model.UpdateProfi
 		return fmt.Errorf("find user: %w", err)
 	}
 
+	if user.Status() != userDomain.StatusActive {
+		return userDomain.ErrUserNotFound
+	}
+
 	user.UpdateProfile(
 		input.Bio,
 		input.Location,
