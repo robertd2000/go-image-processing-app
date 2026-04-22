@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	domainevents "github.com/robertd2000/go-image-processing-app/user/internal/domain/events"
 	"github.com/robertd2000/go-image-processing-app/user/internal/usecase/user/model"
 	"github.com/robertd2000/go-image-processing-app/user/pkg/events"
 )
@@ -27,7 +26,7 @@ func (h *UserCreatedHandler) Handle(ctx context.Context, evt events.Event) error
 		return fmt.Errorf("unsupported version: %d", evt.Version)
 	}
 
-	var payload domainevents.UserCreatedEvent
+	var payload events.UserCreatedEvent
 
 	if err := json.Unmarshal(evt.Payload, &payload); err != nil {
 		return fmt.Errorf("invalid payload: %w", err)

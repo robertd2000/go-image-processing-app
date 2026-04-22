@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	domainevents "github.com/robertd2000/go-image-processing-app/auth/internal/domain/events"
 	"github.com/robertd2000/go-image-processing-app/auth/pkg/events"
 )
 
@@ -30,7 +29,7 @@ func (s *UserDeletedHandler) Handle(ctx context.Context, evt events.Event) error
 		return fmt.Errorf("unsupported version: %d", evt.Version)
 	}
 
-	var event domainevents.UserDeletedEvent
+	var event events.UserDeletedEvent
 
 	if err := json.Unmarshal(evt.Payload, &event); err != nil {
 		return fmt.Errorf("invalid payload: %w", err)
