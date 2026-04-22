@@ -2,6 +2,7 @@ package user_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -29,6 +30,7 @@ type UserService interface {
 	List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error)
 	Count(ctx context.Context, filter model.UserFilterInput) (int, error)
 	Ban(ctx context.Context, userID uuid.UUID, reason string) error
+	Restore(ctx context.Context, userID uuid.UUID) error
 }
 
 type UserServiceTestSuite struct {
@@ -160,6 +162,34 @@ func (s *UserServiceTestSuite) TestGetUserByIDInvalidID() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestGetDeletedUserByID() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	user, err := s.service.GetByID(s.ctx, input.ID)
+
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
+}
+
+func (s *UserServiceTestSuite) TestGetBannedUserByID() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "rules violation")
+	assert.NoError(s.T(), err)
+
+	user, err := s.service.GetByID(s.ctx, input.ID)
+
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
+}
+
 // GetUserByEmail
 func (s *UserServiceTestSuite) TestGetUserByEmail() {
 	input := s.newCreateUserInput()
@@ -179,6 +209,34 @@ func (s *UserServiceTestSuite) TestGetUserByEmailNotFound() {
 	assert.Error(s.T(), err)
 	assert.Nil(s.T(), user)
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+func (s *UserServiceTestSuite) TestGetDeletedUserByEmail() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	user, err := s.service.GetByEmail(s.ctx, input.Email)
+
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
+}
+
+func (s *UserServiceTestSuite) TestGetBannedUserByEmail() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "rules violation")
+	assert.NoError(s.T(), err)
+
+	user, err := s.service.GetByEmail(s.ctx, input.Email)
+
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
 }
 
 // UpdateUser
@@ -300,6 +358,42 @@ func (s *UserServiceTestSuite) TestUpdateUser_NotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestUpdateDeletedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	update := model.UpdateUserInput{
+		UserID:   input.ID,
+		Username: strPtr("newusername"),
+	}
+
+	err = s.service.Update(s.ctx, update)
+
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
+}
+
+func (s *UserServiceTestSuite) TestUpdateBannedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "rules violation")
+	assert.NoError(s.T(), err)
+
+	update := model.UpdateUserInput{
+		UserID:   input.ID,
+		Username: strPtr("newusername"),
+	}
+
+	err = s.service.Update(s.ctx, update)
+
+	assert.Error(s.T(), err)
+}
+
+// UpdateProfile
 func (s *UserServiceTestSuite) TestUpdateProfile_Bio() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -382,6 +476,42 @@ func (s *UserServiceTestSuite) TestUpdateProfile_ClearBio() {
 	assert.Equal(s.T(), "", *user.Profile().Bio())
 }
 
+func (s *UserServiceTestSuite) TestUpdateProfileDeletedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	update := model.UpdateProfileInput{
+		UserID: input.ID,
+		Bio:    strPtr("hello world"),
+	}
+
+	err = s.service.UpdateProfile(s.ctx, update)
+
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
+}
+
+func (s *UserServiceTestSuite) TestUpdateProfileBannedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "rules violation")
+	assert.NoError(s.T(), err)
+
+	update := model.UpdateProfileInput{
+		UserID: input.ID,
+		Bio:    strPtr("hello world"),
+	}
+
+	err = s.service.UpdateProfile(s.ctx, update)
+
+	assert.Error(s.T(), err)
+}
+
+// UpdateSettings
 func (s *UserServiceTestSuite) TestUpdateSettings_IsPublic() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -462,6 +592,41 @@ func (s *UserServiceTestSuite) TestUpdateSettings_NotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestUpdateSettingsDeletedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	update := model.UpdateSettingsInput{
+		UserID:   input.ID,
+		IsPublic: boolPtr(false),
+	}
+
+	err = s.service.UpdateSettings(s.ctx, update)
+
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
+}
+
+func (s *UserServiceTestSuite) TestUpdateSettingsBannedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "rules violation")
+	assert.NoError(s.T(), err)
+
+	update := model.UpdateSettingsInput{
+		UserID:   input.ID,
+		IsPublic: boolPtr(false),
+	}
+
+	err = s.service.UpdateSettings(s.ctx, update)
+
+	assert.Error(s.T(), err)
+}
+
 // DeleteUser
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	input := s.newCreateUserInput()
@@ -531,6 +696,57 @@ func (s *UserServiceTestSuite) TestBanDeletedUser() {
 func (s *UserServiceTestSuite) TestBanUserNotFound() {
 	nonExistentID := uuid.New()
 	err := s.service.Ban(s.ctx, nonExistentID, "violate rules")
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+// RestoreUser
+func (s *UserServiceTestSuite) TestRestoreUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	err = s.service.Restore(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	user, err := s.userRepo.FindByID(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), user.Status(), userDomain.StatusActive)
+}
+
+func (s *UserServiceTestSuite) TestRestoreBannedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "violate rules")
+	assert.NoError(s.T(), err)
+
+	err = s.service.Restore(s.ctx, input.ID)
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+
+	user, err := s.userRepo.FindByID(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), user.Status(), userDomain.StatusBanned)
+}
+
+func (s *UserServiceTestSuite) TestRestoreActiveUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Restore(s.ctx, input.ID)
+	assert.Error(s.T(), err)
+
+	user, err := s.service.GetByID(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+	assert.NotNil(s.T(), user)
+}
+
+func (s *UserServiceTestSuite) TestRestoreUserNotFound() {
+	nonExistentID := uuid.New()
+	err := s.service.Restore(s.ctx, nonExistentID)
 	assert.Error(s.T(), err)
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
@@ -637,6 +853,119 @@ func (s *UserServiceTestSuite) TestListUsersWithInvalidSearch() {
 	})
 	assert.NoError(s.T(), err)
 	assert.Len(s.T(), users, 1)
+}
+
+func (s *UserServiceTestSuite) Test_List_ReturnsOnlyActiveUsers() {
+	// active
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "active",
+		Email:    "active@test.com",
+	})
+
+	// banned
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "banned",
+		Email:    "banned@test.com",
+	})
+
+	// deleted
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "deleted",
+		Email:    "deleted@test.com",
+	})
+
+	filter, _ := userDomain.NewUserFilter(10, 0, nil, nil, "", "")
+	users, err := s.userRepo.List(s.ctx, filter)
+	s.Require().NoError(err)
+
+	for _, u := range users {
+		switch u.Username().String() {
+		case "banned":
+			u.UpdateStatus(userDomain.StatusBanned)
+			_ = s.userRepo.Update(s.ctx, u)
+
+		case "deleted":
+			u.UpdateStatus(userDomain.StatusInactive)
+			_ = s.userRepo.Update(s.ctx, u)
+		}
+	}
+
+	result, err := s.service.List(s.ctx, model.UserFilterInput{})
+	s.Require().NoError(err)
+
+	s.Require().Len(result, 1)
+	s.Equal("active", result[0].Username)
+}
+
+func (s *UserServiceTestSuite) Test_List_MapsToOutput() {
+	input := model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "test",
+		Email:    "test@test.com",
+	}
+
+	s.createUser(input)
+
+	result, err := s.service.List(s.ctx, model.UserFilterInput{})
+	s.Require().NoError(err)
+
+	s.Require().Len(result, 1)
+
+	user := result[0]
+	s.Equal("test", user.Username)
+	s.Equal("test@test.com", user.Email)
+}
+
+func (s *UserServiceTestSuite) Test_List_LimitOffset() {
+	for i := range 5 {
+		s.createUser(model.CreateUserInput{
+			ID:       uuid.New(),
+			Username: fmt.Sprintf("user%d", i),
+			Email:    fmt.Sprintf("user%d@test.com", i),
+		})
+	}
+
+	result, err := s.service.List(s.ctx, model.UserFilterInput{
+		Limit:  2,
+		Offset: 1,
+	})
+	s.Require().NoError(err)
+
+	s.Require().Len(result, 2)
+}
+
+func (s *UserServiceTestSuite) Test_List_Search() {
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "john",
+		Email:    "john@test.com",
+	})
+
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "alice",
+		Email:    "alice@test.com",
+	})
+
+	search := "john"
+
+	result, err := s.service.List(s.ctx, model.UserFilterInput{
+		Search: search,
+	})
+	s.Require().NoError(err)
+
+	s.Require().Len(result, 1)
+	s.Equal("john", result[0].Username)
+}
+
+func (s *UserServiceTestSuite) Test_List_Empty() {
+	result, err := s.service.List(s.ctx, model.UserFilterInput{})
+	s.Require().NoError(err)
+
+	s.Require().Len(result, 0)
 }
 
 // CountUsers
@@ -767,6 +1096,43 @@ func (s *UserServiceTestSuite) TestCountUsersWithInvalidSearchAndPaginationNoUse
 	assert.Equal(s.T(), 0, count)
 }
 
+func (s *UserServiceTestSuite) Test_Count_OnlyActive() {
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "active",
+		Email:    "a@test.com",
+	})
+
+	s.createUser(model.CreateUserInput{
+		ID:       uuid.New(),
+		Username: "banned",
+		Email:    "b@test.com",
+	})
+
+	filter, _ := userDomain.NewUserFilter(10, 0, nil, nil, "", "")
+
+	users, _ := s.userRepo.List(s.ctx, filter)
+
+	for _, u := range users {
+		if u.Username().String() == "banned" {
+			u.UpdateStatus(userDomain.StatusBanned)
+			_ = s.userRepo.Update(s.ctx, u)
+		}
+	}
+
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{})
+	s.Require().NoError(err)
+
+	s.Equal(1, count)
+}
+
+func (s *UserServiceTestSuite) Test_Count_Empty() {
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{})
+	s.Require().NoError(err)
+
+	s.Equal(0, count)
+}
+
 // helpers
 func (s *UserServiceTestSuite) newCreateUserInput() model.CreateUserInput {
 	return model.CreateUserInput{
@@ -804,4 +1170,20 @@ func boolPtr(b bool) *bool    { return &b }
 
 func TestUserServiceTestSuite(t *testing.T) {
 	suite.Run(t, new(UserServiceTestSuite))
+}
+
+func mustUsername(s string) userDomain.Username {
+	u, err := userDomain.NewUsername(s)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
+func mustEmail(s string) userDomain.Email {
+	e, err := userDomain.NewEmail(s)
+	if err != nil {
+		panic(err)
+	}
+	return e
 }

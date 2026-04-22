@@ -24,7 +24,7 @@ func (u *userInMemoryRepository) Count(ctx context.Context, filter userDomain.Us
 
 	count := 0
 	for _, user := range u.users {
-		if u.matchesFilter(user, filter) {
+		if u.matchesFilter(user, filter) && user.Status() == userDomain.StatusActive {
 			count++
 		}
 	}
@@ -116,9 +116,6 @@ func (u *userInMemoryRepository) FindByUsername(ctx context.Context, username us
 
 	for _, user := range u.users {
 		if user.Username() == username {
-			if user.Status() == userDomain.StatusInactive {
-				return nil, userDomain.ErrUserNotFound
-			}
 			return user, nil
 		}
 	}
@@ -197,9 +194,6 @@ func (u *userInMemoryRepository) FindByEmail(ctx context.Context, email userDoma
 
 	for _, user := range u.users {
 		if user.Email() == email {
-			if user.Status() == userDomain.StatusInactive {
-				return nil, userDomain.ErrUserNotFound
-			}
 			return user, nil
 		}
 	}

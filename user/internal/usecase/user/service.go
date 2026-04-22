@@ -113,7 +113,7 @@ func (s *userService) GetByID(ctx context.Context, userID uuid.UUID) (*model.Use
 		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 
-	if user.Status() == userDomain.StatusInactive {
+	if user.Status() != userDomain.StatusActive {
 		return nil, userDomain.ErrUserNotFound
 	}
 
@@ -135,7 +135,7 @@ func (s *userService) GetByEmail(ctx context.Context, email string) (*model.User
 		return nil, fmt.Errorf("get user by id: %w", err)
 	}
 
-	if user.Status() == userDomain.StatusInactive {
+	if user.Status() != userDomain.StatusActive {
 		return nil, userDomain.ErrUserNotFound
 	}
 
@@ -149,6 +149,10 @@ func (s *userService) Update(ctx context.Context, input model.UpdateUserInput) e
 			return err
 		}
 		return fmt.Errorf("find user: %w", err)
+	}
+
+	if user.Status() != userDomain.StatusActive {
+		return userDomain.ErrUserNotFound
 	}
 
 	if input.Username != nil {
@@ -216,6 +220,10 @@ func (s *userService) UpdateProfile(ctx context.Context, input model.UpdateProfi
 		return fmt.Errorf("find user: %w", err)
 	}
 
+	if user.Status() != userDomain.StatusActive {
+		return userDomain.ErrUserNotFound
+	}
+
 	user.UpdateProfile(
 		input.Bio,
 		input.Location,
@@ -237,6 +245,10 @@ func (s *userService) UpdateSettings(ctx context.Context, input model.UpdateSett
 			return err
 		}
 		return fmt.Errorf("find user: %w", err)
+	}
+
+	if user.Status() != userDomain.StatusActive {
+		return userDomain.ErrUserNotFound
 	}
 
 	if err := user.UpdateSettings(
@@ -348,6 +360,52 @@ func (s *userService) Ban(ctx context.Context, userID uuid.UUID, reason string) 
 	})
 }
 
+func (s *userService) Restore(ctx context.Context, userID uuid.UUID) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+		user, err := s.userRepo.FindByID(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		if user.Status() != userDomain.StatusInactive {
+			return userDomain.ErrUserNotFound
+		}
+
+		if err := s.userRepo.UpdateStatus(ctx, tx, userID, userDomain.StatusActive); err != nil {
+			return err
+		}
+
+		now := time.Now()
+
+		event, err := sharedEvents.NewEvent(
+			events.EventUserRestored,
+			1,
+			userEvents.UserRestoredEvent{
+				ID: userID,
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		payload, err := json.Marshal(event)
+		if err != nil {
+			return err
+		}
+
+		outboxEvent := port.OutboxEvent{
+			ID:        uuid.New(),
+			Type:      events.EventUserRestored,
+			Topic:     events.UserEventsTopic,
+			Key:       userID.String(),
+			Payload:   payload,
+			CreatedAt: now,
+		}
+
+		return s.outboxRepo.Create(ctx, tx, outboxEvent)
+	})
+}
+
 func (s *userService) List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error) {
 	userFilter, err := userDomain.NewUserFilter(filter.Limit, filter.Offset, nil, &filter.Search, filter.SortBy, filter.SortOrder)
 	if err != nil {
@@ -361,7 +419,9 @@ func (s *userService) List(ctx context.Context, filter model.UserFilterInput) ([
 
 	var outputs []*model.UserOutput
 	for _, user := range users {
-		outputs = append(outputs, model.MapToOutput(user))
+		if user.Status() == userDomain.StatusActive {
+			outputs = append(outputs, model.MapToOutput(user))
+		}
 	}
 
 	return outputs, nil

@@ -303,6 +303,39 @@ paths:
       summary: Update profile
       tags:
       - users
+  /users/{id}/restore:
+    post:
+      consumes:
+      - application/json
+      description: Restore user by ID
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: Restore user
+      tags:
+      - users
   /users/{id}/settings:
     put:
       consumes:

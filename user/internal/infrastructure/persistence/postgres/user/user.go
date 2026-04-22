@@ -143,7 +143,7 @@ func (r *userRepository) FindByID(ctx context.Context, userID uuid.UUID) (*userD
 		FROM users u
 	LEFT JOIN user_profiles p ON u.id = p.user_id
 	LEFT JOIN user_settings s ON u.id = s.user_id
-	WHERE u.id = $1 AND u.status = 'active'
+	WHERE u.id = $1
 	`
 
 	row := r.db.QueryRow(ctx, query, userID)
@@ -189,7 +189,7 @@ func (r *userRepository) FindByEmail(ctx context.Context, email userDomain.Email
 		FROM users u
 	LEFT JOIN user_profiles p ON u.id = p.user_id
 	LEFT JOIN user_settings s ON u.id = s.user_id
-	WHERE u.email = $1 AND u.status = 'active'
+	WHERE u.email = $1
 	`
 	row := r.db.QueryRow(ctx, query, email)
 	user, err := scanUser(row)
@@ -233,7 +233,7 @@ func (r *userRepository) FindByUsername(ctx context.Context, username userDomain
 		FROM users u
 	LEFT JOIN user_profiles p ON u.id = p.user_id
 	LEFT JOIN user_settings s ON u.id = s.user_id
-	WHERE u.username = $1 AND u.status = 'active'
+	WHERE u.username = $1
 	`
 	row := r.db.QueryRow(ctx, query, username.String())
 	user, err := scanUser(row)
@@ -367,7 +367,7 @@ func (r *userRepository) Delete(ctx context.Context, userID uuid.UUID) error {
 			status = 'inactive',
 			deleted_at = NOW(),
 			updated_at = NOW()
-		WHERE id = $1 AND status = 'active'
+		WHERE id = $1
 	`, userID)
 	if err != nil {
 		return fmt.Errorf("delete user: %w", err)
@@ -387,7 +387,7 @@ func (r *userRepository) ExistsByUsername(ctx context.Context, username userDoma
 		SELECT EXISTS(
 			SELECT 1
 			FROM users
-			WHERE username = $1 AND status = 'active'
+			WHERE username = $1
 		)
 	`
 
@@ -406,7 +406,6 @@ func (r *userRepository) ExistsByEmail(ctx context.Context, email userDomain.Ema
 		SELECT EXISTS (
 			SELECT 1 FROM users
 			WHERE email = $1
-			  AND status = 'active'
 		)
 	`, email.String()).Scan(&exists)
 
@@ -498,9 +497,6 @@ func (r *userRepository) List(ctx context.Context, f userDomain.UserFilter) ([]*
 		where = append(where, fmt.Sprintf("u.status = $%d", argPos))
 		args = append(args, *f.Status())
 		argPos++
-	} else {
-		// по умолчанию только active
-		where = append(where, "u.status = 'active'")
 	}
 
 	if f.Search() != nil && *f.Search() != "" {

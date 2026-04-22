@@ -1,7 +1,8 @@
 package events
 
 const (
-	EventUserCreated string = "user.created"
-	EventUserDeleted string = "user.deleted"
-	EventUserBanned  string = "user.banned"
+	EventUserCreated  string = "user.created"
+	EventUserDeleted  string = "user.deleted"
+	EventUserBanned   string = "user.banned"
+	EventUserRestored string = "user.restored"
 )

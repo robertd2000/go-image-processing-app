@@ -129,10 +129,10 @@ func (s *UserRepoTestSuite) TestDelete_UserBecomesInactive() {
 
 	email, _ := userDomain.NewEmail("test@test.com")
 
-	_, err = s.repo.FindByEmail(s.ctx, email)
+	user, err = s.repo.FindByEmail(s.ctx, email)
 
-	s.Error(err)
-	s.Equal(userDomain.ErrUserNotFound, err)
+	s.NoError(err)
+	s.Equal(userDomain.StatusInactive, user.Status())
 }
 
 func (s *UserRepoTestSuite) TestDelete_FindByIDStillReturnsUser() {
