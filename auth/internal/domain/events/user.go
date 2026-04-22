@@ -13,8 +13,8 @@ type UserDeletedEvent struct {
 }
 
 type UserBannedEvent struct {
-	ID     uuid.UUID `json:"id"`
-	Reason string    `json:"reason"`
+	ID     uuid.UUID
+	Reason string
 }
 type UserCreatedEvent struct {
 	Version   int
@@ -22,4 +22,8 @@ type UserCreatedEvent struct {
 	Username  string
 	Email     string
 	CreatedAt time.Time
+}
+
+type UserRestoredEvent struct {
+	ID uuid.UUID
 }

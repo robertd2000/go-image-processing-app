@@ -8,22 +8,22 @@ import (
 )
 
 type UserDeletedEvent struct {
-	ID        uuid.UUID `json:"id"`
-	DeletedAt time.Time `json:"deleted_at"`
+	ID        uuid.UUID
+	DeletedAt time.Time
 }
 
 type UserBannedEvent struct {
-	ID     uuid.UUID `json:"id"`
-	Reason string    `json:"reason"`
+	ID     uuid.UUID
+	Reason string
 }
 
 type UserRestoredEvent struct {
-	ID uuid.UUID `json:"id"`
+	ID uuid.UUID
 }
 
 type UserCreatedEvent struct {
-	ID        uuid.UUID `json:"id"`
-	Username  string    `json:"username"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        uuid.UUID
+	Username  string
+	Email     string
+	CreatedAt time.Time
 }

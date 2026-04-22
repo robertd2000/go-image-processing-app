@@ -29,6 +29,7 @@ type UserService interface {
 	List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error)
 	Count(ctx context.Context, filter model.UserFilterInput) (int, error)
 	Ban(ctx context.Context, userID uuid.UUID, reason string) error
+	Restore(ctx context.Context, userID uuid.UUID) error
 }
 
 type UserServiceTestSuite struct {
@@ -533,6 +534,22 @@ func (s *UserServiceTestSuite) TestBanUserNotFound() {
 	err := s.service.Ban(s.ctx, nonExistentID, "violate rules")
 	assert.Error(s.T(), err)
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+// RestoreUser
+func (s *UserServiceTestSuite) TestRestoreUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "violate rules")
+	assert.NoError(s.T(), err)
+
+	err = s.service.Restore(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	user, err := s.userRepo.FindByID(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), user.Status(), userDomain.StatusActive)
 }
 
 // ListUsers

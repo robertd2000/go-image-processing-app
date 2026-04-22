@@ -26,4 +26,5 @@ var (
 	ErrInvalidUserSearch     = errors.New("invalid user search")
 	ErrInvalidUserSortBy     = errors.New("invalid user sort by")
 	ErrInvalidUserSortOrder  = errors.New("invalid user sort order")
+	ErrUserStatusAlready     = errors.New("status is already")
 )
