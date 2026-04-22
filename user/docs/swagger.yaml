@@ -147,7 +147,7 @@ paths:
               type: string
             type: object
       security:
-      - BearerAuth: []
+      - Bearer: []
       summary: Delete user
       tags:
       - users
@@ -215,8 +215,39 @@ paths:
               type: string
             type: object
       security:
-      - BearerAuth: []
+      - Bearer: []
       summary: Update user
+      tags:
+      - users
+  /users/{id}/ban:
+    post:
+      description: Ban user by ID
+      parameters:
+      - description: User ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: Ban user
       tags:
       - users
   /users/{id}/profile:
@@ -254,7 +285,7 @@ paths:
               type: string
             type: object
       security:
-      - BearerAuth: []
+      - Bearer: []
       summary: Update profile
       tags:
       - users
@@ -293,7 +324,7 @@ paths:
               type: string
             type: object
       security:
-      - BearerAuth: []
+      - Bearer: []
       summary: Update settings
       tags:
       - users
@@ -363,7 +394,8 @@ paths:
       tags:
       - users
 securityDefinitions:
-  BearerAuth:
+  Bearer:
+    description: Type "Bearer" followed by a space and JWT token.
     in: header
     name: Authorization
     type: apiKey

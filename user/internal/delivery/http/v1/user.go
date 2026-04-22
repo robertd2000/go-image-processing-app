@@ -199,25 +199,14 @@ func (h *UserHandler) deleteUser(c *gin.Context) {
 // @Router /users/{id}/ban [post]
 // @Security Bearer
 func (h *UserHandler) banUser(c *gin.Context) {
-	targetUserID, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(400, gin.H{"error": "invalid id"})
 		return
 	}
 
-	userID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid user id"})
-		return
-	}
-
-	if userID == targetUserID {
-		h.logger.Error("failed to ban user")
-		c.JSON(500, gin.H{"error": "cant ban yourself"})
-	}
-
-	if err := h.userSvc.Ban(c.Request.Context(), targetUserID); err != nil {
-		h.logger.Error("failed to ban user", zap.Error(err))
+	if err := h.userSvc.Ban(c.Request.Context(), id); err != nil {
+		h.logger.Error("ban user failed", zap.Error(err))
 		respondError(c, err)
 		return
 	}
