@@ -87,7 +87,7 @@ topics:
 		--bootstrap-server kafka:9092 \
 		--replication-factor 1 \
 		--partitions 3 \
-		--topic user.created.v1
+		--topic user.events.v1
 
 	$(DC) exec kafka kafka-topics \
 		--create \
@@ -95,7 +95,7 @@ topics:
 		--bootstrap-server kafka:9092 \
 		--replication-factor 1 \
 		--partitions 3 \
-		--topic user.created.dlq
+		--topic user.events.dlq
 
 # ---------- IMAGE ----------
 	$(DC) exec kafka kafka-topics \

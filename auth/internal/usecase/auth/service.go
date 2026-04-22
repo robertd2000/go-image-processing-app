@@ -97,7 +97,7 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 		eventID := uuid.New()
 
 		event, err := events.NewEvent(
-			"user.created",
+			events.EventUserCreated,
 			1,
 			domainevents.UserCreatedEvent{
 				ID:        user.ID(),
@@ -117,8 +117,8 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 
 		outboxEvent := port.OutboxEvent{
 			ID:        eventID,
-			Type:      "user.created",
-			Topic:     "user.events.v1",
+			Type:      events.EventUserCreated,
+			Topic:     events.UserEventsTopic,
 			Key:       user.ID().String(),
 			Payload:   payload,
 			CreatedAt: time.Now(),

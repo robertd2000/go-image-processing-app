@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/robertd2000/go-image-processing-app/user/pkg/events"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -52,7 +53,7 @@ func (c *Consumer) Start(ctx context.Context, handler func(context.Context, []by
 		if err != nil {
 			log.Println("message failed after retries:", err)
 
-			_ = c.dlq.Publish(ctx, "user.created.dlq", msg.Key, msg.Value)
+			_ = c.dlq.Publish(ctx, events.UserEventsDLQ, msg.Key, msg.Value)
 
 			_ = c.reader.CommitMessages(ctx, msg)
 

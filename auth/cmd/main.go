@@ -35,6 +35,7 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/outbox"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/user"
+	"github.com/robertd2000/go-image-processing-app/auth/pkg/events"
 )
 
 // @title Auth Service API
@@ -84,7 +85,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = ekafka.EnsureTopic(broker, "user.events.v1")
+	err = ekafka.EnsureTopic(broker, events.UserEventsTopic)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -126,14 +127,14 @@ func main() {
 	consumer := ekafka.NewConsumer(
 		[]string{"kafka:9092"},
 		"auth-service",
-		"user.events.v1",
+		events.UserEventsTopic,
 	)
 
 	dispatcher := kafkahandler.NewDispatcher()
 
 	dlq := kafkamiddleware.NewDLQProducer(
 		[]string{"kafka:9092"},
-		"user.events.dlq",
+		events.UserEventsDLQ,
 	)
 
 	dispatcher.Use(kafkamiddleware.RetryMiddleware(kafkamiddleware.RetryConfig{
@@ -144,7 +145,7 @@ func main() {
 	dispatcher.Use(kafkamiddleware.DLQMiddleware(dlq))
 
 	dispatcher.Register(
-		"user.deleted",
+		events.EventUserDeleted,
 		kafkahandler.NewUserDeletedHandler(userSvc),
 	)
 
