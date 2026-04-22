@@ -1126,6 +1126,13 @@ func (s *UserServiceTestSuite) Test_Count_OnlyActive() {
 	s.Equal(1, count)
 }
 
+func (s *UserServiceTestSuite) Test_Count_Empty() {
+	count, err := s.service.Count(s.ctx, model.UserFilterInput{})
+	s.Require().NoError(err)
+
+	s.Equal(0, count)
+}
+
 // helpers
 func (s *UserServiceTestSuite) newCreateUserInput() model.CreateUserInput {
 	return model.CreateUserInput{
