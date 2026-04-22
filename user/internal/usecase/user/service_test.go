@@ -519,6 +519,41 @@ func (s *UserServiceTestSuite) TestUpdateSettings_NotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestUpdateSettingsDeletedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	update := model.UpdateUserInput{
+		UserID:   input.ID,
+		Username: strPtr("newusername"),
+	}
+
+	err = s.service.Update(s.ctx, update)
+
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
+}
+
+func (s *UserServiceTestSuite) TestUpdateSettingsBannedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "rules violation")
+	assert.NoError(s.T(), err)
+
+	update := model.UpdateUserInput{
+		UserID:   input.ID,
+		Username: strPtr("newusername"),
+	}
+
+	err = s.service.Update(s.ctx, update)
+
+	assert.Error(s.T(), err)
+}
+
 // DeleteUser
 func (s *UserServiceTestSuite) TestDeleteUser() {
 	input := s.newCreateUserInput()

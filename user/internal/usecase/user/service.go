@@ -151,6 +151,10 @@ func (s *userService) Update(ctx context.Context, input model.UpdateUserInput) e
 		return fmt.Errorf("find user: %w", err)
 	}
 
+	if user.Status() != userDomain.StatusActive {
+		return userDomain.ErrUserNotFound
+	}
+
 	if input.Username != nil {
 		username, err := userDomain.NewUsername(*input.Username)
 		if err != nil {
