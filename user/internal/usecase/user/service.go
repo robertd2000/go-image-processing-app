@@ -243,6 +243,10 @@ func (s *userService) UpdateSettings(ctx context.Context, input model.UpdateSett
 		return fmt.Errorf("find user: %w", err)
 	}
 
+	if user.Status() != userDomain.StatusActive {
+		return userDomain.ErrUserNotFound
+	}
+
 	if err := user.UpdateSettings(
 		input.IsPublic,
 		input.AllowNotifications,

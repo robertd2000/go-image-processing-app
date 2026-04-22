@@ -357,6 +357,42 @@ func (s *UserServiceTestSuite) TestUpdateUser_NotFound() {
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }
 
+func (s *UserServiceTestSuite) TestUpdateDeletedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	update := model.UpdateUserInput{
+		UserID:   input.ID,
+		Username: strPtr("newusername"),
+	}
+
+	err = s.service.Update(s.ctx, update)
+
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
+}
+
+func (s *UserServiceTestSuite) TestUpdateBannedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "rules violation")
+	assert.NoError(s.T(), err)
+
+	update := model.UpdateUserInput{
+		UserID:   input.ID,
+		Username: strPtr("newusername"),
+	}
+
+	err = s.service.Update(s.ctx, update)
+
+	assert.Error(s.T(), err)
+}
+
+// UpdateProfile
 func (s *UserServiceTestSuite) TestUpdateProfile_Bio() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -439,6 +475,7 @@ func (s *UserServiceTestSuite) TestUpdateProfile_ClearBio() {
 	assert.Equal(s.T(), "", *user.Profile().Bio())
 }
 
+// UpdateSettings
 func (s *UserServiceTestSuite) TestUpdateSettings_IsPublic() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
@@ -526,12 +563,12 @@ func (s *UserServiceTestSuite) TestUpdateSettingsDeletedUser() {
 	err := s.service.Delete(s.ctx, input.ID)
 	assert.NoError(s.T(), err)
 
-	update := model.UpdateUserInput{
+	update := model.UpdateSettingsInput{
 		UserID:   input.ID,
-		Username: strPtr("newusername"),
+		IsPublic: boolPtr(false),
 	}
 
-	err = s.service.Update(s.ctx, update)
+	err = s.service.UpdateSettings(s.ctx, update)
 
 	assert.Error(s.T(), err)
 	assert.Equal(s.T(), err, userDomain.ErrUserNotFound)
@@ -544,12 +581,12 @@ func (s *UserServiceTestSuite) TestUpdateSettingsBannedUser() {
 	err := s.service.Ban(s.ctx, input.ID, "rules violation")
 	assert.NoError(s.T(), err)
 
-	update := model.UpdateUserInput{
+	update := model.UpdateSettingsInput{
 		UserID:   input.ID,
-		Username: strPtr("newusername"),
+		IsPublic: boolPtr(false),
 	}
 
-	err = s.service.Update(s.ctx, update)
+	err = s.service.UpdateSettings(s.ctx, update)
 
 	assert.Error(s.T(), err)
 }
