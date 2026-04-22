@@ -17,6 +17,7 @@ type UserService interface {
 	UpdateProfile(ctx context.Context, input model.UpdateProfileInput) error
 	UpdateSettings(ctx context.Context, input model.UpdateSettingsInput) error
 	Delete(ctx context.Context, userID uuid.UUID) error
+	Ban(ctx context.Context, userID uuid.UUID) error
 	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
 	List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error)
@@ -49,7 +50,7 @@ func (h *UserHandler) SetupUserHandler(api *gin.RouterGroup, authMiddleware gin.
 		protected.PUT("/:id/profile", middleware.OwnerOrAdmin(), h.updateProfile)
 		protected.PUT("/:id/settings", middleware.OwnerOrAdmin(), h.updateSettings)
 		protected.DELETE("/:id", middleware.OwnerOrAdmin(), h.deleteUser)
-
+		protected.POST("/:id/ban", middleware.Admin(), h.banUser)
 	}
 }
 
@@ -181,6 +182,43 @@ func (h *UserHandler) deleteUser(c *gin.Context) {
 
 	if err := h.userSvc.Delete(c.Request.Context(), targetUserID); err != nil {
 		h.logger.Error("failed to delete user", zap.Error(err))
+		c.JSON(500, gin.H{"error": "internal server error"})
+		return
+	}
+
+	c.Status(204)
+}
+
+// @Summary Ban user
+// @Description Ban user by ID
+// @Tags users
+// @Produce json
+// @Param id path string true "User ID (UUID)"
+// @Success 204
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /users/{id}/ban [post]
+// @Security Bearer
+func (h *UserHandler) banUser(c *gin.Context) {
+	targetUserID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid id"})
+		return
+	}
+
+	userID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid user id"})
+		return
+	}
+
+	if userID == targetUserID {
+		h.logger.Error("failed to ban user")
+		c.JSON(500, gin.H{"error": "сфте ифт нщгкыуда"})
+	}
+
+	if err := h.userSvc.Ban(c.Request.Context(), targetUserID); err != nil {
+		h.logger.Error("failed to ban user", zap.Error(err))
 		c.JSON(500, gin.H{"error": "internal server error"})
 		return
 	}
