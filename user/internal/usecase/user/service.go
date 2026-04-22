@@ -359,6 +359,10 @@ func (s *userService) Restore(ctx context.Context, userID uuid.UUID) error {
 			return userDomain.ErrUserStatusAlready
 		}
 
+		if user.Status() == userDomain.StatusInactive {
+			return userDomain.ErrUserNotFound
+		}
+
 		if err := s.userRepo.UpdateStatus(ctx, tx, userID, userDomain.StatusActive); err != nil {
 			return err
 		}
