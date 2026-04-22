@@ -18,6 +18,7 @@ type UserService interface {
 	UpdateSettings(ctx context.Context, input model.UpdateSettingsInput) error
 	Delete(ctx context.Context, userID uuid.UUID) error
 	Ban(ctx context.Context, userID uuid.UUID, reason string) error
+	Unban(ctx context.Context, userID uuid.UUID) error
 	Restore(ctx context.Context, userID uuid.UUID) error
 	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
@@ -53,6 +54,7 @@ func (h *UserHandler) SetupUserHandler(api *gin.RouterGroup, authMiddleware gin.
 		protected.DELETE("/:id", middleware.OwnerOrAdmin(), h.deleteUser)
 		protected.POST("/:id/restore", middleware.OwnerOrAdmin(), h.restoreUser)
 		protected.POST("/:id/ban", middleware.Admin(), h.banUser)
+		protected.POST("/:id/unban", middleware.Admin(), h.unbanUser)
 	}
 }
 
@@ -222,6 +224,33 @@ func (h *UserHandler) banUser(c *gin.Context) {
 
 	if err := h.userSvc.Ban(c.Request.Context(), id, req.Reason); err != nil {
 		h.logger.Error("ban user failed", zap.Error(err))
+		respondError(c, err)
+		return
+	}
+
+	c.Status(204)
+}
+
+// @Summary Unban user
+// @Description Unban user by ID
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param id path string true "User ID (UUID)"
+// @Success 204
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /users/{id}/unban [post]
+// @Security Bearer
+func (h *UserHandler) unbanUser(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if err := h.userSvc.Unban(c.Request.Context(), id); err != nil {
+		h.logger.Error("unban user failed", zap.Error(err))
 		respondError(c, err)
 		return
 	}

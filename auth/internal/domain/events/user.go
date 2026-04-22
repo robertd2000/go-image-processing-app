@@ -16,6 +16,11 @@ type UserBannedEvent struct {
 	ID     uuid.UUID
 	Reason string
 }
+
+type UserUnbannedEvent struct {
+	ID uuid.UUID
+}
+
 type UserCreatedEvent struct {
 	Version   int
 	ID        uuid.UUID

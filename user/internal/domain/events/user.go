@@ -17,6 +17,10 @@ type UserBannedEvent struct {
 	Reason string
 }
 
+type UserUnbannedEvent struct {
+	ID uuid.UUID
+}
+
 type UserRestoredEvent struct {
 	ID uuid.UUID
 }

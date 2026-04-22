@@ -30,6 +30,7 @@ type UserService interface {
 	List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error)
 	Count(ctx context.Context, filter model.UserFilterInput) (int, error)
 	Ban(ctx context.Context, userID uuid.UUID, reason string) error
+	Unban(ctx context.Context, userID uuid.UUID) error
 	Restore(ctx context.Context, userID uuid.UUID) error
 }
 
@@ -696,6 +697,44 @@ func (s *UserServiceTestSuite) TestBanDeletedUser() {
 func (s *UserServiceTestSuite) TestBanUserNotFound() {
 	nonExistentID := uuid.New()
 	err := s.service.Ban(s.ctx, nonExistentID, "violate rules")
+	assert.Error(s.T(), err)
+	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
+}
+
+// UnbanUser
+func (s *UserServiceTestSuite) TestUnbanUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Ban(s.ctx, input.ID, "violate rules")
+	assert.NoError(s.T(), err)
+
+	err = s.service.Unban(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	user, err := s.userRepo.FindByID(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), user.Status(), userDomain.StatusActive)
+}
+
+func (s *UserServiceTestSuite) TestUnbanDeletedUser() {
+	input := s.newCreateUserInput()
+	s.createUser(input)
+
+	err := s.service.Delete(s.ctx, input.ID)
+	assert.NoError(s.T(), err)
+
+	err = s.service.Unban(s.ctx, input.ID)
+	assert.Error(s.T(), err)
+
+	user, err := s.service.GetByID(s.ctx, input.ID)
+	assert.Error(s.T(), err)
+	assert.Nil(s.T(), user)
+}
+
+func (s *UserServiceTestSuite) TestUnbanUserNotFound() {
+	nonExistentID := uuid.New()
+	err := s.service.Unban(s.ctx, nonExistentID)
 	assert.Error(s.T(), err)
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }

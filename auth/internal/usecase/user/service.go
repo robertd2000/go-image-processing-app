@@ -84,6 +84,36 @@ func (s *userSyncService) Ban(ctx context.Context, userID uuid.UUID) error {
 	})
 }
 
+func (s *userSyncService) Unban(ctx context.Context, userID uuid.UUID) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+		if userID == uuid.Nil {
+			return userDomain.ErrInvalidUserID
+		}
+
+		user, err := s.userRepo.GetByID(ctx, userID)
+		if err != nil {
+			if errors.Is(err, userDomain.ErrUserNotFound) {
+				return nil
+			}
+			return err
+		}
+
+		if user.Status() != userDomain.StatusBanned {
+			return nil
+		}
+
+		if err := s.userRepo.UpdateStatus(ctx, tx, userID, userDomain.StatusActive); err != nil {
+			return err
+		}
+
+		if err := s.tokenRepo.DeleteByUserID(ctx, tx, userID); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 func (s *userSyncService) Restore(ctx context.Context, userID uuid.UUID) error {
 	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
 		if userID == uuid.Nil {

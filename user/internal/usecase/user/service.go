@@ -360,6 +360,52 @@ func (s *userService) Ban(ctx context.Context, userID uuid.UUID, reason string) 
 	})
 }
 
+func (s *userService) Unban(ctx context.Context, userID uuid.UUID) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+		user, err := s.userRepo.FindByID(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		if user.Status() != userDomain.StatusBanned {
+			return userDomain.ErrUserNotFound
+		}
+
+		if err := s.userRepo.UpdateStatus(ctx, tx, userID, userDomain.StatusActive); err != nil {
+			return err
+		}
+
+		now := time.Now()
+
+		event, err := sharedEvents.NewEvent(
+			events.EventUserUnbanned,
+			1,
+			userEvents.UserUnbannedEvent{
+				ID: userID,
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		payload, err := json.Marshal(event)
+		if err != nil {
+			return err
+		}
+
+		outboxEvent := port.OutboxEvent{
+			ID:        uuid.New(),
+			Type:      events.EventUserUnbanned,
+			Topic:     events.UserEventsTopic,
+			Key:       userID.String(),
+			Payload:   payload,
+			CreatedAt: now,
+		}
+
+		return s.outboxRepo.Create(ctx, tx, outboxEvent)
+	})
+}
+
 func (s *userService) Restore(ctx context.Context, userID uuid.UUID) error {
 	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
 		user, err := s.userRepo.FindByID(ctx, userID)
