@@ -301,7 +301,7 @@ func (s *userService) Delete(ctx context.Context, userID uuid.UUID) error {
 	})
 }
 
-func (s *userService) Ban(ctx context.Context, userID uuid.UUID) error {
+func (s *userService) Ban(ctx context.Context, userID uuid.UUID, reason string) error {
 	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
 		user, err := s.userRepo.FindByID(ctx, userID)
 		if err != nil {
@@ -322,7 +322,8 @@ func (s *userService) Ban(ctx context.Context, userID uuid.UUID) error {
 			events.EventUserDeleted,
 			1,
 			userEvents.UserBannedEvent{
-				ID: userID,
+				ID:     userID,
+				Reason: reason,
 			},
 		)
 		if err != nil {
@@ -336,7 +337,7 @@ func (s *userService) Ban(ctx context.Context, userID uuid.UUID) error {
 
 		outboxEvent := port.OutboxEvent{
 			ID:        uuid.New(),
-			Type:      events.EventUserDeleted,
+			Type:      events.EventUserBanned,
 			Topic:     events.UserEventsTopic,
 			Key:       userID.String(),
 			Payload:   payload,

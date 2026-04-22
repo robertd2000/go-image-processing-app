@@ -88,3 +88,7 @@ type UsersListResponse struct {
 	Items []UserOutput `json:"items"`
 	Total int          `json:"total" example:"100"`
 }
+
+type UserBanInput struct {
+	Reason string `json:"reason" example:"rule violation"`
+}

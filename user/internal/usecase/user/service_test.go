@@ -28,7 +28,7 @@ type UserService interface {
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
 	List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error)
 	Count(ctx context.Context, filter model.UserFilterInput) (int, error)
-	Ban(ctx context.Context, userID uuid.UUID) error
+	Ban(ctx context.Context, userID uuid.UUID, reason string) error
 }
 
 type UserServiceTestSuite struct {
@@ -505,7 +505,7 @@ func (s *UserServiceTestSuite) TestBanUser() {
 	input := s.newCreateUserInput()
 	s.createUser(input)
 
-	err := s.service.Ban(s.ctx, input.ID)
+	err := s.service.Ban(s.ctx, input.ID, "violate rules")
 	assert.NoError(s.T(), err)
 
 	user, err := s.userRepo.FindByID(s.ctx, input.ID)
@@ -520,7 +520,7 @@ func (s *UserServiceTestSuite) TestBanDeletedUser() {
 	err := s.service.Delete(s.ctx, input.ID)
 	assert.NoError(s.T(), err)
 
-	err = s.service.Ban(s.ctx, input.ID)
+	err = s.service.Ban(s.ctx, input.ID, "violate rules")
 	assert.Error(s.T(), err)
 
 	user, err := s.service.GetByID(s.ctx, input.ID)
@@ -530,7 +530,7 @@ func (s *UserServiceTestSuite) TestBanDeletedUser() {
 
 func (s *UserServiceTestSuite) TestBanUserNotFound() {
 	nonExistentID := uuid.New()
-	err := s.service.Ban(s.ctx, nonExistentID)
+	err := s.service.Ban(s.ctx, nonExistentID, "violate rules")
 	assert.Error(s.T(), err)
 	assert.Equal(s.T(), userDomain.ErrUserNotFound, err)
 }

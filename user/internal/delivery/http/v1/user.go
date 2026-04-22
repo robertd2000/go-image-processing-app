@@ -17,7 +17,7 @@ type UserService interface {
 	UpdateProfile(ctx context.Context, input model.UpdateProfileInput) error
 	UpdateSettings(ctx context.Context, input model.UpdateSettingsInput) error
 	Delete(ctx context.Context, userID uuid.UUID) error
-	Ban(ctx context.Context, userID uuid.UUID) error
+	Ban(ctx context.Context, userID uuid.UUID, reason string) error
 	GetByID(ctx context.Context, userID uuid.UUID) (*model.UserOutput, error)
 	GetByEmail(ctx context.Context, email string) (*model.UserOutput, error)
 	List(ctx context.Context, filter model.UserFilterInput) ([]*model.UserOutput, error)
@@ -205,7 +205,18 @@ func (h *UserHandler) banUser(c *gin.Context) {
 		return
 	}
 
-	if err := h.userSvc.Ban(c.Request.Context(), id); err != nil {
+	var req dao.UserBanInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+
+	if req.Reason == "" {
+		c.JSON(400, gin.H{"error": "please provide reason"})
+		return
+	}
+
+	if err := h.userSvc.Ban(c.Request.Context(), id, req.Reason); err != nil {
 		h.logger.Error("ban user failed", zap.Error(err))
 		respondError(c, err)
 		return
