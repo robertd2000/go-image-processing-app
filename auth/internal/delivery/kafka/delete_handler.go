@@ -6,13 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/robertd2000/go-image-processing-app/auth/pkg/events"
 )
-
-type UserSyncService interface {
-	Delete(ctx context.Context, userID uuid.UUID) error
-}
 
 type UserDeletedHandler struct {
 	userSyncSvc UserSyncService

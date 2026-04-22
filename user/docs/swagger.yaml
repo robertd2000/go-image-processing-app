@@ -33,6 +33,12 @@ definitions:
       username:
         type: string
     type: object
+  dao.UserBanInput:
+    properties:
+      reason:
+        example: rule violation
+        type: string
+    type: object
   dao.UserOutput:
     description: User with profile and settings
     properties:
@@ -221,6 +227,8 @@ paths:
       - users
   /users/{id}/ban:
     post:
+      consumes:
+      - application/json
       description: Ban user by ID
       parameters:
       - description: User ID (UUID)
@@ -228,6 +236,12 @@ paths:
         name: id
         required: true
         type: string
+      - description: Settings data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/dao.UserBanInput'
       produces:
       - application/json
       responses:

@@ -191,8 +191,10 @@ func (h *UserHandler) deleteUser(c *gin.Context) {
 // @Summary Ban user
 // @Description Ban user by ID
 // @Tags users
+// @Accept json
 // @Produce json
 // @Param id path string true "User ID (UUID)"
+// @Param input body dao.UserBanInput true "Settings data"
 // @Success 204
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string

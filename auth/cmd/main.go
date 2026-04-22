@@ -148,6 +148,10 @@ func main() {
 		events.EventUserDeleted,
 		kafkahandler.NewUserDeletedHandler(userSvc),
 	)
+	dispatcher.Register(
+		events.EventUserBanned,
+		kafkahandler.NewUserBanHandler(userSvc),
+	)
 
 	go func() {
 		err := consumer.Start(ctx, dispatcher.Dispatch)

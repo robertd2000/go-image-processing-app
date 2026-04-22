@@ -336,6 +336,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Ban user by ID",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -350,6 +353,15 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Settings data",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dao.UserBanInput"
+                        }
                     }
                 ],
                 "responses": {
@@ -549,6 +561,15 @@ const docTemplate = `{
                 },
                 "username": {
                     "type": "string"
+                }
+            }
+        },
+        "dao.UserBanInput": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "example": "rule violation"
                 }
             }
         },

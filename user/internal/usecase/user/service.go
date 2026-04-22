@@ -319,7 +319,7 @@ func (s *userService) Ban(ctx context.Context, userID uuid.UUID, reason string) 
 		now := time.Now()
 
 		event, err := sharedEvents.NewEvent(
-			events.EventUserDeleted,
+			events.EventUserBanned,
 			1,
 			userEvents.UserBannedEvent{
 				ID:     userID,
