@@ -1,4 +1,10 @@
 -- ==========================
+-- EXTENSIONS
+-- ==========================
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+
+-- ==========================
 -- IMAGE STATUS TYPE
 -- ==========================
 DO $$
@@ -18,29 +24,20 @@ END$$;
 -- IMAGES TABLE
 -- ==========================
 CREATE TABLE images (
-    id              BIGSERIAL PRIMARY KEY,
-    user_id         BIGINT NOT NULL,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         UUID NOT NULL,
 
     original_name   VARCHAR(255) NOT NULL,
-    file_name       VARCHAR(255) NOT NULL UNIQUE,
-    file_path       TEXT NOT NULL,
+    storage_key     TEXT NOT NULL,
+
     file_size       BIGINT NOT NULL,
     mime_type       VARCHAR(100) NOT NULL,
 
     width           INT NOT NULL,
     height          INT NOT NULL,
 
-    status          image_status NOT NULL DEFAULT 'pending',
-
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    modified_at     TIMESTAMPTZ,
-    deleted_at      TIMESTAMPTZ,
-
-    created_by      BIGINT NOT NULL,
-    modified_by     BIGINT,
-    deleted_by      BIGINT
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE INDEX idx_images_user_id ON images(user_id);
-CREATE INDEX idx_images_status ON images(status);
-CREATE INDEX idx_images_deleted_at ON images(deleted_at);
+
