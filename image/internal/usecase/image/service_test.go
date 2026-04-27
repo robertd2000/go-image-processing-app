@@ -4,8 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
 	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
+	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	"github.com/robertd2000/go-image-processing-app/image/internal/usecase/image/model"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -20,6 +23,7 @@ type imageServiceTestSuite struct {
 
 	service   ImageService
 	imageRepo imageDomain.Repository
+	storage   port.Storage
 	// outboxRepo port.OutboxRepository
 
 	// tx port.TxManager
@@ -34,6 +38,21 @@ func (s *imageServiceTestSuite) SetupTest() {
 	// s.tx = &txmanagermem.FakeTxManager{}
 
 	// s.service =
+}
+
+func (s *imageServiceTestSuite) TestUploadImage_Success() {
+	userID := uuid.New()
+	filename := "test1"
+	size := 10000
+	input := model.UploadImageInput{
+		UserID:   userID,
+		Filename: filename,
+		Size:     int64(size),
+	}
+
+	output, err := s.service.UploadImage(s.ctx, input)
+	assert.NoError(s.T(), err)
+	assert.NotNil(s.T(), output)
 }
 
 func TestImageServiceTestSuite(t *testing.T) {
