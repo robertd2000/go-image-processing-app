@@ -197,6 +197,43 @@ func (s *imageServiceTestSuite) TestUploadImage_TooLarge() {
 	assert.Error(s.T(), err)
 }
 
+// REPO ERROR + ROLLBACK
+
+type failingRepo struct {
+	imageDomain.Repository
+}
+
+func (f *failingRepo) Save(ctx context.Context, img *imageDomain.Image) error {
+	return errors.New("repo error")
+}
+
+func (s *imageServiceTestSuite) TestUploadImage_RepoFails_ShouldRollbackStorage() {
+	userID := uuid.New()
+	buf, size := generateTestImage()
+
+	spy := storagemem.NewSpyStorage()
+
+	s.service = imageUsecase.NewImageService(
+		&failingRepo{},
+		spy,
+		s.metadataExtractor,
+	)
+
+	input := model.UploadImageInput{
+		UserID:   userID,
+		Filename: "test.png",
+		Size:     size,
+		Reader:   bytes.NewReader(buf.Bytes()),
+	}
+
+	_, err := s.service.UploadImage(s.ctx, input)
+
+	assert.Error(s.T(), err)
+
+	assert.True(s.T(), spy.PutCalled)
+	assert.True(s.T(), spy.DeleteCalled)
+}
+
 // HELPERS
 
 func generateTestImage() (*bytes.Buffer, int64) {
