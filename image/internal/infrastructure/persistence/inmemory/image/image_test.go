@@ -69,6 +69,27 @@ func (s *ImageRepoSuite) TestSave_Duplicate() {
 	assert.ErrorIs(s.T(), err, imageDomain.ErrAlreadyExists)
 }
 
+func (s *ImageRepoSuite) TestGetByUser_Basic() {
+	user1 := uuid.New()
+	user2 := uuid.New()
+
+	img1 := s.newImage(user1)
+	img2 := s.newImage(user1)
+	img3 := s.newImage(user2)
+
+	_ = s.repo.Save(s.ctx, img1)
+	_ = s.repo.Save(s.ctx, img2)
+	_ = s.repo.Save(s.ctx, img3)
+
+	res, err := s.repo.GetByUser(s.ctx, user1, 10, 0)
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), res, 2)
+
+	for _, img := range res {
+		assert.Equal(s.T(), user1, img.UserID())
+	}
+}
+
 func TestImageRepoSuite(t *testing.T) {
 	suite.Run(t, new(ImageRepoSuite))
 }

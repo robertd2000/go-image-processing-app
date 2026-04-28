@@ -2,6 +2,7 @@ package imagemem
 
 import (
 	"context"
+	"sort"
 	"sync"
 
 	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
@@ -45,6 +46,37 @@ func (r *imageRepo) GetByID(ctx context.Context, id uuid.UUID) (*imageDomain.Ima
 	return data, nil
 }
 
-func (r *imageRepo) GetByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*imageDomain.Image, error) {
-	return []*imageDomain.Image{}, nil
+func (r *imageRepo) GetByUser(
+	ctx context.Context,
+	userID uuid.UUID,
+	limit, offset int,
+) ([]*imageDomain.Image, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var filtered []*imageDomain.Image
+	for _, img := range r.data {
+		if img.UserID() == userID {
+			filtered = append(filtered, img)
+		}
+	}
+
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].CreatedAt().Before(filtered[j].CreatedAt())
+	})
+
+	if offset >= len(filtered) {
+		return []*imageDomain.Image{}, nil
+	}
+
+	filtered = filtered[offset:]
+
+	if limit > 0 && len(filtered) > limit {
+		filtered = filtered[:limit]
+	}
+
+	result := make([]*imageDomain.Image, len(filtered))
+	copy(result, filtered)
+
+	return result, nil
 }
