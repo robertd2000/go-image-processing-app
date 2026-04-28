@@ -5,7 +5,10 @@ import (
 	"testing"
 
 	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
+	imageInfra "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/image"
+	storagemem "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/inmemory/storage"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
+	imageUsecase "github.com/robertd2000/go-image-processing-app/image/internal/usecase/image"
 	"github.com/robertd2000/go-image-processing-app/image/internal/usecase/image/model"
 	"github.com/stretchr/testify/suite"
 )
@@ -22,6 +25,8 @@ type imageServiceTestSuite struct {
 	service   ImageService
 	imageRepo imageDomain.Repository
 	storage   port.Storage
+
+	metadataExtractor port.Extractor
 	// outboxRepo port.OutboxRepository
 
 	// tx port.TxManager
@@ -30,12 +35,11 @@ type imageServiceTestSuite struct {
 func (s *imageServiceTestSuite) SetupTest() {
 	s.ctx = context.Background()
 
-	// s.imageRepo = usermem.NewUserRepository()
-	// s.outboxRepo = outboxmem.NewRepository()
-
 	// s.tx = &txmanagermem.FakeTxManager{}
+	s.storage = storagemem.NewInMemoryStorage()
+	s.metadataExtractor = imageInfra.NewMetadataExtractor()
 
-	// s.service =
+	s.service = imageUsecase.NewImageService(s.imageRepo, s.storage, s.metadataExtractor)
 }
 
 // func (s *imageServiceTestSuite) TestUploadImage_Success() {
