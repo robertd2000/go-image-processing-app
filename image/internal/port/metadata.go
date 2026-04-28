@@ -1,11 +1,16 @@
 package port
 
 import (
+	"context"
 	"io"
-
-	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
 )
 
 type Extractor interface {
-	Extract(reader io.Reader) imageDomain.ImageMetadata
+	Extract(ctx context.Context, reader io.Reader) (ImageInfo, error)
+}
+
+type ImageInfo struct {
+	Width    int
+	Height   int
+	MimeType string
 }

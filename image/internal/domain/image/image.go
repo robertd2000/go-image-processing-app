@@ -59,3 +59,7 @@ func (i *Image) StorageKey() StorageKey {
 func (i *Image) Metadata() ImageMetadata {
 	return i.metadata
 }
+
+func (i *Image) CreatedAt() time.Time {
+	return i.createdAt
+}
