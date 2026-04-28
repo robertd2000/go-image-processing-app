@@ -29,7 +29,7 @@ func (r *imageRepo) Save(ctx context.Context, image *imageDomain.Image) error {
 		return imageDomain.ErrAlreadyExists
 	}
 
-	r.data[image.ID()] = image
+	r.data[image.ID()] = cloneImage(image)
 
 	return nil
 }
@@ -43,7 +43,7 @@ func (r *imageRepo) GetByID(ctx context.Context, id uuid.UUID) (*imageDomain.Ima
 		return nil, imageDomain.ErrNotFound
 	}
 
-	return data, nil
+	return cloneImage(data), nil
 }
 
 func (r *imageRepo) GetByUser(
@@ -51,15 +51,23 @@ func (r *imageRepo) GetByUser(
 	userID uuid.UUID,
 	limit, offset int,
 ) ([]*imageDomain.Image, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
 
+	if offset < 0 {
+		offset = 0
+	}
+
+	if limit == 0 {
+		return []*imageDomain.Image{}, nil
+	}
+
+	r.mu.RLock()
 	var filtered []*imageDomain.Image
 	for _, img := range r.data {
 		if img.UserID() == userID {
-			filtered = append(filtered, img)
+			filtered = append(filtered, cloneImage(img))
 		}
 	}
+	r.mu.RUnlock()
 
 	sort.Slice(filtered, func(i, j int) bool {
 		return filtered[i].CreatedAt().Before(filtered[j].CreatedAt())
@@ -71,12 +79,18 @@ func (r *imageRepo) GetByUser(
 
 	filtered = filtered[offset:]
 
-	if limit >= 0 && len(filtered) > limit {
+	if limit > 0 && len(filtered) > limit {
 		filtered = filtered[:limit]
 	}
 
-	result := make([]*imageDomain.Image, len(filtered))
-	copy(result, filtered)
+	return filtered, nil
+}
 
-	return result, nil
+func cloneImage(src *imageDomain.Image) *imageDomain.Image {
+	if src == nil {
+		return nil
+	}
+
+	copy := *src
+	return &copy
 }
