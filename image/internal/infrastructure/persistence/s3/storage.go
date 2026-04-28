@@ -48,7 +48,6 @@ func (s *Storage) Put(
 }
 
 func (s *Storage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
-
 	out, err := s.client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
@@ -64,4 +63,17 @@ func (s *Storage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	}
 
 	return out.Body, nil
+}
+
+func (s *Storage) Delete(ctx context.Context, key string) error {
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+
+	if err != nil {
+		return fmt.Errorf("s3 delete object: %w", err)
+	}
+
+	return nil
 }
