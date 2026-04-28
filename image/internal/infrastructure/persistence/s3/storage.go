@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/smithy-go"
 )
 
 var ErrObjectNotFound = errors.New("object not found")
@@ -54,9 +55,11 @@ func (s *Storage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	})
 
 	if err != nil {
-		var noSuchKey *s3.NoSuchKey
-		if errors.As(err, &noSuchKey) {
-			return nil, ErrObjectNotFound
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) {
+			if apiErr.ErrorCode() == "NoSuchKey" {
+				return nil, ErrObjectNotFound
+			}
 		}
 
 		return nil, fmt.Errorf("s3 get object: %w", err)
