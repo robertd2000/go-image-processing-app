@@ -53,8 +53,6 @@ func TestInMemoryStorage_Concurrent_PutGet(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for i := range workers {
-		i := i
-
 		wg.Go(func() {
 
 			key := fmt.Sprintf("key-%d", i)
@@ -84,8 +82,6 @@ func TestInMemoryStorage_Concurrent_SameKey(t *testing.T) {
 	var wg sync.WaitGroup
 
 	for i := range workers {
-		i := i
-
 		wg.Go(func() {
 
 			data := fmt.Appendf(nil, "data-%d", i)
@@ -104,4 +100,40 @@ func TestInMemoryStorage_Concurrent_SameKey(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.True(t, strings.HasPrefix(string(got), "data-"))
+}
+
+func TestInMemoryStorage_Concurrent_ReadWrite(t *testing.T) {
+	s := storagemem.NewInMemoryStorage()
+
+	key := "key"
+	initial := []byte("initial")
+
+	_ = s.Put(context.Background(), key, bytes.NewReader(initial), int64(len(initial)), "text/plain")
+
+	var wg sync.WaitGroup
+
+	// writers
+	for i := range 20 {
+		i := i
+
+		wg.Go(func() {
+
+			data := fmt.Appendf(nil, "data-%d", i)
+			_ = s.Put(context.Background(), key, bytes.NewReader(data), int64(len(data)), "text/plain")
+		})
+	}
+
+	// readers
+	for range 50 {
+
+		wg.Go(func() {
+
+			r, err := s.Get(context.Background(), key)
+			if err == nil {
+				_, _ = io.ReadAll(r)
+			}
+		})
+	}
+
+	wg.Wait()
 }
