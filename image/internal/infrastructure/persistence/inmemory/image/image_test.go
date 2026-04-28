@@ -106,6 +106,22 @@ func (s *ImageRepoSuite) TestGetByUser_Pagination() {
 	assert.Len(s.T(), res2, 5)
 }
 
+func (s *ImageRepoSuite) TestGetByUser_Pagination_EdgeCases() {
+	user := uuid.New()
+
+	for range 3 {
+		_ = s.repo.Save(s.ctx, s.newImage(user))
+	}
+
+	res, err := s.repo.GetByUser(s.ctx, user, 10, 100)
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), res, 0)
+
+	res, err = s.repo.GetByUser(s.ctx, user, 0, 0)
+	assert.NoError(s.T(), err)
+	assert.Len(s.T(), res, 0)
+}
+
 func TestImageRepoSuite(t *testing.T) {
 	suite.Run(t, new(ImageRepoSuite))
 }

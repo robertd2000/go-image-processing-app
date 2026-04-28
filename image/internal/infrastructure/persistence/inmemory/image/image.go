@@ -71,7 +71,7 @@ func (r *imageRepo) GetByUser(
 
 	filtered = filtered[offset:]
 
-	if limit > 0 && len(filtered) > limit {
+	if limit >= 0 && len(filtered) > limit {
 		filtered = filtered[:limit]
 	}
 
