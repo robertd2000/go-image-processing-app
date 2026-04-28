@@ -148,6 +148,27 @@ func (s *ImageRepoSuite) TestConcurrent_SaveAndGet() {
 	wg.Wait()
 }
 
+func (s *ImageRepoSuite) TestConcurrent_GetByUser() {
+	user := uuid.New()
+
+	for range 50 {
+		_ = s.repo.Save(s.ctx, s.newImage(user))
+	}
+
+	var wg sync.WaitGroup
+
+	for range 50 {
+		wg.Go(func() {
+
+			res, err := s.repo.GetByUser(s.ctx, user, 10, 0)
+			assert.NoError(s.T(), err)
+			assert.LessOrEqual(s.T(), len(res), 10)
+		})
+	}
+
+	wg.Wait()
+}
+
 func TestImageRepoSuite(t *testing.T) {
 	suite.Run(t, new(ImageRepoSuite))
 }
