@@ -48,37 +48,33 @@ func (s *imageService) UploadImage(
 		return nil, imageDomain.ErrInvalidImageSize
 	}
 
-	// --- read full file ---
-	data, err := io.ReadAll(input.Reader)
+	// --- read file (with limit) ---
+	data, err := readAll(input.Reader, 10<<20) // 10MB limit
 	if err != nil {
 		return nil, fmt.Errorf("read image: %w", err)
 	}
 
 	size := int64(len(data))
 
-	// --- extract metadata (width/height/mime) ---
-	reader := bytes.NewReader(data)
-
-	info, err := s.metadataExtractor.Extract(ctx, reader)
+	// --- extract metadata ---
+	info, err := s.metadataExtractor.Extract(ctx, bytes.NewReader(data))
 	if err != nil {
 		return nil, fmt.Errorf("extract metadata: %w", err)
 	}
 
-	meta, err := imageDomain.NewImageMetadata(
-		info.Width,
-		info.Height,
-		size,
-		info.MimeType,
-	)
+	// --- build domain metadata ---
+	meta, err := buildMetadata(info, size)
 	if err != nil {
 		return nil, fmt.Errorf("create metadata: %w", err)
 	}
 
+	// --- extension ---
 	ext, err := detectExtension(info.MimeType, input.Filename)
 	if err != nil {
 		return nil, fmt.Errorf("detect extension: %w", err)
 	}
 
+	// --- domain image ---
 	img, err := imageDomain.NewImage(
 		input.UserID,
 		input.Filename,
@@ -89,22 +85,8 @@ func (s *imageService) UploadImage(
 		return nil, fmt.Errorf("create image: %w", err)
 	}
 
-	// --- upload to storage ---
-	err = s.storage.Put(
-		ctx,
-		string(img.StorageKey()),
-		bytes.NewReader(data),
-		size,
-		meta.MimeType,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("storage put: %w", err)
-	}
-
-	err = s.imageRepo.Save(ctx, img)
-	if err != nil {
-		// rollback storage
-		_ = s.storage.Delete(ctx, string(img.StorageKey()))
+	// --- persist ---
+	if err := s.saveImage(ctx, img, data, size, meta.MimeType); err != nil {
 		return nil, fmt.Errorf("save image: %w", err)
 	}
 
@@ -112,6 +94,32 @@ func (s *imageService) UploadImage(
 		ImageID:   img.ID(),
 		CreatedAt: img.CreatedAt(),
 	}, nil
+}
+
+func (s *imageService) saveImage(
+	ctx context.Context,
+	img *imageDomain.Image,
+	data []byte,
+	size int64,
+	mime string,
+) error {
+
+	if err := s.storage.Put(
+		ctx,
+		string(img.StorageKey()),
+		bytes.NewReader(data),
+		size,
+		mime,
+	); err != nil {
+		return err
+	}
+
+	if err := s.imageRepo.Save(ctx, img); err != nil {
+		_ = s.storage.Delete(ctx, string(img.StorageKey()))
+		return err
+	}
+
+	return nil
 }
 
 func detectExtension(mime, filename string) (string, error) {
@@ -132,4 +140,31 @@ func detectExtension(mime, filename string) (string, error) {
 	}
 
 	return ext, nil
+}
+
+func readAll(r io.Reader, maxSize int64) ([]byte, error) {
+	lr := io.LimitReader(r, maxSize)
+
+	data, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, err
+	}
+
+	if int64(len(data)) >= maxSize {
+		return nil, fmt.Errorf("file too large")
+	}
+
+	return data, nil
+}
+
+func buildMetadata(
+	info port.ImageInfo,
+	size int64,
+) (imageDomain.ImageMetadata, error) {
+	return imageDomain.NewImageMetadata(
+		info.Width,
+		info.Height,
+		size,
+		info.MimeType,
+	)
 }
