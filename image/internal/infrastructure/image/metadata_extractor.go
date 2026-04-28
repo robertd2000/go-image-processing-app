@@ -6,7 +6,7 @@ import (
 	"image"
 	"io"
 
-	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
+	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 )
 
 type MetadataExtractor struct{}
@@ -15,25 +15,17 @@ func NewMetadataExtractor() *MetadataExtractor {
 	return &MetadataExtractor{}
 }
 
-func (e *MetadataExtractor) Extract(ctx context.Context, reader io.Reader) (imageDomain.ImageMetadata, error) {
+func (e *MetadataExtractor) Extract(ctx context.Context, reader io.Reader) (port.ImageInfo, error) {
 	cfg, format, err := image.DecodeConfig(reader)
 	if err != nil {
-		return imageDomain.ImageMetadata{}, fmt.Errorf("decode image config: %w", err)
+		return port.ImageInfo{}, fmt.Errorf("decode image config: %w", err)
 	}
 
-	mime := mapFormatToMime(format)
-
-	meta, err := imageDomain.NewImageMetadata(
-		cfg.Width,
-		cfg.Height,
-		0,
-		mime,
-	)
-	if err != nil {
-		return imageDomain.ImageMetadata{}, err
-	}
-
-	return meta, nil
+	return port.ImageInfo{
+		Width:    cfg.Width,
+		Height:   cfg.Height,
+		MimeType: mapFormatToMime(format),
+	}, nil
 }
 
 func mapFormatToMime(format string) string {
