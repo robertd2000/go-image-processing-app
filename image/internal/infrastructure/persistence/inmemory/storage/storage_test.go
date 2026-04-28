@@ -52,15 +52,13 @@ func TestInMemoryStorage_Concurrent_PutGet(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		i := i
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 
 			key := fmt.Sprintf("key-%d", i)
-			data := []byte(fmt.Sprintf("data-%d", i))
+			data := fmt.Appendf(nil, "data-%d", i)
 
 			err := s.Put(context.Background(), key, bytes.NewReader(data), int64(len(data)), "text/plain")
 			assert.NoError(t, err)
@@ -72,7 +70,7 @@ func TestInMemoryStorage_Concurrent_PutGet(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.Equal(t, data, got)
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -85,18 +83,16 @@ func TestInMemoryStorage_Concurrent_SameKey(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < workers; i++ {
+	for i := range workers {
 		i := i
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 
-			data := []byte(fmt.Sprintf("data-%d", i))
+			data := fmt.Appendf(nil, "data-%d", i)
 
 			err := s.Put(context.Background(), "shared-key", bytes.NewReader(data), int64(len(data)), "text/plain")
 			assert.NoError(t, err)
-		}()
+		})
 	}
 
 	wg.Wait()
