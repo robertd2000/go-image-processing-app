@@ -22,7 +22,7 @@ func NewInMemoryImageRepo() *imageRepo {
 
 func (r *imageRepo) Save(ctx context.Context, image *imageDomain.Image) error {
 	if _, ok := r.data[image.ID()]; ok {
-		return imageDomain.ErrImageAlreadyExists
+		return imageDomain.ErrAlreadyExists
 	}
 
 	r.mu.Lock()
@@ -39,7 +39,7 @@ func (r *imageRepo) GetByID(ctx context.Context, id uuid.UUID) (*imageDomain.Ima
 
 	data, ok := r.data[id]
 	if !ok {
-		return nil, imageDomain.ErrImageNotFound
+		return nil, imageDomain.ErrNotFound
 	}
 
 	return data, nil

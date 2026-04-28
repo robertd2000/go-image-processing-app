@@ -8,6 +8,6 @@ var (
 	ErrInvalidImageMissingMimeType = errors.New("mime type required")
 	ErrInvalidUserID               = errors.New("invalid user id")
 	ErrExtractMetadata             = errors.New("invalid image metadata")
-	ErrImageAlreadyExists          = errors.New("image already exists")
-	ErrImageNotFound               = errors.New("image not found")
+	ErrNotFound                    = errors.New("image not found")
+	ErrAlreadyExists               = errors.New("image already exists")
 )
