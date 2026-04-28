@@ -53,6 +53,11 @@ func (s *ImageRepoSuite) TestSaveAndGetByID() {
 	assert.Equal(s.T(), img.Metadata(), got.Metadata())
 }
 
+func (s *ImageRepoSuite) TestGetByID_NotFound() {
+	_, err := s.repo.GetByID(s.ctx, uuid.New())
+	assert.ErrorIs(s.T(), err, imageDomain.ErrNotFound)
+}
+
 func TestImageRepoSuite(t *testing.T) {
 	suite.Run(t, new(ImageRepoSuite))
 }
