@@ -1,3 +1,5 @@
+github.com/cockroachdb/crlib v0.0.0-20251122031428-fe658a2dbda1 h1:iX0YCYC5Jbt2/g7zNTP/QxhrV8Syp5kkzNiERKeN1uE=
+github.com/cockroachdb/crlib v0.0.0-20251122031428-fe658a2dbda1/go.mod h1:NjNuToN/FbhwH1cCyM9G4Rhtxx+ZaOgtoqFR+thng7w=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
