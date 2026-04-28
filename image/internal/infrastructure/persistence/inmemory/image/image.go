@@ -22,12 +22,12 @@ func NewInMemoryImageRepo() *imageRepo {
 }
 
 func (r *imageRepo) Save(ctx context.Context, image *imageDomain.Image) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	if _, ok := r.data[image.ID()]; ok {
 		return imageDomain.ErrAlreadyExists
 	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	r.data[image.ID()] = image
 

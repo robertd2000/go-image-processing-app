@@ -2,6 +2,7 @@ package imagemem_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
@@ -120,6 +121,31 @@ func (s *ImageRepoSuite) TestGetByUser_Pagination_EdgeCases() {
 	res, err = s.repo.GetByUser(s.ctx, user, 0, 0)
 	assert.NoError(s.T(), err)
 	assert.Len(s.T(), res, 0)
+}
+
+func (s *ImageRepoSuite) TestConcurrent_SaveAndGet() {
+	user := uuid.New()
+
+	const workers = 100
+
+	var wg sync.WaitGroup
+
+	for range workers {
+		wg.Go(func() {
+
+			img := s.newImage(user)
+
+			err := s.repo.Save(s.ctx, img)
+			assert.NoError(s.T(), err)
+
+			got, err := s.repo.GetByID(s.ctx, img.ID())
+			assert.NoError(s.T(), err)
+
+			assert.Equal(s.T(), img.ID(), got.ID())
+		})
+	}
+
+	wg.Wait()
 }
 
 func TestImageRepoSuite(t *testing.T) {
