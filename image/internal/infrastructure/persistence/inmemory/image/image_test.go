@@ -58,6 +58,17 @@ func (s *ImageRepoSuite) TestGetByID_NotFound() {
 	assert.ErrorIs(s.T(), err, imageDomain.ErrNotFound)
 }
 
+func (s *ImageRepoSuite) TestSave_Duplicate() {
+	userID := uuid.New()
+	img := s.newImage(userID)
+
+	err := s.repo.Save(s.ctx, img)
+	assert.NoError(s.T(), err)
+
+	err = s.repo.Save(s.ctx, img)
+	assert.ErrorIs(s.T(), err, imageDomain.ErrAlreadyExists)
+}
+
 func TestImageRepoSuite(t *testing.T) {
 	suite.Run(t, new(ImageRepoSuite))
 }
