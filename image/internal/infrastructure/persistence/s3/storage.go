@@ -46,3 +46,22 @@ func (s *Storage) Put(
 
 	return nil
 }
+
+func (s *Storage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
+
+	out, err := s.client.GetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+
+	if err != nil {
+		var noSuchKey *s3.NoSuchKey
+		if errors.As(err, &noSuchKey) {
+			return nil, ErrObjectNotFound
+		}
+
+		return nil, fmt.Errorf("s3 get object: %w", err)
+	}
+
+	return out.Body, nil
+}
