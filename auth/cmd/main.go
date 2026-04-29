@@ -96,7 +96,7 @@ func main() {
 	publisher := ekafka.NewKafkaPublisher([]string{broker})
 
 	// repos
-	userRepo := userpg.NewUserRepository(db)
+	userRepo := userpg.NewUserRepository(db, zlog)
 	tokenRepo := tokenpg.NewTokenRepository(db)
 	outboxRepo := outboxpg.NewRepository(db)
 
