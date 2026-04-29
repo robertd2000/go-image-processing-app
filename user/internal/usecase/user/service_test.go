@@ -53,7 +53,7 @@ func (s *UserServiceTestSuite) SetupTest() {
 	s.userRepo = usermem.NewUserRepository()
 	s.outboxRepo = outboxmem.NewRepository()
 
-	s.tx = &txmanagermem.FakeTxManager{}
+	s.tx = txmanagermem.NewFakeTxManager()
 
 	s.service = user.NewUserService(s.userRepo, s.outboxRepo, s.tx)
 }

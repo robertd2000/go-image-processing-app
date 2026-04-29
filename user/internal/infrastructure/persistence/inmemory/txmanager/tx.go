@@ -17,3 +17,7 @@ type FakeTxManager struct{}
 func (m *FakeTxManager) WithTx(ctx context.Context, fn func(ctx context.Context, tx port.Tx) error) error {
 	return fn(ctx, &FakeTx{})
 }
+
+func NewFakeTxManager() *FakeTxManager {
+	return &FakeTxManager{}
+}

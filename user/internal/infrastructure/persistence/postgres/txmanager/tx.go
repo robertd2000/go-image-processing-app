@@ -13,6 +13,10 @@ type TxWrapper struct {
 	Tx pgx.Tx
 }
 
+func NewTxWrapper(tx pgx.Tx) *TxWrapper {
+	return &TxWrapper{Tx: tx}
+}
+
 func (t *TxWrapper) Commit(ctx context.Context) error {
 	return t.Tx.Commit(ctx)
 }
@@ -40,7 +44,7 @@ func (m *TxManager) WithTx(ctx context.Context, fn func(ctx context.Context, tx 
 		return err
 	}
 
-	wrapped := &TxWrapper{Tx: tx}
+	wrapped := NewTxWrapper(tx)
 
 	if err := fn(ctx, wrapped); err != nil {
 		_ = tx.Rollback(ctx)

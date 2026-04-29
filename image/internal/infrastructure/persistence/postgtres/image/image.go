@@ -28,7 +28,7 @@ func NewImageRepository(db *pgxpool.Pool, logger *zap.SugaredLogger, metrics por
 	}
 }
 
-func (r *imageRepository) Save(ctx context.Context, image *imageDomain.Image) error {
+func (r *imageRepository) Save(ctx context.Context, tx port.Tx, image *imageDomain.Image) error {
 	if image == nil {
 		return fmt.Errorf("image repository: save: nil image")
 	}
@@ -47,7 +47,7 @@ func (r *imageRepository) Save(ctx context.Context, image *imageDomain.Image) er
 		RETURNING id
 	`
 
-	_, err := r.db.Exec(
+	err := tx.Exec(
 		ctx,
 		query,
 		image.ID(),

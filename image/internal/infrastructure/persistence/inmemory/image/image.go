@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
+	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 
 	"github.com/google/uuid"
 )
@@ -21,7 +22,7 @@ func NewInMemoryImageRepo() *imageRepo {
 	}
 }
 
-func (r *imageRepo) Save(ctx context.Context, image *imageDomain.Image) error {
+func (r *imageRepo) Save(ctx context.Context, tx port.Tx, image *imageDomain.Image) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

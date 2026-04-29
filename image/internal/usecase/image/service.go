@@ -18,16 +18,19 @@ type imageService struct {
 	imageRepo         imageDomain.Repository
 	storage           port.Storage
 	metadataExtractor port.Extractor
+	txManager         port.TxManager
 }
 
 func NewImageService(imageRepo imageDomain.Repository,
 	storage port.Storage,
 	metadataExtractor port.Extractor,
+	txManager port.TxManager,
 ) *imageService {
 	return &imageService{
 		imageRepo:         imageRepo,
 		storage:           storage,
 		metadataExtractor: metadataExtractor,
+		txManager:         txManager,
 	}
 }
 
@@ -103,19 +106,27 @@ func (s *imageService) saveImage(
 	size int64,
 	mime string,
 ) error {
+	key := string(img.StorageKey())
 
 	if err := s.storage.Put(
 		ctx,
-		string(img.StorageKey()),
+		key,
 		bytes.NewReader(data),
 		size,
 		mime,
 	); err != nil {
-		return err
+		return fmt.Errorf("storage put: %w", err)
 	}
 
-	if err := s.imageRepo.Save(ctx, img); err != nil {
-		_ = s.storage.Delete(ctx, string(img.StorageKey()))
+	err := s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+		return s.imageRepo.Save(ctx, tx, img)
+	})
+
+	if err != nil {
+		if delErr := s.storage.Delete(ctx, key); delErr != nil {
+			return fmt.Errorf("db save failed: %w; cleanup failed: %v", err, delErr)
+		}
+
 		return err
 	}
 

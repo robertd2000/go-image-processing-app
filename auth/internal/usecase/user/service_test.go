@@ -44,7 +44,7 @@ func (s *UserSyncServiceTestSuite) SetupTest() {
 	s.tokenRepo = tokenmem.NewTokenRepository()
 
 	s.passwordHasher = &security.FakeHasher{}
-	s.txManager = &txmanagermem.FakeTxManager{}
+	s.txManager = txmanagermem.NewFakeTxManager()
 
 	s.service = user.NewUserSyncService(s.txManager, s.userRepo, s.tokenRepo)
 }

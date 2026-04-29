@@ -57,7 +57,7 @@ func (s *AuthTestSuite) SetupTest() {
 	s.passwordHasher = &security.FakeHasher{}
 	s.tokenHasher = &security.FakeTokenHasher{}
 	s.outboxRepo = outboxmem.NewRepository()
-	s.txManager = &txmanagermem.FakeTxManager{}
+	s.txManager = txmanagermem.NewFakeTxManager()
 
 	s.service = auth.NewAuthService(
 		s.userRepo,

@@ -15,6 +15,7 @@ import (
 	imageInfra "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/image"
 	imagemem "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/inmemory/image"
 	storagemem "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/inmemory/storage"
+	txmanagermem "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/inmemory/txmanager"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	imageUsecase "github.com/robertd2000/go-image-processing-app/image/internal/usecase/image"
 	"github.com/robertd2000/go-image-processing-app/image/internal/usecase/image/model"
@@ -35,6 +36,8 @@ type imageServiceTestSuite struct {
 	imageRepo imageDomain.Repository
 	storage   port.Storage
 
+	txManager port.TxManager
+
 	metadataExtractor port.Extractor
 }
 
@@ -44,8 +47,9 @@ func (s *imageServiceTestSuite) SetupTest() {
 	s.imageRepo = imagemem.NewInMemoryImageRepo()
 	s.storage = storagemem.NewInMemoryStorage()
 	s.metadataExtractor = imageInfra.NewMetadataExtractor()
+	s.txManager = txmanagermem.NewFakeTxManager()
 
-	s.service = imageUsecase.NewImageService(s.imageRepo, s.storage, s.metadataExtractor)
+	s.service = imageUsecase.NewImageService(s.imageRepo, s.storage, s.metadataExtractor, s.txManager)
 }
 
 // SUCCESS
@@ -146,6 +150,7 @@ func (s *imageServiceTestSuite) TestUploadImage_StorageFails() {
 		s.imageRepo,
 		&failingStorage{},
 		s.metadataExtractor,
+		s.txManager,
 	)
 
 	input := model.UploadImageInput{
@@ -203,7 +208,7 @@ type failingRepo struct {
 	imageDomain.Repository
 }
 
-func (f *failingRepo) Save(ctx context.Context, img *imageDomain.Image) error {
+func (f *failingRepo) Save(ctx context.Context, tx port.Tx, img *imageDomain.Image) error {
 	return errors.New("repo error")
 }
 
@@ -217,6 +222,7 @@ func (s *imageServiceTestSuite) TestUploadImage_RepoFails_ShouldRollbackStorage(
 		&failingRepo{},
 		spy,
 		s.metadataExtractor,
+		s.txManager,
 	)
 
 	input := model.UploadImageInput{
