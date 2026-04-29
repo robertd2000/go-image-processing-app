@@ -253,75 +253,63 @@ func (s *authService) generateTokenPair(
 	userID uuid.UUID,
 ) (*model.TokenPair, error) {
 
-	var result *model.TokenPair
-
-	err := s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
-
-		user, err := s.userRepo.GetByID(ctx, userID)
-		if err != nil {
-			return fmt.Errorf("get user: %w", err)
-		}
-
-		var roles []string
-		for _, r := range user.Roles() {
-			roles = append(roles, r.Name().String())
-		}
-
-		// --- access token ---
-		access, err := s.tokenGen.GenerateAccess(model.ClaimsInput{
-			UserID: user.ID(),
-			Roles:  roles,
-		})
-		if err != nil {
-			return fmt.Errorf("generate access token: %w", err)
-		}
-		if access == "" {
-			return fmt.Errorf("generate access token: empty token")
-		}
-
-		// --- refresh token ---
-		refresh, err := s.tokenGen.GenerateRefresh(userID)
-		if err != nil {
-			return fmt.Errorf("generate refresh token: %w", err)
-		}
-
-		refreshHash := s.tokenHasher.Hash(refresh)
-
-		now := time.Now()
-		expiresAt := now.Add(s.refreshTTL)
-
-		familyID := uuid.New()
-		var parentID uuid.UUID
-
-		token, err := tokensDomain.NewTokens(
-			userID,
-			refreshHash,
-			expiresAt,
-			familyID,
-			parentID,
-		)
-		if err != nil {
-			return fmt.Errorf("create refresh token: %w", err)
-		}
-
-		if err := s.refreshRepo.Create(ctx, tx, token, sessionLimit); err != nil {
-			if errors.Is(err, tokensDomain.ErrSessionLimitExceeded) {
-				return fmt.Errorf("session limit exceeded: %w", err)
-			}
-			return fmt.Errorf("save refresh token: %w", err)
-		}
-
-		result = &model.TokenPair{
-			AccessToken:  access,
-			RefreshToken: refresh,
-		}
-
-		return nil
-	})
-
+	// --- read user ---
+	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("get user: %w", err)
 	}
 
-	return result, nil
+	var roles []string
+	for _, r := range user.Roles() {
+		roles = append(roles, r.Name().String())
+	}
+
+	// generate tokens
+	access, err := s.tokenGen.GenerateAccess(model.ClaimsInput{
+		UserID: user.ID(),
+		Roles:  roles,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("generate access token: %w", err)
+	}
+
+	refresh, err := s.tokenGen.GenerateRefresh(userID)
+	if err != nil {
+		return nil, fmt.Errorf("generate refresh token: %w", err)
+	}
+
+	refreshHash := s.tokenHasher.Hash(refresh)
+
+	now := time.Now()
+	expiresAt := now.Add(s.refreshTTL)
+
+	familyID := uuid.New()
+	var parentID uuid.UUID
+
+	token, err := tokensDomain.NewTokens(
+		userID,
+		refreshHash,
+		expiresAt,
+		familyID,
+		parentID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create refresh token: %w", err)
+	}
+
+	if err := s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+		return s.refreshRepo.Create(ctx, tx, token, sessionLimit)
+	}); err != nil {
+
+		if errors.Is(err, tokensDomain.ErrSessionLimitExceeded) {
+			return nil, fmt.Errorf("session limit exceeded: %w", err)
+		}
+
+		return nil, fmt.Errorf("save refresh token: %w", err)
+	}
+
+	return &model.TokenPair{
+		AccessToken:  access,
+		RefreshToken: refresh,
+	}, nil
 }
