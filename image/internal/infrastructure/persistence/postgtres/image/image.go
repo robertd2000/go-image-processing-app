@@ -5,8 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
@@ -77,7 +79,94 @@ func (r *imageRepository) Save(ctx context.Context, tx port.Tx, image *imageDoma
 }
 
 func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDomain.Image, error) {
-	return nil, nil
+	query := `
+		SELECT 
+			id, user_id,
+			original_name, storage_key,
+			file_size, mime_type,
+			width, height,
+			created_at
+		FROM images
+		WHERE id = $1
+	`
+
+	row := r.db.QueryRow(ctx, query, id)
+
+	var (
+		imgID        uuid.UUID
+		userID       uuid.UUID
+		storageKey   string
+		originalName string
+		size         int64
+		mimeType     string
+		width        int
+		height       int
+		createdAt    time.Time
+		deletedAt    *time.Time
+	)
+
+	err := row.Scan(
+		&imgID,
+		&userID,
+		&storageKey,
+		&originalName,
+		&size,
+		&mimeType,
+		&width,
+		&height,
+		&createdAt,
+		&deletedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, imageDomain.ErrNotFound
+		}
+		r.logger.Errorw("GetByID failed", "id", id, "error", err)
+		return nil, mapPGError(err)
+	}
+
+	if deletedAt != nil {
+		return nil, imageDomain.ErrNotFound
+	}
+
+	meta, err := imageDomain.NewImageMetadata(width, height, size, mimeType)
+	if err != nil {
+		return nil, err
+	}
+
+	img, err := imageDomain.RestoreImage(
+		imgID,
+		userID,
+		imageDomain.StorageKey(storageKey),
+		originalName,
+		meta,
+		createdAt,
+		time.Time{},
+	)
+
+	return img, nil
+}
+
+func (r *imageRepository) CountByUser(ctx context.Context, userID uuid.UUID) (int, error) {
+	// start := time.Now()
+	// defer r.metrics.ObserveDB("image.count_by_user", time.Since(start))
+
+	query := `
+		SELECT COUNT(*)
+		FROM images
+		WHERE user_id = $1
+		AND deleted_at IS NULL
+	`
+
+	var count int
+
+	err := r.db.QueryRow(ctx, query, userID).Scan(&count)
+	if err != nil {
+		r.logger.Errorw("CountByUser failed", "user_id", userID, "error", err)
+		return 0, mapPGError(err)
+	}
+
+	return count, nil
 }
 
 func (r *imageRepository) Delete(ctx context.Context, id uuid.UUID) error {

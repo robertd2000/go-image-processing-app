@@ -47,6 +47,30 @@ func NewImage(
 	}, nil
 }
 
+func RestoreImage(
+	id uuid.UUID,
+	userID uuid.UUID,
+	storageKey StorageKey,
+	originalName string,
+	meta ImageMetadata,
+	createdAt time.Time,
+	deletedAt time.Time,
+) (*Image, error) {
+	if userID == uuid.Nil {
+		return nil, ErrInvalidUserID
+	}
+
+	return &Image{
+		id:           id,
+		userID:       userID,
+		originalName: originalName,
+		storageKey:   storageKey,
+		metadata:     meta,
+		createdAt:    createdAt,
+		deletedAt:    deletedAt,
+	}, nil
+}
+
 func (i *Image) ID() uuid.UUID {
 	return i.id
 }
