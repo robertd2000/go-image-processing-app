@@ -267,6 +267,13 @@ func (s *imageServiceTestSuite) TestGetImage_Success() {
 	s.Equal("image/png", res.MimeType)
 }
 
+func (s *imageServiceTestSuite) TestGetImage_NotFound() {
+	res, err := s.service.GetImage(s.ctx, uuid.New())
+
+	s.Require().Error(err)
+	s.Nil(res)
+}
+
 // HELPERS
 
 func generateTestImage() (*bytes.Buffer, int64) {
