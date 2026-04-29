@@ -442,6 +442,34 @@ func (s *imageServiceTestSuite) TestListImages_Empty() {
 	s.Equal(0, res.Total)
 }
 
+func (s *imageServiceTestSuite) TestListImages_Pagination() {
+	userID := uuid.New()
+
+	for i := 0; i < 5; i++ {
+		buf, size := generateTestImage()
+
+		_, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+			UserID:   userID,
+			Filename: fmt.Sprintf("img_%d.png", i),
+			Reader:   buf,
+			Size:     size,
+		})
+		s.Require().NoError(err)
+	}
+
+	res, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  2,
+		Offset: 0,
+	})
+
+	s.Require().NoError(err)
+	s.Require().NotNil(res)
+
+	s.Len(res.Items, 2)
+	s.Equal(5, res.Total)
+}
+
 // HELPERS
 
 func generateTestImage() (*bytes.Buffer, int64) {
