@@ -1,7 +1,7 @@
 package model
 
 type ListImagesOutput struct {
-	Items []ImageOutput
+	Items []*ImageOutput
 
 	Total  int
 	Limit  int

@@ -52,7 +52,9 @@ func (s *ImageRepoSuite) TestSaveAndGetByID() {
 	assert.Equal(s.T(), img.ID(), got.ID())
 	assert.Equal(s.T(), img.UserID(), got.UserID())
 	assert.Equal(s.T(), img.StorageKey(), got.StorageKey())
-	assert.Equal(s.T(), img.Metadata(), got.Metadata())
+	assert.Equal(s.T(), img.Metadata().Width(), got.Metadata().Width())
+	assert.Equal(s.T(), img.Metadata().Height(), got.Metadata().Height())
+	assert.Equal(s.T(), img.Metadata().Size(), got.Metadata().Size())
 }
 
 func (s *ImageRepoSuite) TestGetByID_NotFound() {
@@ -199,6 +201,26 @@ func (s *ImageRepoSuite) TestDelete_HidesFromGetByUser() {
 
 	s.Len(res, 1)
 	s.Equal(img2.ID(), res[0].ID())
+}
+
+func (s *ImageRepoSuite) TestCountByUser() {
+	userID := uuid.New()
+
+	img1 := s.newImage(userID)
+	img2 := s.newImage(userID)
+
+	_ = s.repo.Save(s.ctx, &txmanagermem.FakeTx{}, img1)
+	_ = s.repo.Save(s.ctx, &txmanagermem.FakeTx{}, img2)
+
+	count, err := s.repo.CountByUser(s.ctx, userID)
+	s.Require().NoError(err)
+	s.Equal(2, count)
+
+	_ = s.repo.Delete(s.ctx, img1.ID())
+
+	count, err = s.repo.CountByUser(s.ctx, userID)
+	s.Require().NoError(err)
+	s.Equal(1, count)
 }
 
 func TestImageRepoSuite(t *testing.T) {

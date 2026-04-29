@@ -148,7 +148,49 @@ func (s *imageService) GetImage(ctx context.Context, imageID uuid.UUID) (*model.
 }
 
 func (s *imageService) ListImages(ctx context.Context, input model.ListImagesInput) (*model.ListImagesOutput, error) {
-	return nil, nil
+	if input.UserID == uuid.Nil {
+		return nil, imageDomain.ErrInvalidUserID
+	}
+
+	if input.Limit < 0 || input.Offset < 0 {
+		return nil, imageDomain.ErrInvalidPagination
+	}
+
+	limit := input.Limit
+	if limit == 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	images, err := s.imageRepo.GetByUser(ctx, input.UserID, limit, input.Offset)
+	if err != nil {
+		return nil, fmt.Errorf("get images: %w", err)
+	}
+
+	total, err := s.imageRepo.CountByUser(ctx, input.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("count images: %w", err)
+	}
+
+	items := make([]*model.ImageOutput, 0, len(images))
+
+	for _, img := range images {
+		url, err := s.storage.GetURL(ctx, string(img.StorageKey()))
+		if err != nil {
+			return nil, fmt.Errorf("get url: %w", err)
+		}
+
+		items = append(items, model.MapToImageOutput(img, url))
+	}
+
+	return &model.ListImagesOutput{
+		Items:  items,
+		Total:  total,
+		Limit:  limit,
+		Offset: input.Offset,
+	}, nil
 }
 
 func (s *imageService) DeleteImage(ctx context.Context, imageID uuid.UUID) error {
