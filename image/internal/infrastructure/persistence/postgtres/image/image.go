@@ -170,6 +170,22 @@ func (r *imageRepository) CountByUser(ctx context.Context, userID uuid.UUID) (in
 }
 
 func (r *imageRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	query := `
+		UPDATE images
+		SET deleted_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL
+	`
+
+	cmd, err := r.db.Exec(ctx, query, id)
+	if err != nil {
+		r.logger.Errorw("Delete failed", "id", id, "error", err)
+		return mapPGError(err)
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return imageDomain.ErrNotFound
+	}
+
 	return nil
 }
 
