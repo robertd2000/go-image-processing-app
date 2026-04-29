@@ -248,14 +248,23 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 	return s.refreshRepo.Revoke(ctx, token.ID())
 }
 
-func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (*model.TokenPair, error) {
+func (s *authService) generateTokenPair(
+	ctx context.Context,
+	userID uuid.UUID,
+) (*model.TokenPair, error) {
+
+	// --- read user ---
 	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
 
 	var roles []string
 	for _, r := range user.Roles() {
 		roles = append(roles, r.Name().String())
 	}
 
+	// generate tokens
 	access, err := s.tokenGen.GenerateAccess(model.ClaimsInput{
 		UserID: user.ID(),
 		Roles:  roles,
@@ -263,32 +272,39 @@ func (s *authService) generateTokenPair(ctx context.Context, userID uuid.UUID) (
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
-	if access == "" {
-		return nil, fmt.Errorf("generate access token: empty token returned")
-	}
 
 	refresh, err := s.tokenGen.GenerateRefresh(userID)
 	if err != nil {
 		return nil, fmt.Errorf("generate refresh token: %w", err)
 	}
 
-	// Cache the hash of the refresh token for reuse
 	refreshHash := s.tokenHasher.Hash(refresh)
+
 	now := time.Now()
 	expiresAt := now.Add(s.refreshTTL)
 
 	familyID := uuid.New()
 	var parentID uuid.UUID
 
-	token, err := tokensDomain.NewTokens(userID, refreshHash, expiresAt, familyID, parentID)
+	token, err := tokensDomain.NewTokens(
+		userID,
+		refreshHash,
+		expiresAt,
+		familyID,
+		parentID,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create refresh token: %w", err)
 	}
 
-	if err := s.refreshRepo.Create(ctx, token, sessionLimit); err != nil {
+	if err := s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+		return s.refreshRepo.Create(ctx, tx, token, sessionLimit)
+	}); err != nil {
+
 		if errors.Is(err, tokensDomain.ErrSessionLimitExceeded) {
 			return nil, fmt.Errorf("session limit exceeded: %w", err)
 		}
+
 		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
 

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
+	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 
 	"github.com/google/uuid"
 )
@@ -21,7 +22,7 @@ func NewInMemoryImageRepo() *imageRepo {
 	}
 }
 
-func (r *imageRepo) Save(ctx context.Context, image *imageDomain.Image) error {
+func (r *imageRepo) Save(ctx context.Context, tx port.Tx, image *imageDomain.Image) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -46,12 +47,25 @@ func (r *imageRepo) GetByID(ctx context.Context, id uuid.UUID) (*imageDomain.Ima
 	return cloneImage(data), nil
 }
 
+func (r *imageRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	_, ok := r.data[id]
+	if !ok {
+		return imageDomain.ErrNotFound
+	}
+
+	delete(r.data, id)
+
+	return nil
+}
+
 func (r *imageRepo) GetByUser(
 	ctx context.Context,
 	userID uuid.UUID,
 	limit, offset int,
 ) ([]*imageDomain.Image, error) {
-
 	if offset < 0 {
 		offset = 0
 	}
@@ -63,7 +77,7 @@ func (r *imageRepo) GetByUser(
 	r.mu.RLock()
 	var filtered []*imageDomain.Image
 	for _, img := range r.data {
-		if img.UserID() == userID {
+		if img.UserID() == userID && img.DeletedAt().IsZero() {
 			filtered = append(filtered, cloneImage(img))
 		}
 	}
@@ -84,6 +98,21 @@ func (r *imageRepo) GetByUser(
 	}
 
 	return filtered, nil
+}
+
+func (r *imageRepo) CountByUser(ctx context.Context, userID uuid.UUID) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	count := 0
+
+	for _, img := range r.data {
+		if img.UserID() == userID && img.DeletedAt().IsZero() {
+			count++
+		}
+	}
+
+	return count, nil
 }
 
 func cloneImage(src *imageDomain.Image) *imageDomain.Image {

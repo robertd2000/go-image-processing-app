@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/png"
 	"io"
@@ -15,6 +16,7 @@ import (
 	imageInfra "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/image"
 	imagemem "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/inmemory/image"
 	storagemem "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/inmemory/storage"
+	txmanagermem "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/inmemory/txmanager"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	imageUsecase "github.com/robertd2000/go-image-processing-app/image/internal/usecase/image"
 	"github.com/robertd2000/go-image-processing-app/image/internal/usecase/image/model"
@@ -24,6 +26,9 @@ import (
 
 type ImageService interface {
 	UploadImage(ctx context.Context, input model.UploadImageInput) (*model.UploadImageOutput, error)
+	GetImage(ctx context.Context, imageID uuid.UUID) (*model.ImageOutput, error)
+	DeleteImage(ctx context.Context, imageID uuid.UUID) error
+	ListImages(ctx context.Context, input model.ListImagesInput) (*model.ListImagesOutput, error)
 }
 
 type imageServiceTestSuite struct {
@@ -35,6 +40,8 @@ type imageServiceTestSuite struct {
 	imageRepo imageDomain.Repository
 	storage   port.Storage
 
+	txManager port.TxManager
+
 	metadataExtractor port.Extractor
 }
 
@@ -44,8 +51,9 @@ func (s *imageServiceTestSuite) SetupTest() {
 	s.imageRepo = imagemem.NewInMemoryImageRepo()
 	s.storage = storagemem.NewInMemoryStorage()
 	s.metadataExtractor = imageInfra.NewMetadataExtractor()
+	s.txManager = txmanagermem.NewFakeTxManager()
 
-	s.service = imageUsecase.NewImageService(s.imageRepo, s.storage, s.metadataExtractor)
+	s.service = imageUsecase.NewImageService(s.imageRepo, s.storage, s.metadataExtractor, s.txManager)
 }
 
 // SUCCESS
@@ -146,6 +154,7 @@ func (s *imageServiceTestSuite) TestUploadImage_StorageFails() {
 		s.imageRepo,
 		&failingStorage{},
 		s.metadataExtractor,
+		s.txManager,
 	)
 
 	input := model.UploadImageInput{
@@ -203,7 +212,7 @@ type failingRepo struct {
 	imageDomain.Repository
 }
 
-func (f *failingRepo) Save(ctx context.Context, img *imageDomain.Image) error {
+func (f *failingRepo) Save(ctx context.Context, tx port.Tx, img *imageDomain.Image) error {
 	return errors.New("repo error")
 }
 
@@ -217,6 +226,7 @@ func (s *imageServiceTestSuite) TestUploadImage_RepoFails_ShouldRollbackStorage(
 		&failingRepo{},
 		spy,
 		s.metadataExtractor,
+		s.txManager,
 	)
 
 	input := model.UploadImageInput{
@@ -232,6 +242,297 @@ func (s *imageServiceTestSuite) TestUploadImage_RepoFails_ShouldRollbackStorage(
 
 	assert.True(s.T(), spy.PutCalled)
 	assert.True(s.T(), spy.DeleteCalled)
+}
+
+// GetImage tests
+
+func (s *imageServiceTestSuite) TestGetImage_Success() {
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   uuid.New(),
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+	s.Require().NotNil(uploadRes)
+
+	res, err := s.service.GetImage(s.ctx, uploadRes.ImageID)
+
+	s.Require().NoError(err)
+	s.Require().NotNil(res)
+
+	s.Equal(uploadRes.ImageID, res.ImageID)
+	s.NotEmpty(res.URL)
+	s.Equal("test.png", res.FileName)
+	s.Equal(int64(size), res.Size)
+	s.Equal("image/png", res.MimeType)
+}
+
+func (s *imageServiceTestSuite) TestGetImage_NotFound() {
+	res, err := s.service.GetImage(s.ctx, uuid.New())
+
+	s.Require().Error(err)
+	s.Nil(res)
+}
+
+func (s *imageServiceTestSuite) TestGetImage_StorageError() {
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   uuid.New(),
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	img, err := s.imageRepo.GetByID(s.ctx, uploadRes.ImageID)
+	s.Require().NoError(err)
+
+	err = s.storage.Delete(s.ctx, string(img.StorageKey()))
+	s.Require().NoError(err)
+
+	res, err := s.service.GetImage(s.ctx, uploadRes.ImageID)
+
+	s.Require().Error(err)
+	s.Nil(res)
+}
+
+func (s *imageServiceTestSuite) TestGetImage_MetadataMapping() {
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   uuid.New(),
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	res, err := s.service.GetImage(s.ctx, uploadRes.ImageID)
+	s.Require().NoError(err)
+
+	s.Equal(10, res.Width)
+	s.Equal(10, res.Height)
+}
+
+// DeleteImage
+
+func (s *imageServiceTestSuite) TestDeleteImage_Success() {
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   uuid.New(),
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	err = s.service.DeleteImage(s.ctx, uploadRes.ImageID)
+
+	s.Require().NoError(err)
+
+	_, err = s.imageRepo.GetByID(s.ctx, uploadRes.ImageID)
+	s.Require().Error(err)
+
+	img, err := s.imageRepo.GetByID(s.ctx, uploadRes.ImageID)
+	if err == nil {
+		err = s.storage.Delete(s.ctx, string(img.StorageKey()))
+		s.Require().Error(err)
+	}
+}
+
+func (s *imageServiceTestSuite) TestDeleteImage_NotFound() {
+	err := s.service.DeleteImage(s.ctx, uuid.New())
+
+	s.Require().Error(err)
+}
+
+func (s *imageServiceTestSuite) TestDeleteImage_StorageError() {
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   uuid.New(),
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	img, err := s.imageRepo.GetByID(s.ctx, uploadRes.ImageID)
+	s.Require().NoError(err)
+
+	_ = s.storage.Delete(s.ctx, string(img.StorageKey()))
+
+	err = s.service.DeleteImage(s.ctx, uploadRes.ImageID)
+
+	s.Require().NoError(err)
+}
+
+func (s *imageServiceTestSuite) TestDeleteImage_Idempotent() {
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   uuid.New(),
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	err = s.service.DeleteImage(s.ctx, uploadRes.ImageID)
+	s.Require().NoError(err)
+
+	err = s.service.DeleteImage(s.ctx, uploadRes.ImageID)
+
+	s.Require().Error(err)
+}
+
+// ListImages
+
+func (s *imageServiceTestSuite) TestListImages_Success() {
+	userID := uuid.New()
+
+	for i := range 3 {
+		buf, size := generateTestImage()
+
+		_, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+			UserID:   userID,
+			Filename: fmt.Sprintf("img_%d.png", i),
+			Reader:   buf,
+			Size:     size,
+		})
+		s.Require().NoError(err)
+	}
+
+	res, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  10,
+		Offset: 0,
+	})
+
+	s.Require().NoError(err)
+	s.Require().NotNil(res)
+
+	s.Len(res.Items, 3)
+	s.Equal(3, res.Total)
+
+	for _, item := range res.Items {
+		s.NotEmpty(item.URL)
+		s.Equal(userID, item.UserID)
+	}
+}
+
+func (s *imageServiceTestSuite) TestListImages_Empty() {
+	userID := uuid.New()
+
+	res, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  10,
+		Offset: 0,
+	})
+
+	s.Require().NoError(err)
+	s.Require().NotNil(res)
+
+	s.Len(res.Items, 0)
+	s.Equal(0, res.Total)
+}
+
+func (s *imageServiceTestSuite) TestListImages_Pagination() {
+	userID := uuid.New()
+
+	for i := range 5 {
+		buf, size := generateTestImage()
+
+		_, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+			UserID:   userID,
+			Filename: fmt.Sprintf("img_%d.png", i),
+			Reader:   buf,
+			Size:     size,
+		})
+		s.Require().NoError(err)
+	}
+
+	res, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  2,
+		Offset: 0,
+	})
+
+	s.Require().NoError(err)
+	s.Require().NotNil(res)
+
+	s.Len(res.Items, 2)
+	s.Equal(5, res.Total)
+}
+
+func (s *imageServiceTestSuite) TestListImages_Offset() {
+	userID := uuid.New()
+
+	for i := range 5 {
+		buf, size := generateTestImage()
+
+		_, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+			UserID:   userID,
+			Filename: fmt.Sprintf("img_%d.png", i),
+			Reader:   buf,
+			Size:     size,
+		})
+		s.Require().NoError(err)
+	}
+
+	res, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  2,
+		Offset: 2,
+	})
+
+	s.Require().NoError(err)
+	s.Require().NotNil(res)
+
+	s.Len(res.Items, 2)
+}
+
+type brokenStorage struct {
+	port.Storage
+}
+
+func (b *brokenStorage) GetURL(ctx context.Context, key string) (string, error) {
+	return "", fmt.Errorf("storage error")
+}
+
+func (s *imageServiceTestSuite) TestListImages_StorageError() {
+	userID := uuid.New()
+
+	buf, size := generateTestImage()
+
+	_, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   userID,
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	s.service = imageUsecase.NewImageService(
+		s.imageRepo,
+		&brokenStorage{Storage: s.storage},
+		s.metadataExtractor,
+		s.txManager,
+	)
+
+	res, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  10,
+		Offset: 0,
+	})
+
+	s.Require().Error(err)
+	s.Nil(res)
 }
 
 // HELPERS

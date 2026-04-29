@@ -10,6 +10,7 @@ import (
 
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	inmemory "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/token"
+	txmanagermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/txmanager"
 )
 
 var refreshTTL = 1 * time.Minute
@@ -30,7 +31,7 @@ func TestTokenRepository_CreateAndGet(t *testing.T) {
 	token, err := tokenDomain.NewTokens(userID, tokenHash, expiresAt, familyID, uuid.Nil)
 	require.NoError(t, err)
 
-	require.NoError(t, repo.Create(ctx, token, 5))
+	require.NoError(t, repo.Create(ctx, &txmanagermem.FakeTx{}, token, 5))
 
 	got, err := repo.GetByHash(ctx, tokenHash)
 	require.NoError(t, err)
@@ -62,7 +63,7 @@ func TestTokenRepository_Revoke(t *testing.T) {
 	token, err := tokenDomain.NewTokens(userID, tokenHash, expiresAt, familyID, uuid.Nil)
 	require.NoError(t, err)
 
-	require.NoError(t, repo.Create(ctx, token, 5))
+	require.NoError(t, repo.Create(ctx, &txmanagermem.FakeTx{}, token, 5))
 
 	// revoke
 	require.NoError(t, repo.Revoke(ctx, token.ID()))
@@ -89,7 +90,7 @@ func TestTokenRepository_Rotate(t *testing.T) {
 	oldToken, err := tokenDomain.NewTokens(userID, oldHash, expiresAt, familyID, uuid.Nil)
 	require.NoError(t, err)
 
-	require.NoError(t, repo.Create(ctx, oldToken, 5))
+	require.NoError(t, repo.Create(ctx, &txmanagermem.FakeTx{}, oldToken, 5))
 
 	parentID := oldToken.ID()
 

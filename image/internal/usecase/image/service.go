@@ -18,16 +18,19 @@ type imageService struct {
 	imageRepo         imageDomain.Repository
 	storage           port.Storage
 	metadataExtractor port.Extractor
+	txManager         port.TxManager
 }
 
 func NewImageService(imageRepo imageDomain.Repository,
 	storage port.Storage,
 	metadataExtractor port.Extractor,
+	txManager port.TxManager,
 ) *imageService {
 	return &imageService{
 		imageRepo:         imageRepo,
 		storage:           storage,
 		metadataExtractor: metadataExtractor,
+		txManager:         txManager,
 	}
 }
 
@@ -86,7 +89,7 @@ func (s *imageService) UploadImage(
 	}
 
 	// --- persist ---
-	if err := s.saveImage(ctx, img, data, size, meta.MimeType); err != nil {
+	if err := s.saveImage(ctx, img, data, size, meta.MimeType()); err != nil {
 		return nil, fmt.Errorf("save image: %w", err)
 	}
 
@@ -103,20 +106,105 @@ func (s *imageService) saveImage(
 	size int64,
 	mime string,
 ) error {
+	key := string(img.StorageKey())
 
 	if err := s.storage.Put(
 		ctx,
-		string(img.StorageKey()),
+		key,
 		bytes.NewReader(data),
 		size,
 		mime,
 	); err != nil {
+		return fmt.Errorf("storage put: %w", err)
+	}
+
+	err := s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+		return s.imageRepo.Save(ctx, tx, img)
+	})
+
+	if err != nil {
+		if delErr := s.storage.Delete(ctx, key); delErr != nil {
+			return fmt.Errorf("db save failed: %w; cleanup failed: %v", err, delErr)
+		}
+
 		return err
 	}
 
-	if err := s.imageRepo.Save(ctx, img); err != nil {
-		_ = s.storage.Delete(ctx, string(img.StorageKey()))
-		return err
+	return nil
+}
+
+func (s *imageService) GetImage(ctx context.Context, imageID uuid.UUID) (*model.ImageOutput, error) {
+	img, err := s.imageRepo.GetByID(ctx, imageID)
+	if err != nil {
+		return nil, fmt.Errorf("get image: %w", err)
+	}
+
+	url, err := s.storage.GetURL(ctx, string(img.StorageKey()))
+	if err != nil {
+		return nil, fmt.Errorf("get url: %w", err)
+	}
+
+	return model.MapToImageOutput(img, url), nil
+}
+
+func (s *imageService) ListImages(ctx context.Context, input model.ListImagesInput) (*model.ListImagesOutput, error) {
+	if input.UserID == uuid.Nil {
+		return nil, imageDomain.ErrInvalidUserID
+	}
+
+	if input.Limit < 0 || input.Offset < 0 {
+		return nil, imageDomain.ErrInvalidPagination
+	}
+
+	limit := input.Limit
+	if limit == 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	images, err := s.imageRepo.GetByUser(ctx, input.UserID, limit, input.Offset)
+	if err != nil {
+		return nil, fmt.Errorf("get images: %w", err)
+	}
+
+	total, err := s.imageRepo.CountByUser(ctx, input.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("count images: %w", err)
+	}
+
+	items := make([]*model.ImageOutput, 0, len(images))
+
+	for _, img := range images {
+		url, err := s.storage.GetURL(ctx, string(img.StorageKey()))
+		if err != nil {
+			return nil, fmt.Errorf("get url: %w", err)
+		}
+
+		items = append(items, model.MapToImageOutput(img, url))
+	}
+
+	return &model.ListImagesOutput{
+		Items:  items,
+		Total:  total,
+		Limit:  limit,
+		Offset: input.Offset,
+	}, nil
+}
+
+func (s *imageService) DeleteImage(ctx context.Context, imageID uuid.UUID) error {
+	img, err := s.imageRepo.GetByID(ctx, imageID)
+	if err != nil {
+		return fmt.Errorf("get image: %w", err)
+	}
+
+	if err = s.storage.Delete(ctx, string(img.StorageKey())); err != nil {
+		return fmt.Errorf("delete image from storage: %w", err)
+	}
+
+	if err = s.imageRepo.Delete(ctx, imageID); err != nil {
+		return fmt.Errorf("delete image: %w", err)
 	}
 
 	return nil

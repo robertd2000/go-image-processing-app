@@ -1,0 +1,34 @@
+server:
+  port: 8081
+  run_mode: debug
+
+postgres:
+  host: postgres-image
+  port: 5432
+  user: image_user
+  password: image_pass
+  db_name: image_db
+  ssl_mode: disable
+
+storage:
+  type: s3
+  endpoint: http://minio:9000
+  bucket: images
+  access_key: minio
+  secret_key: minio123
+  use_ssl: false
+
+kafka:
+  enabled: false
+  brokers:
+    - kafka:9092
+  group_id: image-service
+  topics:
+    image_processing_requested: image.processing.requested.v1
+    image_processed: image.processed.v1
+
+jwt:
+  secret: super_secret_jwt_key_change_me
+
+log:
+  level: debug

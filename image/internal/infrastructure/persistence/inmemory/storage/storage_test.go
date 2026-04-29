@@ -137,3 +137,37 @@ func TestInMemoryStorage_Concurrent_ReadWrite(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestStorage_GetURL(t *testing.T) {
+	ctx := context.Background()
+
+	s := storagemem.NewInMemoryStorage()
+
+	key := "test/image.jpg"
+	data := []byte("fake-image-data")
+
+	// --- prepare ---
+	err := s.Put(ctx, key, bytes.NewReader(data), int64(len(data)), "image/jpeg")
+	assert.NoError(t, err)
+
+	// --- act ---
+	url, err := s.GetURL(ctx, key)
+
+	// --- assert ---
+	assert.NoError(t, err)
+	assert.NotEmpty(t, url)
+	assert.Contains(t, url, key)
+}
+
+func TestStorage_GetURL_NotFound(t *testing.T) {
+	ctx := context.Background()
+
+	s := storagemem.NewInMemoryStorage()
+
+	// --- act ---
+	url, err := s.GetURL(ctx, "not-exists")
+
+	// --- assert ---
+	assert.Error(t, err)
+	assert.Empty(t, url)
+}

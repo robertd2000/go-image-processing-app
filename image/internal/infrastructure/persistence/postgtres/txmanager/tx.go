@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
+	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	"go.uber.org/zap"
 )
 

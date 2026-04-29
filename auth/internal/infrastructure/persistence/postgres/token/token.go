@@ -12,15 +12,18 @@ import (
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/dberrors"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
+	"go.uber.org/zap"
 )
 
 type tokenRepository struct {
-	db *pgxpool.Pool
+	db     *pgxpool.Pool
+	logger *zap.SugaredLogger
 }
 
-func NewTokenRepository(db *pgxpool.Pool) tokenDomain.TokenRepository {
+func NewTokenRepository(db *pgxpool.Pool, logger *zap.SugaredLogger) tokenDomain.TokenRepository {
 	return tokenRepository{
-		db: db,
+		db:     db,
+		logger: logger,
 	}
 }
 
@@ -45,10 +48,21 @@ func (r tokenRepository) GetByHash(ctx context.Context, hash string) (*tokenDoma
 	tokenEntity, err := scanToken(row)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			r.logger.Infow("token not found by hash")
 			return nil, tokenDomain.ErrTokenNotFound
 		}
+
+		r.logger.Errorw("failed to get token by hash",
+			"error", err,
+		)
+
 		return nil, fmt.Errorf("get by token: %w", err)
 	}
+
+	r.logger.Debugw("token fetched by hash",
+		"token_id", tokenEntity.ID(),
+		"user_id", tokenEntity.UserID(),
+	)
 
 	return tokenEntity, nil
 }
@@ -69,8 +83,17 @@ func (r tokenRepository) IsValid(ctx context.Context, userID uuid.UUID, token st
 
 	err := r.db.QueryRow(ctx, query, userID, token).Scan(&exists)
 	if err != nil {
+		r.logger.Errorw("failed to check token validity",
+			"user_id", userID,
+			"error", err,
+		)
 		return false, fmt.Errorf("is token valid: %w", err)
 	}
+
+	r.logger.Debugw("token validity checked",
+		"user_id", userID,
+		"is_valid", exists,
+	)
 
 	return exists, nil
 }
@@ -83,12 +106,23 @@ func (t tokenRepository) Revoke(ctx context.Context, tokenID uuid.UUID) error {
 	`
 	cmd, err := t.db.Exec(ctx, query, tokenID)
 	if err != nil {
+		t.logger.Errorw("failed to revoke token",
+			"token_id", tokenID,
+			"error", err,
+		)
 		return fmt.Errorf("revoke token: %w", err)
 	}
 
 	if cmd.RowsAffected() != 1 {
+		t.logger.Warnw("token revoke affected 0 rows",
+			"token_id", tokenID,
+		)
 		return fmt.Errorf("revoke token: rowsAffected is 0")
 	}
+
+	t.logger.Infow("token revoked",
+		"token_id", tokenID,
+	)
 
 	return nil
 }
@@ -105,14 +139,22 @@ func (t tokenRepository) RevokeFamily(ctx context.Context, familyID uuid.UUID) e
 	`
 	_, err := t.db.Exec(ctx, query, familyID)
 	if err != nil {
+		t.logger.Errorw("failed to revoke token family",
+			"family_id", familyID,
+			"error", err,
+		)
 		return fmt.Errorf("revoke token family: %w", err)
 	}
+
+	t.logger.Infow("token family revoked",
+		"family_id", familyID,
+	)
 
 	return nil
 }
 
 // Create implements token.TokenRepository.
-func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, limit int) error {
+func (r tokenRepository) Create(ctx context.Context, tx port.Tx, token *tokenDomain.Tokens, limit int) error {
 	if token == nil {
 		return tokenDomain.ErrInvalidToken
 	}
@@ -121,15 +163,16 @@ func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, 
 		return tokenDomain.ErrInvalidUserID
 	}
 
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return err
-	}
+	// tx, err := r.db.Begin(ctx)
+	// if err != nil {
+	// 	r.logger.Errorw("failed to begin tx (create token)", "error", err)
+	// 	return err
+	// }
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
 
-	_, err = tx.Exec(ctx,
+	err := tx.Exec(ctx,
 		`
 		INSERT INTO refresh_tokens (
 			id,
@@ -151,13 +194,19 @@ func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, 
 		token.ExpiresAt(),
 	)
 	if err != nil {
+		r.logger.Errorw("failed to insert token",
+			"user_id", token.UserID(),
+			"token_id", token.ID(),
+			"error", err,
+		)
+
 		if dberrors.IsUniqueViolation(err) {
 			return tokenDomain.ErrTokenAlreadyExists
 		}
 		return err
 	}
 
-	_, err = tx.Exec(ctx, `
+	err = tx.Exec(ctx, `
 		DELETE FROM refresh_tokens
 		WHERE id IN (
 			SELECT id FROM (
@@ -170,10 +219,28 @@ func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, 
 		)
 	`, token.UserID(), limit)
 	if err != nil {
+		r.logger.Errorw("failed to cleanup old tokens",
+			"user_id", token.UserID(),
+			"limit", limit,
+			"error", err,
+		)
 		return err
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		r.logger.Errorw("failed to commit tx (create token)",
+			"user_id", token.UserID(),
+			"error", err,
+		)
+		return err
+	}
+
+	r.logger.Infow("token created",
+		"user_id", token.UserID(),
+		"token_id", token.ID(),
+	)
+
+	return nil
 }
 
 // Update implements token.TokenRepository.
@@ -187,6 +254,11 @@ func (r tokenRepository) Update(ctx context.Context, userID uuid.UUID, oldToken 
 
 	cmd, err := r.db.Exec(ctx, query, userID, oldToken, newToken)
 	if err != nil {
+		r.logger.Errorw("failed to update token",
+			"user_id", userID,
+			"error", err,
+		)
+
 		if dberrors.IsUniqueViolation(err) {
 			return tokenDomain.ErrTokenAlreadyExists
 		}
@@ -195,8 +267,15 @@ func (r tokenRepository) Update(ctx context.Context, userID uuid.UUID, oldToken 
 	}
 
 	if cmd.RowsAffected() == 0 {
+		r.logger.Warnw("token update affected 0 rows",
+			"user_id", userID,
+		)
 		return tokenDomain.ErrTokenNotFound
 	}
+
+	r.logger.Infow("token updated",
+		"user_id", userID,
+	)
 
 	return nil
 }
@@ -208,6 +287,7 @@ func (r tokenRepository) Rotate(
 ) (bool, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
+		r.logger.Errorw("failed to begin tx (rotate)", "error", err)
 		return false, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
@@ -218,10 +298,17 @@ func (r tokenRepository) Rotate(
         WHERE id = $1 AND revoked_at IS NULL
     `, oldToken.ID())
 	if err != nil {
+		r.logger.Errorw("failed to revoke old token",
+			"token_id", oldToken.ID(),
+			"error", err,
+		)
 		return false, fmt.Errorf("revoke old token: %w", err)
 	}
 
 	if cmd.RowsAffected() == 0 {
+		r.logger.Warnw("token already revoked (possible replay attack)",
+			"token_id", oldToken.ID(),
+		)
 		return true, tx.Commit(ctx)
 	}
 
@@ -246,12 +333,26 @@ func (r tokenRepository) Rotate(
 		newToken.ExpiresAt(),
 	)
 	if err != nil {
+		r.logger.Errorw("failed to insert new token",
+			"user_id", newToken.UserID(),
+			"error", err,
+		)
 		return false, fmt.Errorf("insert new token: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+		r.logger.Errorw("failed to commit rotate tx",
+			"user_id", newToken.UserID(),
+			"error", err,
+		)
 		return false, fmt.Errorf("commit tx: %w", err)
 	}
+
+	r.logger.Infow("token rotated",
+		"user_id", newToken.UserID(),
+		"old_token_id", oldToken.ID(),
+		"new_token_id", newToken.ID(),
+	)
 
 	return false, nil
 }
@@ -265,8 +366,16 @@ func (r tokenRepository) DeleteByUserID(ctx context.Context, tx port.Tx, userID 
 
 	err := tx.Exec(ctx, query, userID)
 	if err != nil {
+		r.logger.Errorw("failed to revoke tokens by user",
+			"user_id", userID,
+			"error", err,
+		)
 		return fmt.Errorf("delete token by user id: %w", err)
 	}
+
+	r.logger.Infow("all tokens revoked for user",
+		"user_id", userID,
+	)
 
 	return nil
 }

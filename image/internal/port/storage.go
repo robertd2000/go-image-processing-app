@@ -13,8 +13,7 @@ type Storage interface {
 		size int64,
 		contentType string,
 	) error
-
 	Get(ctx context.Context, key string) (io.ReadCloser, error)
-
+	GetURL(ctx context.Context, key string) (string, error)
 	Delete(ctx context.Context, key string) error
 }

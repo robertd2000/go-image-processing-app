@@ -58,6 +58,17 @@ func (s *storage) Get(ctx context.Context, key string) (io.ReadCloser, error) {
 	return io.NopCloser(bytes.NewReader(data.data)), nil
 }
 
+func (s *storage) GetURL(ctx context.Context, key string) (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if _, ok := s.data[key]; !ok {
+		return "", fmt.Errorf("object not found")
+	}
+
+	return fmt.Sprintf("http://localhost:8080/storage/%s", key), nil
+}
+
 func (s *storage) Delete(ctx context.Context, key string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -11,4 +11,5 @@ var (
 	ErrExtractMetadata             = errors.New("invalid image metadata")
 	ErrNotFound                    = errors.New("image not found")
 	ErrAlreadyExists               = errors.New("image already exists")
+	ErrInvalidPagination           = errors.New("invalid pagination params")
 )

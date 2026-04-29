@@ -3,7 +3,7 @@ package txmanagermem
 import (
 	"context"
 
-	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
+	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 )
 
 type FakeTx struct{}

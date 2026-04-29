@@ -50,6 +50,7 @@ func main() {
 		log.Fatalf("init logger: %v", err)
 	}
 	defer logger.Sync()
+	zlog := logger.Sugar()
 
 	// ---------- config ----------
 	cfg, err := config.Load()
@@ -95,8 +96,8 @@ func main() {
 	publisher := ekafka.NewKafkaPublisher([]string{broker})
 
 	// repos
-	userRepo := userpg.NewUserRepository(db)
-	tokenRepo := tokenpg.NewTokenRepository(db)
+	userRepo := userpg.NewUserRepository(db, zlog)
+	tokenRepo := tokenpg.NewTokenRepository(db, zlog)
 	outboxRepo := outboxpg.NewRepository(db)
 
 	// utils
@@ -104,7 +105,7 @@ func main() {
 	hasher := security.NewHasher()
 	tokenHasher := &security.TokenHasher{}
 
-	txManager := txmanagerpg.NewTxManager(db)
+	txManager := txmanagerpg.NewTxManager(db, zlog)
 
 	// service
 	authSvc := auth.NewAuthService(
