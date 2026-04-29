@@ -1,10 +1,10 @@
 package image
 
 type ImageMetadata struct {
-	Width    int
-	Height   int
-	Size     int64
-	MimeType string
+	width    int
+	height   int
+	size     int64
+	mimeType string
 }
 
 func NewImageMetadata(width, height int, size int64, mime string) (ImageMetadata, error) {
@@ -19,9 +19,25 @@ func NewImageMetadata(width, height int, size int64, mime string) (ImageMetadata
 	}
 
 	return ImageMetadata{
-		Width:    width,
-		Height:   height,
-		Size:     size,
-		MimeType: mime,
+		width:    width,
+		height:   height,
+		size:     size,
+		mimeType: mime,
 	}, nil
+}
+
+func (i ImageMetadata) Width() int {
+	return i.width
+}
+
+func (i ImageMetadata) Height() int {
+	return i.height
+}
+
+func (i ImageMetadata) Size() int64 {
+	return i.size
+}
+
+func (i ImageMetadata) MimeType() string {
+	return i.mimeType
 }

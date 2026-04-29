@@ -14,11 +14,12 @@ func NewStorageKey(userID, imageID uuid.UUID, ext string) StorageKey {
 }
 
 type Image struct {
-	id         uuid.UUID
-	userID     uuid.UUID
-	storageKey StorageKey
-	metadata   ImageMetadata
-	createdAt  time.Time
+	id           uuid.UUID
+	userID       uuid.UUID
+	storageKey   StorageKey
+	originalName string
+	metadata     ImageMetadata
+	createdAt    time.Time
 }
 
 func NewImage(
@@ -36,11 +37,12 @@ func NewImage(
 	key := NewStorageKey(userID, id, ext)
 
 	return &Image{
-		id:         id,
-		userID:     userID,
-		storageKey: key,
-		metadata:   meta,
-		createdAt:  time.Now(),
+		id:           id,
+		userID:       userID,
+		originalName: originalName,
+		storageKey:   key,
+		metadata:     meta,
+		createdAt:    time.Now(),
 	}, nil
 }
 
@@ -54,6 +56,10 @@ func (i *Image) UserID() uuid.UUID {
 
 func (i *Image) StorageKey() StorageKey {
 	return i.storageKey
+}
+
+func (i *Image) OriginalName() string {
+	return i.originalName
 }
 
 func (i *Image) Metadata() ImageMetadata {

@@ -86,7 +86,7 @@ func (s *imageService) UploadImage(
 	}
 
 	// --- persist ---
-	if err := s.saveImage(ctx, img, data, size, meta.MimeType); err != nil {
+	if err := s.saveImage(ctx, img, data, size, meta.MimeType()); err != nil {
 		return nil, fmt.Errorf("save image: %w", err)
 	}
 

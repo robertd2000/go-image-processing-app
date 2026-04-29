@@ -51,7 +51,6 @@ func (r *imageRepo) GetByUser(
 	userID uuid.UUID,
 	limit, offset int,
 ) ([]*imageDomain.Image, error) {
-
 	if offset < 0 {
 		offset = 0
 	}
