@@ -49,6 +49,8 @@ func main() {
 		_ = logger.Sync()
 	}()
 
+	zlog := logger.Sugar()
+
 	// ---------- config ----------
 	cfg, err := config.Load()
 	if err != nil {
@@ -85,7 +87,7 @@ func main() {
 	userRepo := userpg.NewUserRepository(db)
 	outboxRepo := outboxpg.NewRepository(db)
 
-	txManager := txmanagerpg.NewTxManager(db)
+	txManager := txmanagerpg.NewTxManager(db, zlog)
 
 	// ---------- service ----------
 	userService := user.NewUserService(userRepo, outboxRepo, txManager)
