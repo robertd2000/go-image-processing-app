@@ -497,6 +497,44 @@ func (s *imageServiceTestSuite) TestListImages_Offset() {
 	s.Len(res.Items, 2)
 }
 
+type brokenStorage struct {
+	port.Storage
+}
+
+func (b *brokenStorage) GetURL(ctx context.Context, key string) (string, error) {
+	return "", fmt.Errorf("storage error")
+}
+
+func (s *imageServiceTestSuite) TestListImages_StorageError() {
+	userID := uuid.New()
+
+	buf, size := generateTestImage()
+
+	_, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   userID,
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	s.service = imageUsecase.NewImageService(
+		s.imageRepo,
+		&brokenStorage{Storage: s.storage},
+		s.metadataExtractor,
+		s.txManager,
+	)
+
+	res, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  10,
+		Offset: 0,
+	})
+
+	s.Require().Error(err)
+	s.Nil(res)
+}
+
 // HELPERS
 
 func generateTestImage() (*bytes.Buffer, int64) {
