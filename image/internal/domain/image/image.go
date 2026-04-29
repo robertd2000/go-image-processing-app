@@ -20,6 +20,7 @@ type Image struct {
 	originalName string
 	metadata     ImageMetadata
 	createdAt    time.Time
+	deletedAt    time.Time
 }
 
 func NewImage(
@@ -68,4 +69,8 @@ func (i *Image) Metadata() ImageMetadata {
 
 func (i *Image) CreatedAt() time.Time {
 	return i.createdAt
+}
+
+func (i *Image) DeletedAt() time.Time {
+	return i.deletedAt
 }

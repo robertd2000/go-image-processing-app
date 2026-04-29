@@ -37,6 +37,7 @@ CREATE TABLE images (
     height          INT NOT NULL,
 
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    deleted_at      TIMESTAMPTZ
 );
 
 CREATE INDEX idx_images_user_id ON images(user_id);
