@@ -10,18 +10,21 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
+	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	"go.uber.org/zap"
 )
 
 type imageRepository struct {
-	db     *pgxpool.Pool
-	logger *zap.SugaredLogger
+	db      *pgxpool.Pool
+	logger  *zap.SugaredLogger
+	metrics port.Metrics
 }
 
-func NewImageRepository(db *pgxpool.Pool, logger *zap.SugaredLogger) *imageRepository {
+func NewImageRepository(db *pgxpool.Pool, logger *zap.SugaredLogger, metrics port.Metrics) *imageRepository {
 	return &imageRepository{
-		db:     db,
-		logger: logger,
+		db:      db,
+		logger:  logger,
+		metrics: metrics,
 	}
 }
 
@@ -58,6 +61,7 @@ func (r *imageRepository) Save(ctx context.Context, image *imageDomain.Image) er
 		image.CreatedAt(),
 	)
 	if err != nil {
+		r.metrics.IncImageSaveError()
 		r.logger.Errorw("failed to save image",
 			"image_id", image.ID(),
 			"user_id", image.UserID(),
@@ -66,6 +70,8 @@ func (r *imageRepository) Save(ctx context.Context, image *imageDomain.Image) er
 
 		return mapPGError(fmt.Errorf("image repository: save: %w", err))
 	}
+
+	r.metrics.IncImageSaveSuccess()
 
 	return nil
 }
