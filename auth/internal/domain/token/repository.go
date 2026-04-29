@@ -9,7 +9,7 @@ import (
 )
 
 type TokenRepository interface {
-	Create(ctx context.Context, token *Tokens, limit int) error
+	Create(ctx context.Context, tx port.Tx, token *Tokens, limit int) error
 	Update(ctx context.Context, userID uuid.UUID, oldToken, newToken string) error
 	Revoke(ctx context.Context, tokenID uuid.UUID) error
 	RevokeFamily(ctx context.Context, familyID uuid.UUID) error

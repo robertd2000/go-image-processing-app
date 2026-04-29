@@ -24,7 +24,7 @@ func NewTokenRepository() tokenDomain.TokenRepository {
 	}
 }
 
-func (r *tokenInMemoryRepository) Create(ctx context.Context, token *tokenDomain.Tokens, limit int) error {
+func (r *tokenInMemoryRepository) Create(ctx context.Context, tx port.Tx, token *tokenDomain.Tokens, limit int) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

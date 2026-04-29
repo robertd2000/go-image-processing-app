@@ -154,7 +154,7 @@ func (t tokenRepository) RevokeFamily(ctx context.Context, familyID uuid.UUID) e
 }
 
 // Create implements token.TokenRepository.
-func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, limit int) error {
+func (r tokenRepository) Create(ctx context.Context, tx port.Tx, token *tokenDomain.Tokens, limit int) error {
 	if token == nil {
 		return tokenDomain.ErrInvalidToken
 	}
@@ -163,16 +163,16 @@ func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, 
 		return tokenDomain.ErrInvalidUserID
 	}
 
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		r.logger.Errorw("failed to begin tx (create token)", "error", err)
-		return err
-	}
+	// tx, err := r.db.Begin(ctx)
+	// if err != nil {
+	// 	r.logger.Errorw("failed to begin tx (create token)", "error", err)
+	// 	return err
+	// }
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
 
-	_, err = tx.Exec(ctx,
+	err := tx.Exec(ctx,
 		`
 		INSERT INTO refresh_tokens (
 			id,
@@ -206,7 +206,7 @@ func (r tokenRepository) Create(ctx context.Context, token *tokenDomain.Tokens, 
 		return err
 	}
 
-	_, err = tx.Exec(ctx, `
+	err = tx.Exec(ctx, `
 		DELETE FROM refresh_tokens
 		WHERE id IN (
 			SELECT id FROM (
