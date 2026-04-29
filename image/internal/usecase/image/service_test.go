@@ -343,6 +343,12 @@ func (s *imageServiceTestSuite) TestDeleteImage_Success() {
 	}
 }
 
+func (s *imageServiceTestSuite) TestDeleteImage_NotFound() {
+	err := s.service.DeleteImage(s.ctx, uuid.New())
+
+	s.Require().Error(err)
+}
+
 // HELPERS
 
 func generateTestImage() (*bytes.Buffer, int64) {
