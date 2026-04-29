@@ -274,6 +274,29 @@ func (s *imageServiceTestSuite) TestGetImage_NotFound() {
 	s.Nil(res)
 }
 
+func (s *imageServiceTestSuite) TestGetImage_StorageError() {
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   uuid.New(),
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	img, err := s.imageRepo.GetByID(s.ctx, uploadRes.ImageID)
+	s.Require().NoError(err)
+
+	err = s.storage.Delete(s.ctx, string(img.StorageKey()))
+	s.Require().NoError(err)
+
+	res, err := s.service.GetImage(s.ctx, uploadRes.ImageID)
+
+	s.Require().Error(err)
+	s.Nil(res)
+}
+
 // HELPERS
 
 func generateTestImage() (*bytes.Buffer, int64) {
