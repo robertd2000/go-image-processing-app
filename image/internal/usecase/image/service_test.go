@@ -26,6 +26,7 @@ import (
 type ImageService interface {
 	UploadImage(ctx context.Context, input model.UploadImageInput) (*model.UploadImageOutput, error)
 	GetImage(ctx context.Context, imageID uuid.UUID) (*model.ImageOutput, error)
+	DeleteImage(ctx context.Context, imageID uuid.UUID) error
 }
 
 type imageServiceTestSuite struct {
@@ -313,6 +314,33 @@ func (s *imageServiceTestSuite) TestGetImage_MetadataMapping() {
 
 	s.Equal(10, res.Width)
 	s.Equal(10, res.Height)
+}
+
+// DeleteImage
+
+func (s *imageServiceTestSuite) TestDeleteImage_Success() {
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   uuid.New(),
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	err = s.service.DeleteImage(s.ctx, uploadRes.ImageID)
+
+	s.Require().NoError(err)
+
+	_, err = s.imageRepo.GetByID(s.ctx, uploadRes.ImageID)
+	s.Require().Error(err)
+
+	img, err := s.imageRepo.GetByID(s.ctx, uploadRes.ImageID)
+	if err == nil {
+		err = s.storage.Delete(s.ctx, string(img.StorageKey()))
+		s.Require().Error(err)
+	}
 }
 
 // HELPERS

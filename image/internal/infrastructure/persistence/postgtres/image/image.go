@@ -80,6 +80,10 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDoma
 	return nil, nil
 }
 
+func (r *imageRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+
 func (r *imageRepository) GetByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*imageDomain.Image, error) {
 	return []*imageDomain.Image{}, nil
 }

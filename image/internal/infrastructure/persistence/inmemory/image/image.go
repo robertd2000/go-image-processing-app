@@ -47,6 +47,20 @@ func (r *imageRepo) GetByID(ctx context.Context, id uuid.UUID) (*imageDomain.Ima
 	return cloneImage(data), nil
 }
 
+func (r *imageRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	_, ok := r.data[id]
+	if !ok {
+		return imageDomain.ErrNotFound
+	}
+
+	delete(r.data, id)
+
+	return nil
+}
+
 func (r *imageRepo) GetByUser(
 	ctx context.Context,
 	userID uuid.UUID,

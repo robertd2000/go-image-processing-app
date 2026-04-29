@@ -147,6 +147,20 @@ func (s *imageService) GetImage(ctx context.Context, imageID uuid.UUID) (*model.
 	return model.MapToImageOutput(img, url), nil
 }
 
+func (s *imageService) DeleteImage(ctx context.Context, imageID uuid.UUID) error {
+	err := s.imageRepo.Delete(ctx, imageID)
+	if err != nil {
+		return fmt.Errorf("delete image: %w", err)
+	}
+
+	err = s.storage.Delete(ctx, imageID.String())
+	if err != nil {
+		return fmt.Errorf("delete image from storage: %w", err)
+	}
+
+	return nil
+}
+
 func detectExtension(mime, filename string) (string, error) {
 	switch mime {
 	case "image/jpeg":
