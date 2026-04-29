@@ -297,6 +297,24 @@ func (s *imageServiceTestSuite) TestGetImage_StorageError() {
 	s.Nil(res)
 }
 
+func (s *imageServiceTestSuite) TestGetImage_MetadataMapping() {
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   uuid.New(),
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	res, err := s.service.GetImage(s.ctx, uploadRes.ImageID)
+	s.Require().NoError(err)
+
+	s.Equal(10, res.Width)
+	s.Equal(10, res.Height)
+}
+
 // HELPERS
 
 func generateTestImage() (*bytes.Buffer, int64) {
