@@ -97,7 +97,7 @@ func main() {
 
 	// repos
 	userRepo := userpg.NewUserRepository(db, zlog)
-	tokenRepo := tokenpg.NewTokenRepository(db)
+	tokenRepo := tokenpg.NewTokenRepository(db, zlog)
 	outboxRepo := outboxpg.NewRepository(db)
 
 	// utils
