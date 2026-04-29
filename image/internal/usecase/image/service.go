@@ -148,14 +148,17 @@ func (s *imageService) GetImage(ctx context.Context, imageID uuid.UUID) (*model.
 }
 
 func (s *imageService) DeleteImage(ctx context.Context, imageID uuid.UUID) error {
-	err := s.imageRepo.Delete(ctx, imageID)
+	img, err := s.imageRepo.GetByID(ctx, imageID)
 	if err != nil {
-		return fmt.Errorf("delete image: %w", err)
+		return fmt.Errorf("get image: %w", err)
 	}
 
-	err = s.storage.Delete(ctx, imageID.String())
-	if err != nil {
+	if err = s.storage.Delete(ctx, string(img.StorageKey())); err != nil {
 		return fmt.Errorf("delete image from storage: %w", err)
+	}
+
+	if err = s.imageRepo.Delete(ctx, imageID); err != nil {
+		return fmt.Errorf("delete image: %w", err)
 	}
 
 	return nil
