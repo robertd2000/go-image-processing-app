@@ -102,7 +102,7 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDoma
 		width        int
 		height       int
 		createdAt    time.Time
-		deletedAt    *time.Time
+		deletedAt    time.Time
 	)
 
 	err := row.Scan(
@@ -125,10 +125,6 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDoma
 		return nil, mapPGError(err)
 	}
 
-	if deletedAt != nil {
-		return nil, imageDomain.ErrNotFound
-	}
-
 	meta, err := imageDomain.NewImageMetadata(width, height, size, mimeType)
 	if err != nil {
 		return nil, err
@@ -141,8 +137,12 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDoma
 		originalName,
 		meta,
 		createdAt,
-		time.Time{},
+		deletedAt,
 	)
+	if err != nil {
+		r.logger.Errorw("RestoreImage failed", "error", err)
+		return nil, err
+	}
 
 	return img, nil
 }
@@ -190,6 +190,81 @@ func (r *imageRepository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *imageRepository) GetByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*imageDomain.Image, error) {
+	query := `
+		SELECT 
+			id, user_id,
+			original_name, storage_key,
+			file_size, mime_type,
+			width, height,
+			created_at
+		FROM images
+		WHERE user_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.db.Query(ctx, query, userID, limit, offset)
+	if err != nil {
+		r.logger.Errorw("GetByUser query failed", "user_id", userID, "error", err)
+		return nil, mapPGError(err)
+	}
+	defer rows.Close()
+
+	var result []*imageDomain.Image
+
+	for rows.Next() {
+		var (
+			imgID        uuid.UUID
+			userID       uuid.UUID
+			storageKey   string
+			originalName string
+			size         int64
+			mimeType     string
+			width        int
+			height       int
+			createdAt    time.Time
+			deletedAt    time.Time
+		)
+
+		err := rows.Scan(
+			&imgID,
+			&userID,
+			&storageKey,
+			&originalName,
+			&size,
+			&mimeType,
+			&width,
+			&height,
+			&createdAt,
+			&deletedAt,
+		)
+		if err != nil {
+			r.logger.Errorw("scan failed", "error", err)
+			return nil, mapPGError(err)
+		}
+
+		meta, err := imageDomain.NewImageMetadata(width, height, size, mimeType)
+		if err != nil {
+			return nil, err
+		}
+
+		img, err := imageDomain.RestoreImage(
+			imgID,
+			userID,
+			imageDomain.StorageKey(storageKey),
+			originalName,
+			meta,
+			createdAt,
+			time.Time{},
+		)
+		if err != nil {
+			r.logger.Errorw("RestoreImage failed", "error", err)
+			return nil, err
+		}
+
+		result = append(result, img)
+	}
+
 	return []*imageDomain.Image{}, nil
 }
 
