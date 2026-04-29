@@ -426,6 +426,22 @@ func (s *imageServiceTestSuite) TestListImages_Success() {
 	}
 }
 
+func (s *imageServiceTestSuite) TestListImages_Empty() {
+	userID := uuid.New()
+
+	res, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  10,
+		Offset: 0,
+	})
+
+	s.Require().NoError(err)
+	s.Require().NotNil(res)
+
+	s.Len(res.Items, 0)
+	s.Equal(0, res.Total)
+}
+
 // HELPERS
 
 func generateTestImage() (*bytes.Buffer, int64) {
