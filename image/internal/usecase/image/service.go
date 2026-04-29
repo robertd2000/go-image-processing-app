@@ -147,6 +147,10 @@ func (s *imageService) GetImage(ctx context.Context, imageID uuid.UUID) (*model.
 	return model.MapToImageOutput(img, url), nil
 }
 
+func (s *imageService) ListImages(ctx context.Context, input model.ListImagesInput) (*model.ListImagesOutput, error) {
+	return nil, nil
+}
+
 func (s *imageService) DeleteImage(ctx context.Context, imageID uuid.UUID) error {
 	img, err := s.imageRepo.GetByID(ctx, imageID)
 	if err != nil {

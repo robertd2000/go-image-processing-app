@@ -77,7 +77,7 @@ func (r *imageRepo) GetByUser(
 	r.mu.RLock()
 	var filtered []*imageDomain.Image
 	for _, img := range r.data {
-		if img.UserID() == userID {
+		if img.UserID() == userID && img.DeletedAt().IsZero() {
 			filtered = append(filtered, cloneImage(img))
 		}
 	}
@@ -98,6 +98,21 @@ func (r *imageRepo) GetByUser(
 	}
 
 	return filtered, nil
+}
+
+func (r *imageRepo) CountByUser(ctx context.Context, userID uuid.UUID) (int, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	count := 0
+
+	for _, img := range r.data {
+		if img.UserID() == userID && img.DeletedAt().IsZero() {
+			count++
+		}
+	}
+
+	return count, nil
 }
 
 func cloneImage(src *imageDomain.Image) *imageDomain.Image {

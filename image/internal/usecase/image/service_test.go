@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"image"
 	"image/png"
 	"io"
@@ -27,6 +28,7 @@ type ImageService interface {
 	UploadImage(ctx context.Context, input model.UploadImageInput) (*model.UploadImageOutput, error)
 	GetImage(ctx context.Context, imageID uuid.UUID) (*model.ImageOutput, error)
 	DeleteImage(ctx context.Context, imageID uuid.UUID) error
+	ListImages(ctx context.Context, input model.ListImagesInput) (*model.ListImagesOutput, error)
 }
 
 type imageServiceTestSuite struct {
@@ -387,6 +389,41 @@ func (s *imageServiceTestSuite) TestDeleteImage_Idempotent() {
 	err = s.service.DeleteImage(s.ctx, uploadRes.ImageID)
 
 	s.Require().Error(err)
+}
+
+// ListImages
+
+func (s *imageServiceTestSuite) TestListImages_Success() {
+	userID := uuid.New()
+
+	for i := 0; i < 3; i++ {
+		buf, size := generateTestImage()
+
+		_, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+			UserID:   userID,
+			Filename: fmt.Sprintf("img_%d.png", i),
+			Reader:   buf,
+			Size:     size,
+		})
+		s.Require().NoError(err)
+	}
+
+	res, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  10,
+		Offset: 0,
+	})
+
+	s.Require().NoError(err)
+	s.Require().NotNil(res)
+
+	s.Len(res.Items, 3)
+	s.Equal(3, res.Total)
+
+	for _, item := range res.Items {
+		s.NotEmpty(item.URL)
+		s.Equal(userID, item.UserID)
+	}
 }
 
 // HELPERS

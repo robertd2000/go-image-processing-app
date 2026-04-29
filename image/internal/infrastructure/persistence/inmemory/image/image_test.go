@@ -170,6 +170,37 @@ func (s *ImageRepoSuite) TestConcurrent_GetByUser() {
 	wg.Wait()
 }
 
+func (s *ImageRepoSuite) TestDelete_HidesFromGetByID() {
+	userID := uuid.New()
+	img := s.newImage(userID)
+
+	_ = s.repo.Save(s.ctx, &txmanagermem.FakeTx{}, img)
+
+	err := s.repo.Delete(s.ctx, img.ID())
+	s.Require().NoError(err)
+
+	_, err = s.repo.GetByID(s.ctx, img.ID())
+	s.ErrorIs(err, imageDomain.ErrNotFound)
+}
+
+func (s *ImageRepoSuite) TestDelete_HidesFromGetByUser() {
+	userID := uuid.New()
+
+	img1 := s.newImage(userID)
+	img2 := s.newImage(userID)
+
+	_ = s.repo.Save(s.ctx, &txmanagermem.FakeTx{}, img1)
+	_ = s.repo.Save(s.ctx, &txmanagermem.FakeTx{}, img2)
+
+	_ = s.repo.Delete(s.ctx, img1.ID())
+
+	res, err := s.repo.GetByUser(s.ctx, userID, 10, 0)
+	s.Require().NoError(err)
+
+	s.Len(res, 1)
+	s.Equal(img2.ID(), res[0].ID())
+}
+
 func TestImageRepoSuite(t *testing.T) {
 	suite.Run(t, new(ImageRepoSuite))
 }
