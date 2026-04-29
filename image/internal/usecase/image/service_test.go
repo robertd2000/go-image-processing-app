@@ -25,6 +25,7 @@ import (
 
 type ImageService interface {
 	UploadImage(ctx context.Context, input model.UploadImageInput) (*model.UploadImageOutput, error)
+	GetImage(ctx context.Context, imageID uuid.UUID) (*model.ImageOutput, error)
 }
 
 type imageServiceTestSuite struct {
@@ -238,6 +239,32 @@ func (s *imageServiceTestSuite) TestUploadImage_RepoFails_ShouldRollbackStorage(
 
 	assert.True(s.T(), spy.PutCalled)
 	assert.True(s.T(), spy.DeleteCalled)
+}
+
+// GetImage tests
+
+func (s *imageServiceTestSuite) TestGetImage_Success() {
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   uuid.New(),
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+	s.Require().NotNil(uploadRes)
+
+	res, err := s.service.GetImage(s.ctx, uploadRes.ImageID)
+
+	s.Require().NoError(err)
+	s.Require().NotNil(res)
+
+	s.Equal(uploadRes.ImageID, res.ImageID)
+	s.NotEmpty(res.URL)
+	s.Equal("test.png", res.FileName)
+	s.Equal(int64(size), res.Size)
+	s.Equal("image/png", res.MimeType)
 }
 
 // HELPERS

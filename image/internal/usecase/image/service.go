@@ -133,6 +133,20 @@ func (s *imageService) saveImage(
 	return nil
 }
 
+func (s *imageService) GetImage(ctx context.Context, imageID uuid.UUID) (*model.ImageOutput, error) {
+	img, err := s.imageRepo.GetByID(ctx, imageID)
+	if err != nil {
+		return nil, fmt.Errorf("get image: %w", err)
+	}
+
+	url, err := s.storage.GetURL(ctx, string(img.StorageKey()))
+	if err != nil {
+		return nil, fmt.Errorf("get url: %w", err)
+	}
+
+	return model.MapToImageOutput(img, url), nil
+}
+
 func detectExtension(mime, filename string) (string, error) {
 	switch mime {
 	case "image/jpeg":
