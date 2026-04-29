@@ -370,6 +370,25 @@ func (s *imageServiceTestSuite) TestDeleteImage_StorageError() {
 	s.Require().NoError(err)
 }
 
+func (s *imageServiceTestSuite) TestDeleteImage_Idempotent() {
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   uuid.New(),
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	err = s.service.DeleteImage(s.ctx, uploadRes.ImageID)
+	s.Require().NoError(err)
+
+	err = s.service.DeleteImage(s.ctx, uploadRes.ImageID)
+
+	s.Require().Error(err)
+}
+
 // HELPERS
 
 func generateTestImage() (*bytes.Buffer, int64) {
