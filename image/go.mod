@@ -80,6 +80,7 @@ require (
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gin-gonic/gin v1.12.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/spf13/viper v1.21.0
