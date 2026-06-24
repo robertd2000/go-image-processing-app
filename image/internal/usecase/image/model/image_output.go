@@ -13,6 +13,8 @@ type ImageOutput struct {
 
 	FileName string
 
+	Status string
+
 	MimeType string
 	Size     int64
 
@@ -33,6 +35,8 @@ func MapToImageOutput(
 		UserID:  img.UserID(),
 
 		FileName: img.OriginalName(),
+
+		Status: string(img.Status()),
 
 		MimeType: img.Metadata().MimeType(),
 		Size:     img.Metadata().Size(),

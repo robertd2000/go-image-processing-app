@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
+	txtx "github.com/robertd2000/go-image-processing-app/image/internal/domain/tx"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	"go.uber.org/zap"
 )
@@ -30,7 +31,7 @@ func NewImageRepository(db *pgxpool.Pool, logger *zap.SugaredLogger, metrics por
 	}
 }
 
-func (r *imageRepository) Save(ctx context.Context, tx port.Tx, image *imageDomain.Image) error {
+func (r *imageRepository) Save(ctx context.Context, tx txtx.Tx, image *imageDomain.Image) error {
 	if image == nil {
 		return fmt.Errorf("image repository: save: nil image")
 	}
@@ -43,9 +44,9 @@ func (r *imageRepository) Save(ctx context.Context, tx port.Tx, image *imageDoma
 			original_name, storage_key,
 			file_size, mime_type,
 			width, height,
-			created_at
+			status, created_at
 		)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 		RETURNING id
 	`
 
@@ -60,6 +61,7 @@ func (r *imageRepository) Save(ctx context.Context, tx port.Tx, image *imageDoma
 		meta.MimeType(),
 		meta.Width(),
 		meta.Height(),
+		string(image.Status()),
 		image.CreatedAt(),
 	)
 	if err != nil {
@@ -85,9 +87,10 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDoma
 			original_name, storage_key,
 			file_size, mime_type,
 			width, height,
-			created_at
+			status, created_at
 		FROM images
 		WHERE id = $1
+		AND deleted_at IS NULL
 	`
 
 	row := r.db.QueryRow(ctx, query, id)
@@ -101,6 +104,7 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDoma
 		mimeType     string
 		width        int
 		height       int
+		status       string
 		createdAt    time.Time
 		deletedAt    time.Time
 	)
@@ -114,6 +118,7 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDoma
 		&mimeType,
 		&width,
 		&height,
+		&status,
 		&createdAt,
 		&deletedAt,
 	)
@@ -136,6 +141,7 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDoma
 		imageDomain.StorageKey(storageKey),
 		originalName,
 		meta,
+		imageDomain.Status(status),
 		createdAt,
 		deletedAt,
 	)
@@ -145,6 +151,26 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDoma
 	}
 
 	return img, nil
+}
+
+func (r *imageRepository) UpdateStatus(ctx context.Context, id uuid.UUID, status imageDomain.Status) error {
+	query := `
+		UPDATE images
+		SET status = $1
+		WHERE id = $2 AND deleted_at IS NULL
+	`
+
+	cmd, err := r.db.Exec(ctx, query, string(status), id)
+	if err != nil {
+		r.logger.Errorw("UpdateStatus failed", "id", id, "status", status, "error", err)
+		return mapPGError(err)
+	}
+
+	if cmd.RowsAffected() == 0 {
+		return imageDomain.ErrNotFound
+	}
+
+	return nil
 }
 
 func (r *imageRepository) CountByUser(ctx context.Context, userID uuid.UUID) (int, error) {
@@ -196,9 +222,10 @@ func (r *imageRepository) GetByUser(ctx context.Context, userID uuid.UUID, limit
 			original_name, storage_key,
 			file_size, mime_type,
 			width, height,
-			created_at
+			status, created_at
 		FROM images
 		WHERE user_id = $1
+		AND deleted_at IS NULL
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
 	`
@@ -222,6 +249,7 @@ func (r *imageRepository) GetByUser(ctx context.Context, userID uuid.UUID, limit
 			mimeType     string
 			width        int
 			height       int
+			status       string
 			createdAt    time.Time
 			deletedAt    time.Time
 		)
@@ -235,6 +263,7 @@ func (r *imageRepository) GetByUser(ctx context.Context, userID uuid.UUID, limit
 			&mimeType,
 			&width,
 			&height,
+			&status,
 			&createdAt,
 			&deletedAt,
 		)
@@ -254,6 +283,7 @@ func (r *imageRepository) GetByUser(ctx context.Context, userID uuid.UUID, limit
 			imageDomain.StorageKey(storageKey),
 			originalName,
 			meta,
+			imageDomain.Status(status),
 			createdAt,
 			time.Time{},
 		)
