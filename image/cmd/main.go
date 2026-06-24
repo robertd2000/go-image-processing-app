@@ -9,10 +9,19 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robertd2000/go-image-processing-app/image/internal/config"
+	httpDelivery "github.com/robertd2000/go-image-processing-app/image/internal/delivery/http"
+	v1 "github.com/robertd2000/go-image-processing-app/image/internal/delivery/http/v1"
+	imageinfra "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/image"
+	"github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/auth"
+	s3store "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/s3"
 	imagepg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/image"
+	txmanagerpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/txmanager"
+	imageSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/image"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
@@ -71,8 +80,38 @@ func main() {
 	// ---------- swagger ----------
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// ---------- repos ----------
-	_ = imagepg.NewImageRepository(db, zlog, nil) // imageRepo
+	// ---------- infrastructure ----------
+	imageRepo := imagepg.NewImageRepository(db, zlog, nil)
+
+	jwtValidator := auth.NewJWTValidator(cfg.JWT.Secret)
+
+	s3Client := s3.NewFromConfig(aws.Config{
+		EndpointResolverWithOptions: aws.EndpointResolverWithOptionsFunc(
+			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+				if cfg.Storage.Endpoint != "" {
+					return aws.Endpoint{
+						URL:               cfg.Storage.Endpoint,
+						HostnameImmutable: true,
+					}, nil
+				}
+				return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+			},
+		),
+	})
+
+	st := s3store.New(s3Client, cfg.Storage.Bucket, cfg.Storage.Endpoint)
+
+	metaExtractor := imageinfra.NewMetadataExtractor()
+
+	txManager := txmanagerpg.NewTxManager(db, zlog)
+
+	// ---------- usecase ----------
+	svc := imageSvc.NewImageService(imageRepo, st, metaExtractor, txManager)
+
+	// ---------- delivery ----------
+	imageHandler := v1.NewImageHandler(svc, logger)
+
+	httpDelivery.SetupRouter(r, imageHandler, jwtValidator)
 
 	srv := &http.Server{
 		Addr:         cfg.Server.Port,

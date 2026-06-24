@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
+	"path"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
@@ -14,14 +16,16 @@ import (
 var ErrObjectNotFound = errors.New("object not found")
 
 type Storage struct {
-	client *s3.Client
-	bucket string
+	client   *s3.Client
+	bucket   string
+	endpoint string
 }
 
-func New(client *s3.Client, bucket string) *Storage {
+func New(client *s3.Client, bucket, endpoint string) *Storage {
 	return &Storage{
-		client: client,
-		bucket: bucket,
+		client:   client,
+		bucket:   bucket,
+		endpoint: endpoint,
 	}
 }
 
@@ -79,4 +83,15 @@ func (s *Storage) Delete(ctx context.Context, key string) error {
 	}
 
 	return nil
+}
+
+func (s *Storage) GetURL(ctx context.Context, key string) (string, error) {
+	u, err := url.Parse(s.endpoint)
+	if err != nil {
+		return "", fmt.Errorf("parse endpoint: %w", err)
+	}
+
+	u.Path = path.Join(u.Path, s.bucket, key)
+
+	return u.String(), nil
 }
