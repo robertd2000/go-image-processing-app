@@ -4,8 +4,10 @@ import (
 	"context"
 	"sync"
 
-	"github.com/robertd2000/go-image-processing-app/image/internal/port"
+	txtx "github.com/robertd2000/go-image-processing-app/image/internal/domain/tx"
 )
+
+var _ txtx.Tx = (*FakeTx)(nil)
 
 type FakeTx struct {
 	mu         sync.Mutex
@@ -74,7 +76,7 @@ func (m *FakeTxManager) LastTx() *FakeTx {
 	return m.lastTx
 }
 
-func (m *FakeTxManager) WithTx(ctx context.Context, fn func(ctx context.Context, tx port.Tx) error) error {
+func (m *FakeTxManager) WithTx(ctx context.Context, fn func(ctx context.Context, tx txtx.Tx) error) error {
 	tx := &FakeTx{}
 
 	m.mu.Lock()

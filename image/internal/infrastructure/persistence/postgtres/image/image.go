@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
+	txtx "github.com/robertd2000/go-image-processing-app/image/internal/domain/tx"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	"go.uber.org/zap"
 )
@@ -30,7 +31,7 @@ func NewImageRepository(db *pgxpool.Pool, logger *zap.SugaredLogger, metrics por
 	}
 }
 
-func (r *imageRepository) Save(ctx context.Context, tx port.Tx, image *imageDomain.Image) error {
+func (r *imageRepository) Save(ctx context.Context, tx txtx.Tx, image *imageDomain.Image) error {
 	if image == nil {
 		return fmt.Errorf("image repository: save: nil image")
 	}

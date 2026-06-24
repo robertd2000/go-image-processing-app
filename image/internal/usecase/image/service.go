@@ -13,6 +13,7 @@ import (
 	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	"github.com/robertd2000/go-image-processing-app/image/internal/usecase/image/model"
+	txtx "github.com/robertd2000/go-image-processing-app/image/internal/domain/tx"
 )
 
 type imageService struct {
@@ -119,7 +120,7 @@ func (s *imageService) saveImage(
 		return fmt.Errorf("storage put: %w", err)
 	}
 
-	err := s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+	err := s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
 		return s.imageRepo.Save(ctx, tx, img)
 	})
 

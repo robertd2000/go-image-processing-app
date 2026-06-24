@@ -4,8 +4,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-
-	"github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/auth"
+	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 )
 
 type contextKey string
@@ -15,7 +14,7 @@ const (
 	ContextRoles  contextKey = "roles"
 )
 
-func AuthMiddleware(jwt *auth.JWTValidator) gin.HandlerFunc {
+func AuthMiddleware(validator port.TokenValidator) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 
@@ -36,7 +35,7 @@ func AuthMiddleware(jwt *auth.JWTValidator) gin.HandlerFunc {
 			return
 		}
 
-		claims, err := jwt.ValidateAccess(token)
+		claims, err := validator.ValidateAccess(token)
 		if err != nil {
 			c.AbortWithStatusJSON(401, gin.H{"error": "invalid token"})
 			return

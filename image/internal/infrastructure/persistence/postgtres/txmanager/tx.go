@@ -7,9 +7,13 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	txtx "github.com/robertd2000/go-image-processing-app/image/internal/domain/tx"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	"go.uber.org/zap"
 )
+
+var _ txtx.Tx = (*TxWrapper)(nil)
+var _ port.TxManager = (*TxManager)(nil)
 
 type TxWrapper struct {
 	Tx pgx.Tx
@@ -46,7 +50,7 @@ func NewTxManager(pool *pgxpool.Pool, logger *zap.SugaredLogger) *TxManager {
 
 func (m *TxManager) WithTx(
 	ctx context.Context,
-	fn func(ctx context.Context, tx port.Tx) error,
+	fn func(ctx context.Context, tx txtx.Tx) error,
 ) error {
 
 	tx, err := m.pool.Begin(ctx)

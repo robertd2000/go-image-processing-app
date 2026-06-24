@@ -5,9 +5,10 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 )
 
-type Claims struct {
+type jwtClaims struct {
 	UserID uuid.UUID `json:"user_id"`
 	Roles  []string  `json:"roles"`
 	jwt.RegisteredClaims
@@ -21,8 +22,8 @@ func NewJWTValidator(secret string) *JWTValidator {
 	return &JWTValidator{secret: []byte(secret)}
 }
 
-func (j *JWTValidator) ValidateAccess(tokenStr string) (*Claims, error) {
-	var claims Claims
+func (j *JWTValidator) ValidateAccess(tokenStr string) (*port.AuthClaims, error) {
+	var claims jwtClaims
 
 	token, err := jwt.ParseWithClaims(tokenStr, &claims, func(t *jwt.Token) (any, error) {
 		if t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
@@ -43,5 +44,8 @@ func (j *JWTValidator) ValidateAccess(tokenStr string) (*Claims, error) {
 		return nil, errors.New("invalid token")
 	}
 
-	return &claims, nil
+	return &port.AuthClaims{
+		UserID: claims.UserID,
+		Roles:  claims.Roles,
+	}, nil
 }

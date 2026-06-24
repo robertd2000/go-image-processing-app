@@ -21,6 +21,7 @@ import (
 	txmanagermem "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/inmemory/txmanager"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	imageUsecase "github.com/robertd2000/go-image-processing-app/image/internal/usecase/image"
+	txtx "github.com/robertd2000/go-image-processing-app/image/internal/domain/tx"
 	"github.com/robertd2000/go-image-processing-app/image/internal/usecase/image/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -234,7 +235,7 @@ type failingRepo struct {
 	imageDomain.Repository
 }
 
-func (f *failingRepo) Save(ctx context.Context, tx port.Tx, img *imageDomain.Image) error {
+func (f *failingRepo) Save(ctx context.Context, tx txtx.Tx, img *imageDomain.Image) error {
 	return errors.New("repo error")
 }
 

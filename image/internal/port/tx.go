@@ -2,14 +2,10 @@ package port
 
 import (
 	"context"
+
+	txtx "github.com/robertd2000/go-image-processing-app/image/internal/domain/tx"
 )
 
 type TxManager interface {
-	WithTx(ctx context.Context, fn func(ctx context.Context, tx Tx) error) error
-}
-
-type Tx interface {
-	Commit(ctx context.Context) error
-	Rollback(ctx context.Context) error
-	Exec(ctx context.Context, query string, args ...any) error
+	WithTx(ctx context.Context, fn func(ctx context.Context, tx txtx.Tx) error) error
 }
