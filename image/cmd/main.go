@@ -26,6 +26,7 @@ import (
 	imagepg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/image"
 	txmanagerpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/txmanager"
 	imageSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/image"
+	"github.com/robertd2000/go-image-processing-app/image/internal/pkg/app"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -49,11 +50,17 @@ func main() {
 	appCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	lc := app.NewLifecycle()
+
+	// ---------- DB ----------
 	db, err := pgxpool.New(appCtx, cfg.Postgres.DSN())
 	if err != nil {
 		logger.Fatal("db connect failed", zap.Error(err))
 	}
-	defer db.Close()
+	lc.Add(app.CloserFunc(func(_ context.Context) error {
+		db.Close()
+		return nil
+	}))
 
 	if err := db.Ping(appCtx); err != nil {
 		logger.Fatal("db ping failed", zap.Error(err))
@@ -91,14 +98,14 @@ func main() {
 
 	// ---------- events (optional) ----------
 	var (
-		publisher port.EventPublisher
-		consumer  port.EventConsumer
+		publisher  port.EventPublisher
+		consumer   port.EventConsumer
+		outboxRepo port.OutboxRepository
+		svcOpts    []imageSvc.ServiceOption
 	)
 
-	var svcOpts []imageSvc.ServiceOption
-
 	if cfg.Kafka.Enabled {
-		outboxRepo := outboxpg.NewOutboxRepository(db, zlog)
+		outboxRepo = outboxpg.NewOutboxRepository(db, zlog)
 		jobRepo := jobpg.NewJobRepository(db, zlog)
 
 		svcOpts = append(svcOpts,
@@ -111,33 +118,33 @@ func main() {
 		publisher = pub
 		consumer = con
 
-		// usecase
-		svc := imageSvc.NewImageService(imageRepo, st, metaExtractor, txManager, svcOpts...)
-
-		// outbox relay
-		go infraEvents.RunOutboxRelay(
-			appCtx, outboxRepo, pub,
-			cfg.Kafka.Topics.ImageProcessingRequested,
-			1*time.Second, 50,
-		)
-
-		// consumer: listening for processing results
-		go func() {
-			handler := imageSvc.NewProcessingResultHandler(svc)
-			if err := con.Consume(appCtx, []string{cfg.Kafka.Topics.ImageProcessed}, handler); err != nil && err != context.Canceled {
-				logger.Error("consumer stopped", zap.Error(err))
-			}
-		}()
-
-		// delivery
-		imageHandler := v1.NewImageHandler(svc, logger)
-		httpDelivery.SetupRouter(r, imageHandler, jwtValidator)
-	} else {
-		svc := imageSvc.NewImageService(imageRepo, st, metaExtractor, txManager)
-		imageHandler := v1.NewImageHandler(svc, logger)
-		httpDelivery.SetupRouter(r, imageHandler, jwtValidator)
+		lc.Add(app.CloserFunc(func(_ context.Context) error { return pub.Close() }))
+		lc.Add(app.CloserFunc(func(_ context.Context) error { return con.Close() }))
 	}
 
+	svc := imageSvc.NewImageService(imageRepo, st, metaExtractor, txManager, svcOpts...)
+
+	if cfg.Kafka.Enabled {
+		lc.Go(func(ctx context.Context) {
+			infraEvents.RunOutboxRelay(
+				ctx, outboxRepo, publisher,
+				cfg.Kafka.Topics.ImageProcessingRequested,
+				1*time.Second, 50,
+			)
+		}, appCtx)
+
+		lc.Go(func(ctx context.Context) {
+			handler := imageSvc.NewProcessingResultHandler(svc)
+			if err := consumer.Consume(ctx, []string{cfg.Kafka.Topics.ImageProcessed}, handler); err != nil && err != context.Canceled {
+				logger.Error("consumer stopped", zap.Error(err))
+			}
+		}, appCtx)
+	}
+
+	imageHandler := v1.NewImageHandler(svc, logger)
+	httpDelivery.SetupRouter(r, imageHandler, jwtValidator)
+
+	// ---------- HTTP server ----------
 	srv := &http.Server{
 		Addr:         cfg.Server.Port,
 		Handler:      r,
@@ -145,6 +152,9 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
+	lc.Add(app.CloserFunc(func(ctx context.Context) error {
+		return srv.Shutdown(ctx)
+	}))
 
 	go func() {
 		logger.Info("server started", zap.String("addr", cfg.Server.Port))
@@ -153,25 +163,29 @@ func main() {
 		}
 	}()
 
+	// ---------- graceful shutdown ----------
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	<-quit
-	logger.Info("shutting down...")
+	sig := <-quit
+	logger.Info("shutting down", zap.String("signal", sig.String()))
+
+	// 1. Cancel app context — signals goroutines (relay, consumer) to stop
 	cancel()
 
-	if publisher != nil {
-		_ = publisher.Close()
-	}
-	if consumer != nil {
-		_ = consumer.Close()
-	}
+	// 2. Handle second signal for force exit
+	go func() {
+		<-quit
+		logger.Warn("second signal received, forcing shutdown")
+		os.Exit(1)
+	}()
 
-	ctxShutdown, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	// 3. Graceful shutdown: wait goroutines → close resources in reverse order
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer shutdownCancel()
 
-	if err := srv.Shutdown(ctxShutdown); err != nil {
-		logger.Error("server shutdown failed", zap.Error(err))
+	if err := lc.Shutdown(shutdownCtx); err != nil {
+		logger.Error("shutdown errors", zap.Error(err))
 	}
 
 	logger.Info("server exited properly")
