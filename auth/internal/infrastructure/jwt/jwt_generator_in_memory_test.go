@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
 func TestInMemoryTokenGenerator_GenerateAccess(t *testing.T) {
@@ -34,7 +34,7 @@ func TestInMemoryTokenGenerator_GenerateAccess(t *testing.T) {
 				g.GenerateErr = assertTestError()
 			}
 
-			got, err := g.GenerateAccess(model.ClaimsInput{
+			got, err := g.GenerateAccess(port.ClaimsInput{
 				UserID: userID,
 				Roles:  []string{"user"},
 			})

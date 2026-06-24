@@ -3,7 +3,7 @@ package txmanagermem
 import (
 	"context"
 
-	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 )
 
 type FakeTx struct{}
@@ -14,7 +14,7 @@ func (t *FakeTx) Rollback(ctx context.Context) error                        { re
 
 type FakeTxManager struct{}
 
-func (m *FakeTxManager) WithTx(ctx context.Context, fn func(ctx context.Context, tx port.Tx) error) error {
+func (m *FakeTxManager) WithTx(ctx context.Context, fn func(ctx context.Context, tx txtx.Tx) error) error {
 	return fn(ctx, &FakeTx{})
 }
 

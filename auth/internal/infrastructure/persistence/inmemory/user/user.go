@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 )
 
 type userInMemoryRepository struct {
@@ -22,7 +22,7 @@ func NewUserRepository() userDomain.UserRepository {
 	}
 }
 
-func (r *userInMemoryRepository) Create(_ context.Context, tx port.Tx, user *userDomain.AuthUser) error {
+func (r *userInMemoryRepository) Create(_ context.Context, tx txtx.Tx, user *userDomain.AuthUser) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -143,7 +143,7 @@ func (r *userInMemoryRepository) ExistsByUsername(_ context.Context, username st
 	return user != nil, nil
 }
 
-func (r *userInMemoryRepository) UpdateStatus(_ context.Context, tx port.Tx, userID uuid.UUID, status userDomain.Status) error {
+func (r *userInMemoryRepository) UpdateStatus(_ context.Context, tx txtx.Tx, userID uuid.UUID, status userDomain.Status) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

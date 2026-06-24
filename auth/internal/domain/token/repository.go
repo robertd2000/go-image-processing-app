@@ -5,11 +5,11 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 )
 
 type TokenRepository interface {
-	Create(ctx context.Context, tx port.Tx, token *Tokens, limit int) error
+	Create(ctx context.Context, tx txtx.Tx, token *Tokens, limit int) error
 	Update(ctx context.Context, userID uuid.UUID, oldToken, newToken string) error
 	Revoke(ctx context.Context, tokenID uuid.UUID) error
 	RevokeFamily(ctx context.Context, familyID uuid.UUID) error
@@ -17,7 +17,7 @@ type TokenRepository interface {
 		oldToken *Tokens,
 		newToken *Tokens) (bool, error)
 	GetByHash(ctx context.Context, token string) (*Tokens, error)
-	DeleteByUserID(ctx context.Context, tx port.Tx, userID uuid.UUID) error
+	DeleteByUserID(ctx context.Context, tx txtx.Tx, userID uuid.UUID) error
 }
 
 type TokenGenerator interface {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
@@ -16,7 +17,7 @@ func NewRepository(db *pgxpool.Pool) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) Create(ctx context.Context, tx port.Tx, e port.OutboxEvent) error {
+func (r *Repository) Create(ctx context.Context, tx txtx.Tx, e port.OutboxEvent) error {
 	err := tx.Exec(ctx, `
 		INSERT INTO outbox_events (id, event_type, topic, key, payload)
 		VALUES ($1, $2, $3, $4, $5)

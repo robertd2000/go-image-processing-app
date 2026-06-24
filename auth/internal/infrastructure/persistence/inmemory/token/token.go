@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 )
 
 type tokenInMemoryRepository struct {
@@ -24,7 +24,7 @@ func NewTokenRepository() tokenDomain.TokenRepository {
 	}
 }
 
-func (r *tokenInMemoryRepository) Create(ctx context.Context, tx port.Tx, token *tokenDomain.Tokens, limit int) error {
+func (r *tokenInMemoryRepository) Create(ctx context.Context, tx txtx.Tx, token *tokenDomain.Tokens, limit int) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -191,7 +191,7 @@ func (t *tokenInMemoryRepository) getByToken(_ context.Context, token string) (*
 	return tokens, nil
 }
 
-func (r *tokenInMemoryRepository) DeleteByUserID(ctx context.Context, tx port.Tx, userID uuid.UUID) error {
+func (r *tokenInMemoryRepository) DeleteByUserID(ctx context.Context, tx txtx.Tx, userID uuid.UUID) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

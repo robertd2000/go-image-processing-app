@@ -12,6 +12,7 @@ import (
 	domainevents "github.com/robertd2000/go-image-processing-app/auth/internal/domain/events"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/validation"
@@ -89,7 +90,7 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 		return err
 	}
 
-	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
 
 		if err := s.userRepo.Create(ctx, tx, user); err != nil {
 			return err
@@ -189,7 +190,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*model.
 		roles = append(roles, r.Name().String())
 	}
 
-	access, err := s.tokenGen.GenerateAccess(model.ClaimsInput{
+	access, err := s.tokenGen.GenerateAccess(port.ClaimsInput{
 		UserID: user.ID(),
 		Roles:  roles,
 	})
@@ -265,7 +266,7 @@ func (s *authService) generateTokenPair(
 	}
 
 	// generate tokens
-	access, err := s.tokenGen.GenerateAccess(model.ClaimsInput{
+	access, err := s.tokenGen.GenerateAccess(port.ClaimsInput{
 		UserID: user.ID(),
 		Roles:  roles,
 	})
@@ -297,7 +298,7 @@ func (s *authService) generateTokenPair(
 		return nil, fmt.Errorf("create refresh token: %w", err)
 	}
 
-	if err := s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+	if err := s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
 		return s.refreshRepo.Create(ctx, tx, token, sessionLimit)
 	}); err != nil {
 

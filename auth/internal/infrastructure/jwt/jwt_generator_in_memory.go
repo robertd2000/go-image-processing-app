@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/auth"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
 type InMemoryTokenGenerator struct {
@@ -28,7 +28,7 @@ func NewInMemoryTokenGenerator() *InMemoryTokenGenerator {
 	}
 }
 
-func (g *InMemoryTokenGenerator) Generate(claims model.ClaimsInput) (string, error) {
+func (g *InMemoryTokenGenerator) Generate(claims port.ClaimsInput) (string, error) {
 	if g.GenerateErr != nil {
 		return "", g.GenerateErr
 	}
@@ -58,7 +58,7 @@ func (g *InMemoryTokenGenerator) Validate(token string) (*auth.Claims, error) {
 	return &auth.Claims{UserID: id}, nil
 }
 
-func (g *InMemoryTokenGenerator) GenerateAccess(input model.ClaimsInput) (string, error) {
+func (g *InMemoryTokenGenerator) GenerateAccess(input port.ClaimsInput) (string, error) {
 	if g.GenerateErr != nil {
 		return "", g.GenerateErr
 	}

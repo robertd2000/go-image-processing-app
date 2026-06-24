@@ -9,7 +9,7 @@ import (
 
 	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/auth"
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
 type JWTGenerator struct {
@@ -25,7 +25,7 @@ func NewJWTGenerator(secret []byte) *JWTGenerator {
 
 // ACCESS TOKEN
 
-func (j *JWTGenerator) GenerateAccess(input model.ClaimsInput) (string, error) {
+func (j *JWTGenerator) GenerateAccess(input port.ClaimsInput) (string, error) {
 	claims := CustomClaims{
 		UserID:    input.UserID,
 		Roles:     input.Roles,

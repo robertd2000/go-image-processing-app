@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
@@ -20,7 +21,7 @@ func NewRepository() *Repository {
 	}
 }
 
-func (r *Repository) Create(ctx context.Context, tx port.Tx, e port.OutboxEvent) error {
+func (r *Repository) Create(ctx context.Context, tx txtx.Tx, e port.OutboxEvent) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

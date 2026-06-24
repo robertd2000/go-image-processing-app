@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
@@ -25,7 +26,7 @@ func NewUserSyncService(txManager port.TxManager, userRepo userDomain.UserReposi
 }
 
 func (s *userSyncService) Delete(ctx context.Context, userID uuid.UUID) error {
-	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
 		if userID == uuid.Nil {
 			return userDomain.ErrInvalidUserID
 		}
@@ -55,7 +56,7 @@ func (s *userSyncService) Delete(ctx context.Context, userID uuid.UUID) error {
 }
 
 func (s *userSyncService) Ban(ctx context.Context, userID uuid.UUID) error {
-	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
 		if userID == uuid.Nil {
 			return userDomain.ErrInvalidUserID
 		}
@@ -85,7 +86,7 @@ func (s *userSyncService) Ban(ctx context.Context, userID uuid.UUID) error {
 }
 
 func (s *userSyncService) Unban(ctx context.Context, userID uuid.UUID) error {
-	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
 		if userID == uuid.Nil {
 			return userDomain.ErrInvalidUserID
 		}
@@ -115,7 +116,7 @@ func (s *userSyncService) Unban(ctx context.Context, userID uuid.UUID) error {
 }
 
 func (s *userSyncService) Restore(ctx context.Context, userID uuid.UUID) error {
-	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
 		if userID == uuid.Nil {
 			return userDomain.ErrInvalidUserID
 		}
