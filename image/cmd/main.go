@@ -12,6 +12,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-gonic/gin"
+	"github.com/robertd2000/go-image-processing-app/image/internal/delivery/http/health"
+	"github.com/segmentio/kafka-go"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robertd2000/go-image-processing-app/image/internal/config"
 	httpDelivery "github.com/robertd2000/go-image-processing-app/image/internal/delivery/http"
@@ -141,6 +143,22 @@ func main() {
 			}
 		}, appCtx)
 	}
+
+	// ---------- health check ----------
+	healthChecks := map[string]health.Check{
+		"postgres": func(ctx context.Context) error { return db.Ping(ctx) },
+	}
+	if cfg.Kafka.Enabled {
+		healthChecks["kafka"] = func(ctx context.Context) error {
+			conn, err := kafka.DialContext(ctx, "tcp", cfg.Kafka.Brokers[0])
+			if err != nil {
+				return err
+			}
+			conn.Close()
+			return nil
+		}
+	}
+	r.GET("/health", health.Handler(5*time.Second, healthChecks))
 
 	imageHandler := v1.NewImageHandler(svc, logger)
 	httpDelivery.SetupRouter(r, imageHandler, jwtValidator)
