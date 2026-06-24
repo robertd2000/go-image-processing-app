@@ -77,6 +77,21 @@ services:
       - "5435:5432"
 
   # =====================
+  # KAFKA INIT (CREATE TOPICS ON STARTUP)
+  # =====================
+  kafka-init:
+    image: confluentinc/cp-kafka:7.3.0
+    depends_on:
+      - kafka
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      kafka-topics --bootstrap-server kafka:9092 --topic image.processing.requested.v1 --create --if-not-exists --partitions 3 --replication-factor 1;
+      kafka-topics --bootstrap-server kafka:9092 --topic image.processed.v1 --create --if-not-exists --partitions 3 --replication-factor 1;
+      exit 0;
+      "
+
+  # =====================
   # MINIO (S3 STORAGE)
   # =====================
   minio:
@@ -137,12 +152,12 @@ services:
   image:
     build: ./image
     depends_on:
-      postgres-image:
-        condition: service_healthy
-      kafka:
-        condition: service_started
-      minio:
-        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+      minio-init:
+        condition: service_completed_successfully
     env_file:
       - ./image/.env
     ports:
@@ -175,13 +190,16 @@ services:
         condition: service_healthy
       postgres-image:
         condition: service_healthy
-    env_file:
-      - ./.env
-    entrypoint: ["sleep", "infinity"]
     volumes:
       - ./auth/migrations:/migrations/auth
       - ./user/migrations:/migrations/user
       - ./image/migrations:/migrations/image
+    entrypoint: >
+      /bin/sh -c "
+        migrate -path /migrations/auth -database 'postgres://auth_user:auth_pass@postgres-auth:5432/auth_db?sslmode=disable' up &&
+        migrate -path /migrations/user -database 'postgres://user_user:user_pass@postgres-user:5432/user_db?sslmode=disable' up &&
+        migrate -path /migrations/image -database 'postgres://image_user:image_pass@postgres-image:5432/image_db?sslmode=disable' up
+      "
 
 # =====================
 # VOLUMES
