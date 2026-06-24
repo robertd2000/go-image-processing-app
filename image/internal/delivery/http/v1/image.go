@@ -30,15 +30,11 @@ func NewImageHandler(svc ImageService, logger *zap.Logger) *ImageHandler {
 	}
 }
 
-func (h *ImageHandler) SetupImageHandler(api *gin.RouterGroup, authMiddleware gin.HandlerFunc) {
-	images := api.Group("/images")
-	images.Use(authMiddleware)
-	{
-		images.POST("", h.uploadImage)
-		images.GET("", h.listImages)
-		images.GET("/:id", h.getImage)
-		images.DELETE("/:id", h.deleteImage)
-	}
+func (h *ImageHandler) SetupImageHandler(images *gin.RouterGroup) {
+	images.POST("", h.uploadImage)
+	images.GET("", h.listImages)
+	images.GET("/:id", h.getImage)
+	images.DELETE("/:id", h.deleteImage)
 }
 
 // @Summary Upload image

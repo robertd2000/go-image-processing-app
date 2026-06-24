@@ -18,7 +18,7 @@ type RouterConfig struct {
 	Logger         *zap.Logger
 }
 
-func SetupRouter(r *gin.Engine, imageHandler *v1.ImageHandler, tokenValidator port.TokenValidator, cfg *RouterConfig) {
+func SetupRouter(r *gin.Engine, imageHandler *v1.ImageHandler, transformHandler *v1.TransformationHandler, tokenValidator port.TokenValidator, cfg *RouterConfig) {
 	// Global middleware
 	r.Use(middleware.RequestID())
 	r.Use(middleware.CORS(cfg.CORSOrigins))
@@ -35,7 +35,12 @@ func SetupRouter(r *gin.Engine, imageHandler *v1.ImageHandler, tokenValidator po
 	{
 		v1 := api.Group("/v1")
 		{
-			imageHandler.SetupImageHandler(v1, authMiddleware)
+			images := v1.Group("/images")
+			images.Use(authMiddleware)
+			imageHandler.SetupImageHandler(images)
+			transformHandler.SetupImageTransformRoute(images)
 		}
+
+		transformHandler.SetupTransformationRoutes(v1, authMiddleware)
 	}
 }

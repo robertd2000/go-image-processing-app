@@ -26,8 +26,10 @@ import (
 	outboxpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/outbox"
 	s3store "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/s3"
 	imagepg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/image"
+	transformpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/transformation"
 	txmanagerpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/txmanager"
 	imageSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/image"
+	transformSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/transformation"
 	"github.com/robertd2000/go-image-processing-app/image/internal/pkg/app"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	swaggerFiles "github.com/swaggo/files"
@@ -159,8 +161,13 @@ func main() {
 	}
 	r.GET("/health", health.Handler(5*time.Second, healthChecks))
 
+	// ---------- transformation service ----------
+	transformRepo := transformpg.NewTransformationRepo(db, zlog)
+	tSvc := transformSvc.NewService(imageRepo, transformRepo, txManager, outboxRepo)
+	transformHandler := v1.NewTransformationHandler(tSvc, logger)
+
 	imageHandler := v1.NewImageHandler(svc, logger)
-	httpDelivery.SetupRouter(r, imageHandler, jwtValidator, &httpDelivery.RouterConfig{
+	httpDelivery.SetupRouter(r, imageHandler, transformHandler, jwtValidator, &httpDelivery.RouterConfig{
 		CORSOrigins:    []string{"*"},
 		RequestTimeout: 30 * time.Second,
 		RateLimit:      100,
