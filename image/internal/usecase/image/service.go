@@ -216,6 +216,8 @@ func detectExtension(mime, filename string) (string, error) {
 		return "jpg", nil
 	case "image/png":
 		return "png", nil
+	case "image/gif":
+		return "gif", nil
 	case "image/webp":
 		return "webp", nil
 	}

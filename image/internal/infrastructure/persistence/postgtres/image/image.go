@@ -88,6 +88,7 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDoma
 			created_at
 		FROM images
 		WHERE id = $1
+		AND deleted_at IS NULL
 	`
 
 	row := r.db.QueryRow(ctx, query, id)
@@ -199,6 +200,7 @@ func (r *imageRepository) GetByUser(ctx context.Context, userID uuid.UUID, limit
 			created_at
 		FROM images
 		WHERE user_id = $1
+		AND deleted_at IS NULL
 		ORDER BY created_at DESC
 		LIMIT $2 OFFSET $3
 	`

@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
+	"image/gif"
 	"image/png"
 	"io"
 	"testing"
@@ -170,9 +172,9 @@ func (s *imageServiceTestSuite) TestUploadImage_StorageFails() {
 	assert.Contains(s.T(), err.Error(), "storage")
 }
 
-// EXTENSION FALLBACK
+// EXTENSION
 
-func (s *imageServiceTestSuite) TestUploadImage_UnknownMime_UsesFilenameExt() {
+func (s *imageServiceTestSuite) TestUploadImage_KnownMime_IgnoresFilenameExtension() {
 	userID := uuid.New()
 	buf, size := generateTestImage()
 
@@ -186,6 +188,26 @@ func (s *imageServiceTestSuite) TestUploadImage_UnknownMime_UsesFilenameExt() {
 	_, err := s.service.UploadImage(s.ctx, input)
 
 	assert.NoError(s.T(), err)
+}
+
+func (s *imageServiceTestSuite) TestUploadImage_GIF() {
+	userID := uuid.New()
+	buf, size := generateTestGIF()
+
+	input := model.UploadImageInput{
+		UserID:   userID,
+		Filename: "test.gif",
+		Size:     size,
+		Reader:   bytes.NewReader(buf.Bytes()),
+	}
+
+	output, err := s.service.UploadImage(s.ctx, input)
+	assert.NoError(s.T(), err)
+	assert.NotNil(s.T(), output)
+
+	res, err := s.service.GetImage(s.ctx, output.ImageID)
+	assert.NoError(s.T(), err)
+	assert.Equal(s.T(), "image/gif", res.MimeType)
 }
 
 // LARGE FILE LIMIT
@@ -336,13 +358,7 @@ func (s *imageServiceTestSuite) TestDeleteImage_Success() {
 	s.Require().NoError(err)
 
 	_, err = s.imageRepo.GetByID(s.ctx, uploadRes.ImageID)
-	s.Require().Error(err)
-
-	img, err := s.imageRepo.GetByID(s.ctx, uploadRes.ImageID)
-	if err == nil {
-		err = s.storage.Delete(s.ctx, string(img.StorageKey()))
-		s.Require().Error(err)
-	}
+	s.ErrorIs(err, imageDomain.ErrNotFound)
 }
 
 func (s *imageServiceTestSuite) TestDeleteImage_NotFound() {
@@ -351,7 +367,7 @@ func (s *imageServiceTestSuite) TestDeleteImage_NotFound() {
 	s.Require().Error(err)
 }
 
-func (s *imageServiceTestSuite) TestDeleteImage_StorageError() {
+func (s *imageServiceTestSuite) TestDeleteImage_StorageAlreadyDeleted() {
 	buf, size := generateTestImage()
 
 	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
@@ -370,6 +386,39 @@ func (s *imageServiceTestSuite) TestDeleteImage_StorageError() {
 	err = s.service.DeleteImage(s.ctx, uploadRes.ImageID)
 
 	s.Require().NoError(err)
+}
+
+type failingDeleteStorage struct {
+	port.Storage
+}
+
+func (f *failingDeleteStorage) Delete(ctx context.Context, key string) error {
+	return errors.New("storage delete error")
+}
+
+func (s *imageServiceTestSuite) TestDeleteImage_StorageFails() {
+	userID := uuid.New()
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   userID,
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	s.service = imageUsecase.NewImageService(
+		s.imageRepo,
+		&failingDeleteStorage{Storage: s.storage},
+		s.metadataExtractor,
+		s.txManager,
+	)
+
+	err = s.service.DeleteImage(s.ctx, uploadRes.ImageID)
+
+	s.Require().Error(err)
+	s.Contains(err.Error(), "storage")
 }
 
 func (s *imageServiceTestSuite) TestDeleteImage_Idempotent() {
@@ -505,6 +554,35 @@ func (b *brokenStorage) GetURL(ctx context.Context, key string) (string, error) 
 	return "", fmt.Errorf("storage error")
 }
 
+func (s *imageServiceTestSuite) TestListImages_InvalidUserID() {
+	res, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: uuid.Nil,
+		Limit:  10,
+		Offset: 0,
+	})
+
+	s.ErrorIs(err, imageDomain.ErrInvalidUserID)
+	s.Nil(res)
+}
+
+func (s *imageServiceTestSuite) TestListImages_InvalidPagination() {
+	userID := uuid.New()
+
+	_, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  -1,
+		Offset: 0,
+	})
+	s.ErrorIs(err, imageDomain.ErrInvalidPagination)
+
+	_, err = s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  10,
+		Offset: -1,
+	})
+	s.ErrorIs(err, imageDomain.ErrInvalidPagination)
+}
+
 func (s *imageServiceTestSuite) TestListImages_StorageError() {
 	userID := uuid.New()
 
@@ -542,6 +620,16 @@ func generateTestImage() (*bytes.Buffer, int64) {
 
 	buf := new(bytes.Buffer)
 	_ = png.Encode(buf, img)
+
+	return buf, int64(buf.Len())
+}
+
+func generateTestGIF() (*bytes.Buffer, int64) {
+	palette := color.Palette{color.Black, color.White}
+	img := image.NewPaletted(image.Rect(0, 0, 5, 5), palette)
+
+	buf := new(bytes.Buffer)
+	_ = gif.Encode(buf, img, nil)
 
 	return buf, int64(buf.Len())
 }
