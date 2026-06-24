@@ -20,20 +20,14 @@ func NewProcessingResultHandler(svc *imageService) port.EventHandler {
 			if err := json.Unmarshal(msg.Value, &ev); err != nil {
 				return fmt.Errorf("unmarshal completed event: %w", err)
 			}
-			if err := svc.HandleImageProcessed(ctx, ev.EventID, ev.ImageID); err != nil {
-				log.Printf("handle completed event failed: %v", err)
-			}
-			return nil
+			return svc.HandleImageProcessed(ctx, ev.EventID, ev.ImageID)
 
 		case events.EventTypeImageProcessingFailed:
 			var ev events.ImageProcessingFailed
 			if err := json.Unmarshal(msg.Value, &ev); err != nil {
 				return fmt.Errorf("unmarshal failed event: %w", err)
 			}
-			if err := svc.HandleImageProcessingFailed(ctx, ev.EventID, ev.ImageID, ev.Reason); err != nil {
-				log.Printf("handle failed event failed: %v", err)
-			}
-			return nil
+			return svc.HandleImageProcessingFailed(ctx, ev.EventID, ev.ImageID, ev.Reason)
 
 		default:
 			log.Printf("unknown event type: %s", eventType)

@@ -40,7 +40,11 @@ type KafkaConfig struct {
 
 type Topics struct {
 	ImageProcessingRequested string `mapstructure:"image_processing_requested"`
-	ImageProcessed           string `mapstructure:"image_processed"` // future
+	ImageProcessed           string `mapstructure:"image_processed"`
+}
+
+func (t Topics) ImageProcessedDLQ() string {
+	return t.ImageProcessed + ".dlq"
 }
 
 type StorageConfig struct {

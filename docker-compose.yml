@@ -88,6 +88,7 @@ services:
       sleep 10;
       kafka-topics --bootstrap-server kafka:9092 --topic image.processing.requested.v1 --create --if-not-exists --partitions 3 --replication-factor 1;
       kafka-topics --bootstrap-server kafka:9092 --topic image.processed.v1 --create --if-not-exists --partitions 3 --replication-factor 1;
+      kafka-topics --bootstrap-server kafka:9092 --topic image.processed.v1.dlq --create --if-not-exists --partitions 1 --replication-factor 1;
       exit 0;
       "
 

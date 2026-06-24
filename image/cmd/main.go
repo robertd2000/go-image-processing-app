@@ -135,6 +135,7 @@ func main() {
 
 		lc.Go(func(ctx context.Context) {
 			handler := imageSvc.NewProcessingResultHandler(svc)
+			handler = infraEvents.WithDLQ(handler, publisher, cfg.Kafka.Topics.ImageProcessedDLQ())
 			if err := consumer.Consume(ctx, []string{cfg.Kafka.Topics.ImageProcessed}, handler); err != nil && err != context.Canceled {
 				logger.Error("consumer stopped", zap.Error(err))
 			}
