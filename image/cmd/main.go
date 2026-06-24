@@ -73,7 +73,6 @@ func main() {
 	}
 
 	r := gin.New()
-	r.Use(gin.Recovery(), gin.Logger())
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// ---------- infrastructure ----------
@@ -161,7 +160,13 @@ func main() {
 	r.GET("/health", health.Handler(5*time.Second, healthChecks))
 
 	imageHandler := v1.NewImageHandler(svc, logger)
-	httpDelivery.SetupRouter(r, imageHandler, jwtValidator)
+	httpDelivery.SetupRouter(r, imageHandler, jwtValidator, &httpDelivery.RouterConfig{
+		CORSOrigins:    []string{"*"},
+		RequestTimeout: 30 * time.Second,
+		RateLimit:      100,
+		RateInterval:   1 * time.Minute,
+		Logger:         logger,
+	})
 
 	// ---------- HTTP server ----------
 	srv := &http.Server{
