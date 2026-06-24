@@ -151,13 +151,14 @@ func main() {
 		cfg.Kafka.Brokers,
 		cfg.Kafka.Topics.UserEventsDLQ(),
 	)
+	lc.Add(app.CloserFunc(func(_ context.Context) error { return dlq.Close() }))
+
+	dispatcher.Use(kafkamiddleware.DLQMiddleware(dlq))
 
 	dispatcher.Use(kafkamiddleware.RetryMiddleware(kafkamiddleware.RetryConfig{
 		MaxAttempts: 3,
 		Backoff:     500 * time.Millisecond,
 	}))
-
-	dispatcher.Use(kafkamiddleware.DLQMiddleware(dlq))
 
 	dispatcher.Register(
 		"user.deleted",
