@@ -100,6 +100,19 @@ func (r *imageRepo) GetByUser(
 	return filtered, nil
 }
 
+func (r *imageRepo) UpdateStatus(ctx context.Context, id uuid.UUID, status imageDomain.Status) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	img, ok := r.data[id]
+	if !ok {
+		return imageDomain.ErrNotFound
+	}
+
+	img.SetStatus(status)
+	return nil
+}
+
 func (r *imageRepo) CountByUser(ctx context.Context, userID uuid.UUID) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

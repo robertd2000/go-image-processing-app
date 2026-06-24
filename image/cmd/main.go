@@ -16,49 +16,39 @@ import (
 	"github.com/robertd2000/go-image-processing-app/image/internal/config"
 	httpDelivery "github.com/robertd2000/go-image-processing-app/image/internal/delivery/http"
 	v1 "github.com/robertd2000/go-image-processing-app/image/internal/delivery/http/v1"
-	imageinfra "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/image"
 	"github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/auth"
+	infraEvents "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/events"
+	kafkaAdapter "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/events/kafka"
+	imageinfra "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/image"
+	jobpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/job"
+	outboxpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/outbox"
 	s3store "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/s3"
 	imagepg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/image"
 	txmanagerpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/txmanager"
 	imageSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/image"
+	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 )
 
-// @title Image Service API
-// @version 1.0
-// @description API for image service
-// @host localhost:8081
-// @BasePath /api/v1
-// @securityDefinitions.apikey Bearer
-// @in header
-// @name Authorization
-// @description Type "Bearer" followed by a space and JWT token.
 func main() {
-	// ---------- logger ----------
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("init logger: %v", err)
 	}
-	defer func() {
-		_ = logger.Sync()
-	}()
+	defer func() { _ = logger.Sync() }()
 
 	zlog := logger.Sugar()
 
-	// ---------- config ----------
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Fatal("load config failed", zap.Error(err))
 	}
 
-	// ---------- app context ----------
 	appCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// ---------- db ----------
 	db, err := pgxpool.New(appCtx, cfg.Postgres.DSN())
 	if err != nil {
 		logger.Fatal("db connect failed", zap.Error(err))
@@ -69,20 +59,16 @@ func main() {
 		logger.Fatal("db ping failed", zap.Error(err))
 	}
 
-	// ---------- gin ----------
 	if cfg.Server.RunMode == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	r := gin.New()
 	r.Use(gin.Recovery(), gin.Logger())
-
-	// ---------- swagger ----------
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// ---------- infrastructure ----------
 	imageRepo := imagepg.NewImageRepository(db, zlog, nil)
-
 	jwtValidator := auth.NewJWTValidator(cfg.JWT.Secret)
 
 	s3Client := s3.NewFromConfig(aws.Config{
@@ -100,18 +86,57 @@ func main() {
 	})
 
 	st := s3store.New(s3Client, cfg.Storage.Bucket, cfg.Storage.Endpoint)
-
 	metaExtractor := imageinfra.NewMetadataExtractor()
-
 	txManager := txmanagerpg.NewTxManager(db, zlog)
 
-	// ---------- usecase ----------
-	svc := imageSvc.NewImageService(imageRepo, st, metaExtractor, txManager)
+	// ---------- events (optional) ----------
+	var (
+		publisher port.EventPublisher
+		consumer  port.EventConsumer
+	)
 
-	// ---------- delivery ----------
-	imageHandler := v1.NewImageHandler(svc, logger)
+	var svcOpts []imageSvc.ServiceOption
 
-	httpDelivery.SetupRouter(r, imageHandler, jwtValidator)
+	if cfg.Kafka.Enabled {
+		outboxRepo := outboxpg.NewOutboxRepository(db, zlog)
+		jobRepo := jobpg.NewJobRepository(db, zlog)
+
+		svcOpts = append(svcOpts,
+			imageSvc.WithOutbox(outboxRepo),
+			imageSvc.WithJobRepo(jobRepo),
+		)
+
+		pub := kafkaAdapter.NewPublisher(cfg.Kafka.Brokers)
+		con := kafkaAdapter.NewConsumer(cfg.Kafka.Brokers, cfg.Kafka.GroupID)
+		publisher = pub
+		consumer = con
+
+		// usecase
+		svc := imageSvc.NewImageService(imageRepo, st, metaExtractor, txManager, svcOpts...)
+
+		// outbox relay
+		go infraEvents.RunOutboxRelay(
+			appCtx, outboxRepo, pub,
+			cfg.Kafka.Topics.ImageProcessingRequested,
+			1*time.Second, 50,
+		)
+
+		// consumer: listening for processing results
+		go func() {
+			handler := imageSvc.NewProcessingResultHandler(svc)
+			if err := con.Consume(appCtx, []string{cfg.Kafka.Topics.ImageProcessed}, handler); err != nil && err != context.Canceled {
+				logger.Error("consumer stopped", zap.Error(err))
+			}
+		}()
+
+		// delivery
+		imageHandler := v1.NewImageHandler(svc, logger)
+		httpDelivery.SetupRouter(r, imageHandler, jwtValidator)
+	} else {
+		svc := imageSvc.NewImageService(imageRepo, st, metaExtractor, txManager)
+		imageHandler := v1.NewImageHandler(svc, logger)
+		httpDelivery.SetupRouter(r, imageHandler, jwtValidator)
+	}
 
 	srv := &http.Server{
 		Addr:         cfg.Server.Port,
@@ -128,18 +153,19 @@ func main() {
 		}
 	}()
 
-	// ---------- graceful shutdown ----------
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	<-quit
 	logger.Info("shutting down...")
-
 	cancel()
 
-	// if err := consumer.Close(); err != nil {
-	// 	logger.Error("consumer close failed", zap.Error(err))
-	// }
+	if publisher != nil {
+		_ = publisher.Close()
+	}
+	if consumer != nil {
+		_ = consumer.Close()
+	}
 
 	ctxShutdown, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()

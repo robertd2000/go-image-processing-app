@@ -19,6 +19,7 @@ type Image struct {
 	storageKey   StorageKey
 	originalName string
 	metadata     ImageMetadata
+	status       Status
 	createdAt    time.Time
 	deletedAt    time.Time
 }
@@ -43,6 +44,7 @@ func NewImage(
 		originalName: originalName,
 		storageKey:   key,
 		metadata:     meta,
+		status:       StatusPending,
 		createdAt:    time.Now(),
 	}, nil
 }
@@ -53,6 +55,7 @@ func RestoreImage(
 	storageKey StorageKey,
 	originalName string,
 	meta ImageMetadata,
+	status Status,
 	createdAt time.Time,
 	deletedAt time.Time,
 ) (*Image, error) {
@@ -66,6 +69,7 @@ func RestoreImage(
 		originalName: originalName,
 		storageKey:   storageKey,
 		metadata:     meta,
+		status:       status,
 		createdAt:    createdAt,
 		deletedAt:    deletedAt,
 	}, nil
@@ -89,6 +93,14 @@ func (i *Image) OriginalName() string {
 
 func (i *Image) Metadata() ImageMetadata {
 	return i.metadata
+}
+
+func (i *Image) Status() Status {
+	return i.status
+}
+
+func (i *Image) SetStatus(s Status) {
+	i.status = s
 }
 
 func (i *Image) CreatedAt() time.Time {

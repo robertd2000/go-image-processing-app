@@ -13,4 +13,5 @@ type Repository interface {
 	GetByUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*Image, error)
 	CountByUser(ctx context.Context, userID uuid.UUID) (int, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	UpdateStatus(ctx context.Context, id uuid.UUID, status Status) error
 }

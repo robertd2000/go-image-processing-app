@@ -20,6 +20,8 @@ type UploadImageResponse struct {
 
 	MimeType string `json:"mime_type"`
 
+	Status string `json:"status"`
+
 	CreatedAt string `json:"created_at"`
 }
 
@@ -36,6 +38,8 @@ type GetImageResponse struct {
 	Height int `json:"height"`
 
 	URL string `json:"url"`
+
+	Status string `json:"status"`
 
 	CreatedAt string `json:"created_at"`
 }
@@ -68,6 +72,8 @@ func ToGetImageResponse(
 		Height: img.Height,
 
 		URL: img.URL,
+
+		Status: img.Status,
 
 		CreatedAt: img.CreatedAt.Format(time.RFC3339),
 	}
