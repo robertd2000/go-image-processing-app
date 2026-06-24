@@ -264,6 +264,35 @@ func (s *imageServiceTestSuite) TestUploadImage_RepoFails_ShouldRollbackStorage(
 
 	assert.True(s.T(), spy.PutCalled)
 	assert.True(s.T(), spy.DeleteCalled)
+
+	txMgr := s.txManager.(*txmanagermem.FakeTxManager)
+	tx := txMgr.LastTx()
+	s.Require().NotNil(tx)
+	s.True(tx.RolledBack())
+	s.False(tx.Committed())
+}
+
+// TRANSACTION LIFECYCLE
+
+func (s *imageServiceTestSuite) TestUploadImage_TransactionCommitted() {
+	userID := uuid.New()
+	buf, size := generateTestImage()
+
+	input := model.UploadImageInput{
+		UserID:   userID,
+		Filename: "test.png",
+		Size:     size,
+		Reader:   bytes.NewReader(buf.Bytes()),
+	}
+
+	_, err := s.service.UploadImage(s.ctx, input)
+	s.Require().NoError(err)
+
+	txMgr := s.txManager.(*txmanagermem.FakeTxManager)
+	tx := txMgr.LastTx()
+	s.Require().NotNil(tx)
+	s.True(tx.Committed())
+	s.False(tx.RolledBack())
 }
 
 // GetImage tests
@@ -440,6 +469,39 @@ func (s *imageServiceTestSuite) TestDeleteImage_Idempotent() {
 	s.Require().Error(err)
 }
 
+type failingDeleteRepo struct {
+	imageDomain.Repository
+}
+
+func (f *failingDeleteRepo) Delete(ctx context.Context, id uuid.UUID) error {
+	return errors.New("repo delete error")
+}
+
+func (s *imageServiceTestSuite) TestDeleteImage_RepoFails() {
+	userID := uuid.New()
+	buf, size := generateTestImage()
+
+	uploadRes, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+		UserID:   userID,
+		Filename: "test.png",
+		Reader:   buf,
+		Size:     size,
+	})
+	s.Require().NoError(err)
+
+	s.service = imageUsecase.NewImageService(
+		&failingDeleteRepo{Repository: s.imageRepo},
+		s.storage,
+		s.metadataExtractor,
+		s.txManager,
+	)
+
+	err = s.service.DeleteImage(s.ctx, uploadRes.ImageID)
+
+	s.Require().Error(err)
+	s.Contains(err.Error(), "delete image")
+}
+
 // ListImages
 
 func (s *imageServiceTestSuite) TestListImages_Success() {
@@ -544,6 +606,60 @@ func (s *imageServiceTestSuite) TestListImages_Offset() {
 	s.Require().NotNil(res)
 
 	s.Len(res.Items, 2)
+}
+
+func (s *imageServiceTestSuite) TestListImages_DefaultLimit() {
+	userID := uuid.New()
+
+	for i := range 3 {
+		buf, size := generateTestImage()
+
+		_, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+			UserID:   userID,
+			Filename: fmt.Sprintf("img_%d.png", i),
+			Reader:   buf,
+			Size:     size,
+		})
+		s.Require().NoError(err)
+	}
+
+	res, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  0,
+		Offset: 0,
+	})
+
+	s.Require().NoError(err)
+	s.Require().NotNil(res)
+	s.Len(res.Items, 3)
+	s.Equal(10, res.Limit)
+}
+
+func (s *imageServiceTestSuite) TestListImages_MaxLimit() {
+	userID := uuid.New()
+
+	for i := range 3 {
+		buf, size := generateTestImage()
+
+		_, err := s.service.UploadImage(s.ctx, model.UploadImageInput{
+			UserID:   userID,
+			Filename: fmt.Sprintf("img_%d.png", i),
+			Reader:   buf,
+			Size:     size,
+		})
+		s.Require().NoError(err)
+	}
+
+	res, err := s.service.ListImages(s.ctx, model.ListImagesInput{
+		UserID: userID,
+		Limit:  150,
+		Offset: 0,
+	})
+
+	s.Require().NoError(err)
+	s.Require().NotNil(res)
+	s.Len(res.Items, 3)
+	s.Equal(100, res.Limit)
 }
 
 type brokenStorage struct {

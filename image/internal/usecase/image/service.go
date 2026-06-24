@@ -3,6 +3,7 @@ package image
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -124,7 +125,7 @@ func (s *imageService) saveImage(
 
 	if err != nil {
 		if delErr := s.storage.Delete(ctx, key); delErr != nil {
-			return fmt.Errorf("db save failed: %w; cleanup failed: %v", err, delErr)
+			return errors.Join(err, fmt.Errorf("storage cleanup: %w", delErr))
 		}
 
 		return err
@@ -199,12 +200,12 @@ func (s *imageService) DeleteImage(ctx context.Context, imageID uuid.UUID) error
 		return fmt.Errorf("get image: %w", err)
 	}
 
-	if err = s.storage.Delete(ctx, string(img.StorageKey())); err != nil {
-		return fmt.Errorf("delete image from storage: %w", err)
-	}
-
 	if err = s.imageRepo.Delete(ctx, imageID); err != nil {
 		return fmt.Errorf("delete image: %w", err)
+	}
+
+	if err = s.storage.Delete(ctx, string(img.StorageKey())); err != nil {
+		return fmt.Errorf("delete image from storage: %w", err)
 	}
 
 	return nil
