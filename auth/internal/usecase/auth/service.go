@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	domainevents "github.com/robertd2000/go-image-processing-app/auth/internal/domain/events"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
@@ -18,7 +18,7 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/pkg/events"
 )
 
-var sessionLimit = 5
+const sessionLimit = 5
 
 type authService struct {
 	userRepo    userDomain.UserRepository
@@ -89,18 +89,20 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 		return err
 	}
 
-	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
 
 		if err := s.userRepo.Create(ctx, tx, user); err != nil {
 			return err
 		}
 		eventID := uuid.New()
 
+		// The envelope JSON (event) should have the same ID as the outbox event store row.
 		event, err := events.NewEvent(
 			events.EventUserCreated,
 			1,
-			domainevents.UserCreatedEvent{
-				ID:        user.ID(),
+			events.UserCreatedEvent{
+				Version:   1,
+				ID:        eventID, // use the same uuid as outbox row
 				Username:  user.Username(),
 				Email:     *user.Email(),
 				CreatedAt: user.CreatedAt(),
@@ -189,7 +191,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*model.
 		roles = append(roles, r.Name().String())
 	}
 
-	access, err := s.tokenGen.GenerateAccess(model.ClaimsInput{
+	access, err := s.tokenGen.GenerateAccess(port.ClaimsInput{
 		UserID: user.ID(),
 		Roles:  roles,
 	})
@@ -253,63 +255,66 @@ func (s *authService) generateTokenPair(
 	userID uuid.UUID,
 ) (*model.TokenPair, error) {
 
-	// --- read user ---
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
-	}
+	var result *model.TokenPair
 
-	var roles []string
-	for _, r := range user.Roles() {
-		roles = append(roles, r.Name().String())
-	}
+	if err := s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
+		user, err := s.userRepo.GetByID(ctx, userID)
+		if err != nil {
+			return fmt.Errorf("get user: %w", err)
+		}
 
-	// generate tokens
-	access, err := s.tokenGen.GenerateAccess(model.ClaimsInput{
-		UserID: user.ID(),
-		Roles:  roles,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("generate access token: %w", err)
-	}
+		var roles []string
+		for _, r := range user.Roles() {
+			roles = append(roles, r.Name().String())
+		}
 
-	refresh, err := s.tokenGen.GenerateRefresh(userID)
-	if err != nil {
-		return nil, fmt.Errorf("generate refresh token: %w", err)
-	}
+		access, err := s.tokenGen.GenerateAccess(port.ClaimsInput{
+			UserID: user.ID(),
+			Roles:  roles,
+		})
+		if err != nil {
+			return fmt.Errorf("generate access token: %w", err)
+		}
 
-	refreshHash := s.tokenHasher.Hash(refresh)
+		refresh, err := s.tokenGen.GenerateRefresh(userID)
+		if err != nil {
+			return fmt.Errorf("generate refresh token: %w", err)
+		}
 
-	now := time.Now()
-	expiresAt := now.Add(s.refreshTTL)
+		refreshHash := s.tokenHasher.Hash(refresh)
 
-	familyID := uuid.New()
-	var parentID uuid.UUID
+		now := time.Now()
+		expiresAt := now.Add(s.refreshTTL)
 
-	token, err := tokensDomain.NewTokens(
-		userID,
-		refreshHash,
-		expiresAt,
-		familyID,
-		parentID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("create refresh token: %w", err)
-	}
+		familyID := uuid.New()
+		var parentID uuid.UUID
 
-	if err := s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
-		return s.refreshRepo.Create(ctx, tx, token, sessionLimit)
+		token, err := tokensDomain.NewTokens(
+			userID,
+			refreshHash,
+			expiresAt,
+			familyID,
+			parentID,
+		)
+		if err != nil {
+			return fmt.Errorf("create refresh token: %w", err)
+		}
+
+		if err := s.refreshRepo.Create(ctx, tx, token, sessionLimit); err != nil {
+			return err
+		}
+
+		result = &model.TokenPair{
+			AccessToken:  access,
+			RefreshToken: refresh,
+		}
+		return nil
 	}); err != nil {
-
 		if errors.Is(err, tokensDomain.ErrSessionLimitExceeded) {
 			return nil, fmt.Errorf("session limit exceeded: %w", err)
 		}
-
 		return nil, fmt.Errorf("save refresh token: %w", err)
 	}
 
-	return &model.TokenPair{
-		AccessToken:  access,
-		RefreshToken: refresh,
-	}, nil
+	return result, nil
 }

@@ -22,6 +22,10 @@ func NewDLQProducer(brokers []string, topic string) *DLQProducer {
 	}
 }
 
+func (p *DLQProducer) Close() error {
+	return p.writer.Close()
+}
+
 func (p *DLQProducer) Send(ctx context.Context, evt events.Event, reason error) error {
 	body, _ := json.Marshal(map[string]interface{}{
 		"event": evt,

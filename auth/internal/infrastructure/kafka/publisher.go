@@ -20,6 +20,10 @@ func NewKafkaPublisher(brokers []string) *KafkaPublisher {
 	}
 }
 
+func (p *KafkaPublisher) Close() error {
+	return p.writer.Close()
+}
+
 func (p *KafkaPublisher) Publish(ctx context.Context, topic string, key []byte, msg any) error {
 	var data []byte
 

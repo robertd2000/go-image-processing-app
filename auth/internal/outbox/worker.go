@@ -1,4 +1,3 @@
-// Package outbox
 package outbox
 
 import (
@@ -9,17 +8,13 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
-type Publisher interface {
-	Publish(ctx context.Context, topic string, key []byte, msg any) error
-}
-
 type Worker struct {
 	repo      port.OutboxRepository
-	publisher Publisher
+	publisher port.EventPublisher
 	interval  time.Duration
 }
 
-func NewWorker(repo port.OutboxRepository, publisher Publisher) *Worker {
+func NewWorker(repo port.OutboxRepository, publisher port.EventPublisher) *Worker {
 	return &Worker{
 		repo:      repo,
 		publisher: publisher,

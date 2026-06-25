@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -33,9 +32,10 @@ import (
 	userpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/outbox"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/pkg/app"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/user"
-	"github.com/robertd2000/go-image-processing-app/auth/pkg/events"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/delivery/http/health"
 )
 
 // @title Auth Service API
@@ -49,7 +49,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("init logger: %v", err)
 	}
-	defer logger.Sync()
+	defer func() { _ = logger.Sync() }()
 	zlog := logger.Sugar()
 
 	// ---------- config ----------
@@ -58,14 +58,24 @@ func main() {
 		logger.Fatal("load config failed", zap.Error(err))
 	}
 
-	// ---------- db ----------
-	ctx := context.Background()
+	appCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	db, err := pgxpool.New(ctx, cfg.Postgres.DSN())
+	lc := app.NewLifecycle()
+
+	// ---------- db ----------
+	db, err := pgxpool.New(appCtx, cfg.Postgres.DSN())
 	if err != nil {
 		logger.Fatal("db connect failed", zap.Error(err))
 	}
-	defer db.Close()
+	lc.Add(app.CloserFunc(func(_ context.Context) error {
+		db.Close()
+		return nil
+	}))
+
+	if err := db.Ping(appCtx); err != nil {
+		logger.Fatal("db ping failed", zap.Error(err))
+	}
 
 	// ---------- gin ----------
 	if cfg.Server.RunMode == "production" {
@@ -73,41 +83,40 @@ func main() {
 	}
 
 	r := gin.New()
-	r.Use(gin.Recovery())
 
 	// ---------- swagger ----------
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// Kafka init
-	broker := "kafka:9092"
+	// ---------- Kafka init ----------
+	broker := cfg.Kafka.Brokers[0]
 
-	err = waitForKafka(broker, 10, 2*time.Second)
-	if err != nil {
-		log.Fatal(err)
+	if err := waitForKafka(broker, 10, 2*time.Second); err != nil {
+		logger.Fatal("kafka not ready", zap.Error(err))
 	}
 
-	err = ekafka.EnsureTopic(broker, events.UserEventsTopic)
-	if err != nil {
-		log.Fatal(err)
+	if err := ekafka.EnsureTopic(broker, cfg.Kafka.Topics.UserEvents); err != nil {
+		logger.Fatal("ensure topic failed", zap.Error(err))
 	}
 
-	ekafka.EnsureTopic(broker, "user.events.dlq")
+	if err := ekafka.EnsureTopic(broker, cfg.Kafka.Topics.UserEventsDLQ()); err != nil {
+		logger.Fatal("ensure dlq topic failed", zap.Error(err))
+	}
 
-	publisher := ekafka.NewKafkaPublisher([]string{broker})
+	publisher := ekafka.NewKafkaPublisher(cfg.Kafka.Brokers)
+	lc.Add(app.CloserFunc(func(_ context.Context) error { return publisher.Close() }))
 
-	// repos
+	// ---------- repos ----------
 	userRepo := userpg.NewUserRepository(db, zlog)
 	tokenRepo := tokenpg.NewTokenRepository(db, zlog)
 	outboxRepo := outboxpg.NewRepository(db)
 
-	// utils
+	// ---------- utils ----------
 	tokenGen := jwt.NewJWTGenerator([]byte(cfg.JWT.Secret))
 	hasher := security.NewHasher()
 	tokenHasher := &security.TokenHasher{}
-
 	txManager := txmanagerpg.NewTxManager(db, zlog)
 
-	// service
+	// ---------- services ----------
 	authSvc := auth.NewAuthService(
 		userRepo,
 		tokenRepo,
@@ -121,66 +130,88 @@ func main() {
 	)
 	userSvc := user.NewUserSyncService(txManager, userRepo, tokenRepo)
 
-	// outbox worker
+	// ---------- outbox worker ----------
 	worker := outbox.NewWorker(outboxRepo, publisher)
-	go worker.Start(ctx)
+	lc.Go(worker.Start, appCtx)
 
+	// ---------- kafka consumer ----------
 	consumer := ekafka.NewConsumer(
-		[]string{"kafka:9092"},
-		"auth-service",
-		events.UserEventsTopic,
+		cfg.Kafka.Brokers,
+		cfg.Kafka.GroupID,
+		cfg.Kafka.Topics.UserEvents,
 	)
+	lc.Add(app.CloserFunc(func(_ context.Context) error {
+		consumer.Close()
+		return nil
+	}))
 
 	dispatcher := kafkahandler.NewDispatcher()
 
 	dlq := kafkamiddleware.NewDLQProducer(
-		[]string{"kafka:9092"},
-		events.UserEventsDLQ,
+		cfg.Kafka.Brokers,
+		cfg.Kafka.Topics.UserEventsDLQ(),
 	)
+	lc.Add(app.CloserFunc(func(_ context.Context) error { return dlq.Close() }))
+
+	dispatcher.Use(kafkamiddleware.DLQMiddleware(dlq))
 
 	dispatcher.Use(kafkamiddleware.RetryMiddleware(kafkamiddleware.RetryConfig{
 		MaxAttempts: 3,
 		Backoff:     500 * time.Millisecond,
 	}))
 
-	dispatcher.Use(kafkamiddleware.DLQMiddleware(dlq))
-
 	dispatcher.Register(
-		events.EventUserDeleted,
+		"user.deleted",
 		kafkahandler.NewUserDeletedHandler(userSvc),
 	)
 	dispatcher.Register(
-		events.EventUserBanned,
+		"user.banned",
 		kafkahandler.NewUserBanHandler(userSvc),
 	)
 	dispatcher.Register(
-		events.EventUserRestored,
+		"user.restored",
 		kafkahandler.NewUserRestoreHandler(userSvc),
 	)
 	dispatcher.Register(
-		events.EventUserUnbanned,
+		"user.unbanned",
 		kafkahandler.NewUserUnbanHandler(userSvc),
 	)
 
-	go func() {
-		err := consumer.Start(ctx, dispatcher.Dispatch)
-		if err != nil {
-			log.Fatal(err)
+	lc.Go(func(ctx context.Context) {
+		if err := consumer.Start(ctx, dispatcher.Dispatch); err != nil && err != context.Canceled {
+			logger.Error("consumer stopped", zap.Error(err))
 		}
-	}()
+	}, appCtx)
 
-	defer consumer.Close()
+	// ---------- health check ----------
+	healthChecks := map[string]health.Check{
+		"postgres": func(ctx context.Context) error { return db.Ping(ctx) },
+		"kafka": func(ctx context.Context) error {
+			conn, err := kafka.DialContext(ctx, "tcp", cfg.Kafka.Brokers[0])
+			if err != nil {
+				return err
+			}
+			conn.Close()
+			return nil
+		},
+	}
+	r.GET("/health", health.Handler(5*time.Second, healthChecks))
 
-	// handler
+	// ---------- HTTP handler + router ----------
 	authHandler := v1.NewAuthHandler(authSvc, logger)
-	// ---------- routes ----------
-	delivery.SetupRouter(r, authHandler)
+	delivery.SetupRouter(r, authHandler, &delivery.RouterConfig{
+		RequestTimeout: 30 * time.Second,
+		Logger:         logger,
+	})
 
-	// ---------- server ----------
+	// ---------- HTTP server ----------
 	srv := &http.Server{
 		Addr:    cfg.Server.Port,
 		Handler: r,
 	}
+	lc.Add(app.CloserFunc(func(ctx context.Context) error {
+		return srv.Shutdown(ctx)
+	}))
 
 	go func() {
 		logger.Info("server started", zap.String("addr", cfg.Server.Port))
@@ -192,15 +223,23 @@ func main() {
 	// ---------- graceful shutdown ----------
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
 
-	logger.Info("shutting down server...")
+	sig := <-quit
+	logger.Info("shutting down", zap.String("signal", sig.String()))
 
-	ctxShutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	cancel()
 
-	if err := srv.Shutdown(ctxShutdown); err != nil {
-		logger.Error("server shutdown failed", zap.Error(err))
+	go func() {
+		<-quit
+		logger.Warn("second signal received, forcing shutdown")
+		os.Exit(1)
+	}()
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer shutdownCancel()
+
+	if err := lc.Shutdown(shutdownCtx); err != nil {
+		logger.Error("shutdown errors", zap.Error(err))
 	}
 
 	logger.Info("server exited properly")
@@ -211,13 +250,11 @@ func waitForKafka(broker string, retries int, delay time.Duration) error {
 		conn, err := kafka.Dial("tcp", broker)
 		if err == nil {
 			conn.Close()
-			log.Println("Kafka is ready")
 			return nil
 		}
-
 		log.Println("waiting for Kafka...", err)
 		time.Sleep(delay)
 	}
-
-	return fmt.Errorf("kafka is not available after retries")
+	_, err := kafka.Dial("tcp", broker)
+	return err
 }

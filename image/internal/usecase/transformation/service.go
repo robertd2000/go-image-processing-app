@@ -75,7 +75,10 @@ func (s *Service) RequestTransformation(ctx context.Context, imageID uuid.UUID, 
 
 		if s.outboxRepo != nil {
 			event := events.NewTransformationRequested(imageID, t.ID(), spec)
-			payload, _ := json.Marshal(event)
+			payload, err := json.Marshal(event)
+			if err != nil {
+				return fmt.Errorf("marshal event: %w", err)
+			}
 			ev := &port.OutboxEvent{
 				ID:          event.EventID,
 				AggregateID: t.ID(),

@@ -20,15 +20,12 @@ func EnsureTopic(broker string, topic string) error {
 		return err
 	}
 
-	log.Println("controller:", controller.Host, controller.Port)
-
 	host := controller.Host
 	port := controller.Port
 
 	if host == "" || port == 0 {
-		log.Println("fallback to broker")
-		host = "kafka"
-		port = 9092
+		// fallback: use the original broker address
+		host, port = splitBroker(broker)
 	}
 
 	controllerConn, err := kafka.Dial(
@@ -56,4 +53,12 @@ func EnsureTopic(broker string, topic string) error {
 
 	log.Println("topic created:", topic)
 	return nil
+}
+
+func splitBroker(addr string) (string, int) {
+	parts := strings.Split(addr, ":")
+	if len(parts) == 2 {
+		return parts[0], 9092
+	}
+	return "localhost", 9092
 }

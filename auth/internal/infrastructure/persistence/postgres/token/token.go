@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/dberrors"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 	"go.uber.org/zap"
 )
 
@@ -154,7 +154,7 @@ func (t tokenRepository) RevokeFamily(ctx context.Context, familyID uuid.UUID) e
 }
 
 // Create implements token.TokenRepository.
-func (r tokenRepository) Create(ctx context.Context, tx port.Tx, token *tokenDomain.Tokens, limit int) error {
+func (r tokenRepository) Create(ctx context.Context, tx txtx.Tx, token *tokenDomain.Tokens, limit int) error {
 	if token == nil {
 		return tokenDomain.ErrInvalidToken
 	}
@@ -357,7 +357,7 @@ func (r tokenRepository) Rotate(
 	return false, nil
 }
 
-func (r tokenRepository) DeleteByUserID(ctx context.Context, tx port.Tx, userID uuid.UUID) error {
+func (r tokenRepository) DeleteByUserID(ctx context.Context, tx txtx.Tx, userID uuid.UUID) error {
 	query := `
 		UPDATE refresh_tokens
 		SET revoked_at = NOW()	

@@ -12,8 +12,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	roleDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/role"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/dberrors"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 	"go.uber.org/zap"
 )
 
@@ -31,7 +31,7 @@ func NewUserRepository(db *pgxpool.Pool, logger *zap.SugaredLogger) userDomain.U
 
 func (r *userRepository) Create(
 	ctx context.Context,
-	tx port.Tx,
+	tx txtx.Tx,
 	user *userDomain.AuthUser,
 ) error {
 	query := `
@@ -275,7 +275,7 @@ func (r *userRepository) ExistsByUsername(ctx context.Context, username string) 
 	return exists, nil
 }
 
-func (r *userRepository) UpdateStatus(ctx context.Context, tx port.Tx, userID uuid.UUID, status userDomain.Status) error {
+func (r *userRepository) UpdateStatus(ctx context.Context, tx txtx.Tx, userID uuid.UUID, status userDomain.Status) error {
 	query := `
         UPDATE auth_users
         SET status = $1

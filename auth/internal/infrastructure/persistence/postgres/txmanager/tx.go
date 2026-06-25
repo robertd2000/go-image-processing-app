@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	"go.uber.org/zap"
 )
 
@@ -46,7 +46,7 @@ func NewTxManager(pool *pgxpool.Pool, logger *zap.SugaredLogger) *TxManager {
 
 func (m *TxManager) WithTx(
 	ctx context.Context,
-	fn func(ctx context.Context, tx port.Tx) error,
+	fn func(ctx context.Context, tx txtx.Tx) error,
 ) error {
 
 	tx, err := m.pool.Begin(ctx)

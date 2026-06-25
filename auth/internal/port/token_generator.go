@@ -5,11 +5,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/auth"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 )
 
+type ClaimsInput struct {
+	UserID uuid.UUID
+	Email  string
+	Roles  []string
+}
+
 type TokenGenerator interface {
-	GenerateAccess(input model.ClaimsInput) (string, error)
+	GenerateAccess(input ClaimsInput) (string, error)
 	GenerateRefresh(userID uuid.UUID) (string, error)
 	ValidateAccess(token string) (*auth.Claims, error)
 	ValidateRefresh(token string) (uuid.UUID, error)

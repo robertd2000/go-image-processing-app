@@ -21,8 +21,7 @@ kafka:
     - kafka:9092
   group_id: auth-service
   topics:
-    user_created: user.created.v1
-    user_status_updated: user.status.updated.v1
+    user_events: user.events.v1
 
 log:
   level: debug

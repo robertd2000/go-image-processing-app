@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 )
 
 type UserRepository interface {
-	Create(ctx context.Context, tx port.Tx, u *AuthUser) error
+	Create(ctx context.Context, tx txtx.Tx, u *AuthUser) error
 
 	GetByEmail(ctx context.Context, email string) (*AuthUser, error)
 	GetByUsername(ctx context.Context, username string) (*AuthUser, error)
@@ -17,5 +17,5 @@ type UserRepository interface {
 	ExistsByEmail(ctx context.Context, email string) (bool, error)
 	ExistsByUsername(ctx context.Context, username string) (bool, error)
 
-	UpdateStatus(ctx context.Context, tx port.Tx, userID uuid.UUID, status Status) error
+	UpdateStatus(ctx context.Context, tx txtx.Tx, userID uuid.UUID, status Status) error
 }

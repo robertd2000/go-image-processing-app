@@ -11,6 +11,7 @@ import (
 type Config struct {
 	Server   ServerConfig
 	Postgres PostgresConfig
+	Kafka    KafkaConfig
 	JWT      JWTConfig
 	Log      LogConfig
 }
@@ -28,6 +29,20 @@ type PostgresConfig struct {
 	Password string `mapstructure:"password"`
 	DBName   string `mapstructure:"db_name"`
 	SSLMode  string `mapstructure:"ssl_mode"`
+}
+
+type KafkaConfig struct {
+	Brokers []string `mapstructure:"brokers"`
+	GroupID string   `mapstructure:"group_id"`
+	Topics  Topics   `mapstructure:"topics"`
+}
+
+type Topics struct {
+	UserEvents string `mapstructure:"user_events"`
+}
+
+func (t Topics) UserEventsDLQ() string {
+	return t.UserEvents + ".dlq"
 }
 
 type JWTConfig struct {
@@ -110,6 +125,15 @@ func (c *Config) Validate() error {
 	}
 	if c.Postgres.DBName == "" {
 		return fmt.Errorf("postgres dbname is required")
+	}
+	if len(c.Kafka.Brokers) == 0 {
+		return fmt.Errorf("kafka brokers are required")
+	}
+	if c.Kafka.GroupID == "" {
+		return fmt.Errorf("kafka group id is required")
+	}
+	if c.Kafka.Topics.UserEvents == "" {
+		return fmt.Errorf("kafka topics.user_events is required")
 	}
 	return nil
 }

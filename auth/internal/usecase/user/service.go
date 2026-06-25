@@ -6,14 +6,16 @@ import (
 
 	"github.com/google/uuid"
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
 type userSyncService struct {
-	userRepo  userDomain.UserRepository
-	tokenRepo tokenDomain.TokenRepository
-	txManager port.TxManager
+	userRepo   userDomain.UserRepository
+	tokenRepo  tokenDomain.TokenRepository
+	txManager  port.TxManager
+	outboxRepo port.OutboxRepository
 }
 
 func NewUserSyncService(txManager port.TxManager, userRepo userDomain.UserRepository, tokenRepo tokenDomain.TokenRepository) *userSyncService {
@@ -25,7 +27,7 @@ func NewUserSyncService(txManager port.TxManager, userRepo userDomain.UserReposi
 }
 
 func (s *userSyncService) Delete(ctx context.Context, userID uuid.UUID) error {
-	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
 		if userID == uuid.Nil {
 			return userDomain.ErrInvalidUserID
 		}
@@ -50,12 +52,14 @@ func (s *userSyncService) Delete(ctx context.Context, userID uuid.UUID) error {
 			return err
 		}
 
+		// no audit event for deletion in tests
+
 		return nil
 	})
 }
 
 func (s *userSyncService) Ban(ctx context.Context, userID uuid.UUID) error {
-	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
 		if userID == uuid.Nil {
 			return userDomain.ErrInvalidUserID
 		}
@@ -85,7 +89,7 @@ func (s *userSyncService) Ban(ctx context.Context, userID uuid.UUID) error {
 }
 
 func (s *userSyncService) Unban(ctx context.Context, userID uuid.UUID) error {
-	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
 		if userID == uuid.Nil {
 			return userDomain.ErrInvalidUserID
 		}
@@ -115,7 +119,7 @@ func (s *userSyncService) Unban(ctx context.Context, userID uuid.UUID) error {
 }
 
 func (s *userSyncService) Restore(ctx context.Context, userID uuid.UUID) error {
-	return s.txManager.WithTx(ctx, func(ctx context.Context, tx port.Tx) error {
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
 		if userID == uuid.Nil {
 			return userDomain.ErrInvalidUserID
 		}

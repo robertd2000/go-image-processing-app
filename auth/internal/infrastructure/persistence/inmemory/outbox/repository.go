@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
@@ -20,7 +21,7 @@ func NewRepository() *Repository {
 	}
 }
 
-func (r *Repository) Create(ctx context.Context, tx port.Tx, e port.OutboxEvent) error {
+func (r *Repository) Create(ctx context.Context, tx txtx.Tx, e port.OutboxEvent) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -46,6 +47,17 @@ func (r *Repository) GetUnprocessed(ctx context.Context, limit int) ([]port.Outb
 	}
 
 	return result, nil
+}
+
+func (r *Repository) All(ctx context.Context) []port.OutboxEvent {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	result := make([]port.OutboxEvent, 0, len(r.events))
+	for _, e := range r.events {
+		result = append(result, e)
+	}
+	return result
 }
 
 func (r *Repository) MarkProcessed(ctx context.Context, id uuid.UUID) error {
