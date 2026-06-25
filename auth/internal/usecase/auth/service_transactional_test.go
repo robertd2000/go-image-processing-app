@@ -122,10 +122,10 @@ func TestAuthService_OutboxEventCreation(t *testing.T) {
 	var data map[string]interface{}
 	err = json.Unmarshal(evt.Payload, &data)
 	assert.NoError(t, err)
-    // Verify that the event key matches the user ID.
-    createdUser, err := userRepo.GetByEmail(ctx, "evt@example.com")
-    assert.NoError(t, err)
-    assert.Equal(t, createdUser.ID().String(), evt.Key) 
+	// Verify that the event key matches the user ID.
+	createdUser, err := userRepo.GetByEmail(ctx, "evt@example.com")
+	assert.NoError(t, err)
+	assert.Equal(t, createdUser.ID().String(), evt.Key)
 
 }
 
