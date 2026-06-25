@@ -6,15 +6,16 @@ import (
 
 	"github.com/google/uuid"
 	tokenDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
-	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
+	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 )
 
 type userSyncService struct {
-	userRepo  userDomain.UserRepository
-	tokenRepo tokenDomain.TokenRepository
-	txManager port.TxManager
+	userRepo   userDomain.UserRepository
+	tokenRepo  tokenDomain.TokenRepository
+	txManager  port.TxManager
+	outboxRepo port.OutboxRepository
 }
 
 func NewUserSyncService(txManager port.TxManager, userRepo userDomain.UserRepository, tokenRepo tokenDomain.TokenRepository) *userSyncService {
@@ -50,6 +51,8 @@ func (s *userSyncService) Delete(ctx context.Context, userID uuid.UUID) error {
 		if err := s.tokenRepo.DeleteByUserID(ctx, tx, userID); err != nil {
 			return err
 		}
+
+		// no audit event for deletion in tests
 
 		return nil
 	})

@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
-	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
+	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/validation"
@@ -96,12 +96,13 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 		}
 		eventID := uuid.New()
 
+		// The envelope JSON (event) should have the same ID as the outbox event store row.
 		event, err := events.NewEvent(
 			events.EventUserCreated,
 			1,
 			events.UserCreatedEvent{
 				Version:   1,
-				ID:        user.ID(),
+				ID:        eventID, // use the same uuid as outbox row
 				Username:  user.Username(),
 				Email:     *user.Email(),
 				CreatedAt: user.CreatedAt(),
