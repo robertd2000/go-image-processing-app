@@ -54,13 +54,13 @@ func (j *JWTGenerator) ValidateAccess(token string) (*auth.Claims, error) {
 
 // REFRESH TOKEN
 
-func (j *JWTGenerator) GenerateRefresh(userID uuid.UUID) (string, error) {
+func (j *JWTGenerator) GenerateRefresh(userID uuid.UUID, ttl time.Duration) (string, error) {
 	claims := CustomClaims{
 		UserID:    userID,
 		TokenType: TokenRefresh,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ID:        uuid.New().String(),
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(ttl)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			Issuer:    "auth-service",

@@ -10,3 +10,9 @@ func (f *FakeHasher) Hash(password string) (string, error) {
 func (f *FakeHasher) Compare(plain, hash string) bool {
 	return "hashed_Secure1111!!!!wwwwwwwsecure"+plain == hash
 }
+
+type FakeTokenHasher struct{}
+
+func (f *FakeTokenHasher) Hash(token string) string {
+	return token
+}
