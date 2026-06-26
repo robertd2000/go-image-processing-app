@@ -136,11 +136,11 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 
 func (s *authService) Login(ctx context.Context, in model.LoginInput) (*model.TokenPair, error) {
 	if err := validation.ValidateEmail(in.Email); err != nil {
-		return nil, err
+		return nil, userDomain.ErrWrongCredentials
 	}
 
-	if err := validation.ValidatePassword(in.Password); err != nil {
-		return nil, err
+	if in.Password == "" {
+		return nil, userDomain.ErrWrongCredentials
 	}
 
 	user, err := s.userRepo.GetByEmail(ctx, in.Email)
@@ -167,9 +167,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*model.
 		return nil, tokensDomain.ErrInvalidToken
 	}
 	now := time.Now()
-	hash := s.tokenHasher.Hash(refreshToken)
-
-	token, err := s.refreshRepo.GetByHash(ctx, hash)
+	token, err := s.refreshRepo.GetByHash(ctx, s.tokenHasher.Hash(refreshToken))
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +197,7 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*model.
 		return nil, err
 	}
 
-	refresh, err := s.tokenGen.GenerateRefresh(token.UserID())
+	refresh, err := s.tokenGen.GenerateRefresh(token.UserID(), s.refreshTTL)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +274,7 @@ func (s *authService) generateTokenPair(
 			return fmt.Errorf("generate access token: %w", err)
 		}
 
-		refresh, err := s.tokenGen.GenerateRefresh(userID)
+		refresh, err := s.tokenGen.GenerateRefresh(userID, s.refreshTTL)
 		if err != nil {
 			return fmt.Errorf("generate refresh token: %w", err)
 		}

@@ -113,7 +113,7 @@ func main() {
 	// ---------- utils ----------
 	tokenGen := jwt.NewJWTGenerator([]byte(cfg.JWT.Secret))
 	hasher := security.NewHasher()
-	tokenHasher := &security.TokenHasher{}
+	tokenHasher := security.NewTokenHasher(cfg.JWT.Secret)
 	txManager := txmanagerpg.NewTxManager(db, zlog)
 
 	// ---------- services ----------

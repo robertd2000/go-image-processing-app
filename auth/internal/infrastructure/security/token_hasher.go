@@ -1,13 +1,22 @@
 package security
 
 import (
+	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
 )
 
-type TokenHasher struct{}
+type TokenHasher struct {
+	secret []byte
+}
+
+func NewTokenHasher(secret string) *TokenHasher {
+	return &TokenHasher{secret: []byte(secret)}
+}
 
 func (h *TokenHasher) Hash(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
+	mac := hmac.New(sha256.New, h.secret)
+	mac.Write([]byte(token))
+	sum := mac.Sum(nil)
+	return hex.EncodeToString(sum)
 }

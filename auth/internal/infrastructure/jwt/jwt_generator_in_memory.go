@@ -3,6 +3,7 @@ package jwt
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/auth"
@@ -72,7 +73,7 @@ func (g *InMemoryTokenGenerator) GenerateAccess(input port.ClaimsInput) (string,
 	return token, nil
 }
 
-func (g *InMemoryTokenGenerator) GenerateRefresh(userID uuid.UUID) (string, error) {
+func (g *InMemoryTokenGenerator) GenerateRefresh(userID uuid.UUID, ttl time.Duration) (string, error) {
 	if g.GenerateErr != nil {
 		return "", g.GenerateErr
 	}

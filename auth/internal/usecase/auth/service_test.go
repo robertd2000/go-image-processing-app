@@ -232,7 +232,7 @@ func (s *AuthTestSuite) TestAuthService_LoginInvalidEmail() {
 	}
 	tokens, err := s.service.Login(s.ctx, loginInput)
 	s.Require().Error(err)
-	s.Require().ErrorIs(err, userDomain.ErrInvalidEmail)
+	s.Require().ErrorIs(err, userDomain.ErrWrongCredentials)
 	s.Require().Nil(tokens)
 }
 
@@ -246,7 +246,7 @@ func (s *AuthTestSuite) TestAuthService_LoginInvalidPasswordFormat() {
 	}
 	tokens, err := s.service.Login(s.ctx, loginInput)
 	s.Require().Error(err)
-	s.Require().ErrorIs(err, userDomain.ErrInvalidPassword)
+	s.Require().ErrorIs(err, userDomain.ErrWrongCredentials)
 	s.Require().Nil(tokens)
 }
 
@@ -350,7 +350,9 @@ func (s *AuthTestSuite) TestAuthService_Refresh_TokenNotInRepo() {
 
 	userID := uuid.New()
 
-	refresh, err := s.tokenGen.GenerateRefresh(userID)
+	ttl := time.Minute * 1
+
+	refresh, err := s.tokenGen.GenerateRefresh(userID, ttl)
 	s.Require().NoError(err)
 
 	_, err = s.service.Refresh(ctx, refresh)
@@ -434,7 +436,9 @@ func (s *AuthTestSuite) TestAuthService_Logout_TokenNotInRepo() {
 
 	userID := uuid.New()
 
-	refresh, err := s.tokenGen.GenerateRefresh(userID)
+	ttl := time.Minute * 1
+
+	refresh, err := s.tokenGen.GenerateRefresh(userID, ttl)
 	s.Require().NoError(err)
 
 	err = s.service.Logout(ctx, refresh)
