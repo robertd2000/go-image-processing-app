@@ -12,31 +12,40 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-gonic/gin"
-	"github.com/robertd2000/go-image-processing-app/image/internal/delivery/http/health"
-	"github.com/segmentio/kafka-go"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/robertd2000/go-image-processing-app/image/docs"
 	"github.com/robertd2000/go-image-processing-app/image/internal/config"
 	httpDelivery "github.com/robertd2000/go-image-processing-app/image/internal/delivery/http"
+	"github.com/robertd2000/go-image-processing-app/image/internal/delivery/http/health"
 	v1 "github.com/robertd2000/go-image-processing-app/image/internal/delivery/http/v1"
 	"github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/auth"
 	infraEvents "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/events"
 	kafkaAdapter "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/events/kafka"
 	imageinfra "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/image"
+	imagepg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/image"
 	jobpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/job"
 	outboxpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/outbox"
-	s3store "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/s3"
-	imagepg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/image"
 	transformpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/transformation"
 	txmanagerpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/txmanager"
-	imageSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/image"
-	transformSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/transformation"
+	s3store "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/s3"
 	"github.com/robertd2000/go-image-processing-app/image/internal/pkg/app"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
+	imageSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/image"
+	transformSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/transformation"
+	"github.com/segmentio/kafka-go"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 )
 
+// @title Image Processing API
+// @version 1.0
+// @description Image Processing Service API
+// @BasePath /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	logger, err := zap.NewProduction()
 	if err != nil {

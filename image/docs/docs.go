@@ -48,7 +48,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dao.ListImagesResponse"
+                            "$ref": "#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.ListImagesResponse"
                         }
                     },
                     "400": {
@@ -101,7 +101,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dao.UploadImageResponse"
+                            "$ref": "#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.UploadImageResponse"
                         }
                     },
                     "400": {
@@ -153,7 +153,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dao.GetImageResponse"
+                            "$ref": "#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.GetImageResponse"
                         }
                     },
                     "400": {
@@ -223,7 +223,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "dao.GetImageResponse": {
+        "github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.GetImageResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -258,13 +258,13 @@ const docTemplate = `{
                 }
             }
         },
-        "dao.ListImagesResponse": {
+        "github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.ListImagesResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dao.GetImageResponse"
+                        "$ref": "#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.GetImageResponse"
                     }
                 },
                 "limit": {
@@ -278,7 +278,7 @@ const docTemplate = `{
                 }
             }
         },
-        "dao.UploadImageResponse": {
+        "github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.UploadImageResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -310,17 +310,24 @@ const docTemplate = `{
                 }
             }
         }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
     }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
+	Version:          "1.0",
 	Host:             "",
-	BasePath:         "",
+	BasePath:         "/api/v1",
 	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Title:            "Image Processing API",
+	Description:      "Image Processing Service API",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

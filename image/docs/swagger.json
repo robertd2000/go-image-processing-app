@@ -1,8 +1,12 @@
 {
     "swagger": "2.0",
     "info": {
-        "contact": {}
+        "description": "Image Processing Service API",
+        "title": "Image Processing API",
+        "contact": {},
+        "version": "1.0"
     },
+    "basePath": "/api/v1",
     "paths": {
         "/images": {
             "get": {
@@ -37,7 +41,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dao.ListImagesResponse"
+                            "$ref": "#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.ListImagesResponse"
                         }
                     },
                     "400": {
@@ -90,7 +94,7 @@
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/dao.UploadImageResponse"
+                            "$ref": "#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.UploadImageResponse"
                         }
                     },
                     "400": {
@@ -142,7 +146,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/dao.GetImageResponse"
+                            "$ref": "#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.GetImageResponse"
                         }
                     },
                     "400": {
@@ -212,7 +216,7 @@
         }
     },
     "definitions": {
-        "dao.GetImageResponse": {
+        "github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.GetImageResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -247,13 +251,13 @@
                 }
             }
         },
-        "dao.ListImagesResponse": {
+        "github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.ListImagesResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dao.GetImageResponse"
+                        "$ref": "#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.GetImageResponse"
                     }
                 },
                 "limit": {
@@ -267,7 +271,7 @@
                 }
             }
         },
-        "dao.UploadImageResponse": {
+        "github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.UploadImageResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -298,6 +302,13 @@
                     "type": "integer"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }

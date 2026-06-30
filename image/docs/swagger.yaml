@@ -1,5 +1,6 @@
+basePath: /api/v1
 definitions:
-  dao.GetImageResponse:
+  github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.GetImageResponse:
     properties:
       created_at:
         type: string
@@ -22,11 +23,11 @@ definitions:
       width:
         type: integer
     type: object
-  dao.ListImagesResponse:
+  github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.ListImagesResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/dao.GetImageResponse'
+          $ref: '#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.GetImageResponse'
         type: array
       limit:
         type: integer
@@ -35,7 +36,7 @@ definitions:
       total:
         type: integer
     type: object
-  dao.UploadImageResponse:
+  github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.UploadImageResponse:
     properties:
       created_at:
         type: string
@@ -58,6 +59,9 @@ definitions:
     type: object
 info:
   contact: {}
+  description: Image Processing Service API
+  title: Image Processing API
+  version: "1.0"
 paths:
   /images:
     get:
@@ -77,7 +81,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dao.ListImagesResponse'
+            $ref: '#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.ListImagesResponse'
         "400":
           description: Bad Request
           schema:
@@ -111,7 +115,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/dao.UploadImageResponse'
+            $ref: '#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.UploadImageResponse'
         "400":
           description: Bad Request
           schema:
@@ -172,7 +176,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/dao.GetImageResponse'
+            $ref: '#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.GetImageResponse'
         "400":
           description: Bad Request
           schema:
@@ -190,4 +194,9 @@ paths:
       summary: Get image by ID
       tags:
       - images
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
