@@ -21,7 +21,7 @@ type Image struct {
 	metadata     ImageMetadata
 	status       Status
 	createdAt    time.Time
-	deletedAt    time.Time
+	deletedAt    *time.Time
 }
 
 func NewImage(
@@ -57,7 +57,7 @@ func RestoreImage(
 	meta ImageMetadata,
 	status Status,
 	createdAt time.Time,
-	deletedAt time.Time,
+	deletedAt *time.Time,
 ) (*Image, error) {
 	if userID == uuid.Nil {
 		return nil, ErrInvalidUserID
@@ -107,6 +107,6 @@ func (i *Image) CreatedAt() time.Time {
 	return i.createdAt
 }
 
-func (i *Image) DeletedAt() time.Time {
+func (i *Image) DeletedAt() *time.Time {
 	return i.deletedAt
 }

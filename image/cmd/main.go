@@ -10,33 +10,45 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-gonic/gin"
-	"github.com/robertd2000/go-image-processing-app/image/internal/delivery/http/health"
-	"github.com/segmentio/kafka-go"
 	"github.com/jackc/pgx/v5/pgxpool"
+	_ "github.com/robertd2000/go-image-processing-app/image/docs"
 	"github.com/robertd2000/go-image-processing-app/image/internal/config"
 	httpDelivery "github.com/robertd2000/go-image-processing-app/image/internal/delivery/http"
+	"github.com/robertd2000/go-image-processing-app/image/internal/delivery/http/health"
 	v1 "github.com/robertd2000/go-image-processing-app/image/internal/delivery/http/v1"
 	"github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/auth"
 	infraEvents "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/events"
 	kafkaAdapter "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/events/kafka"
 	imageinfra "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/image"
+	imagepg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/image"
 	jobpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/job"
 	outboxpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/outbox"
-	s3store "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/s3"
-	imagepg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/image"
 	transformpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/transformation"
 	txmanagerpg "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/postgtres/txmanager"
-	imageSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/image"
-	transformSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/transformation"
+	s3store "github.com/robertd2000/go-image-processing-app/image/internal/infrastructure/persistence/s3"
 	"github.com/robertd2000/go-image-processing-app/image/internal/pkg/app"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
+	imageSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/image"
+	transformSvc "github.com/robertd2000/go-image-processing-app/image/internal/usecase/transformation"
+	"github.com/segmentio/kafka-go"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 )
 
+// @title Image Processing API
+// @version 1.0
+// @description Image Processing Service API
+// @BasePath /api/v1
+
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
 func main() {
 	logger, err := zap.NewProduction()
 	if err != nil {
@@ -81,18 +93,24 @@ func main() {
 	imageRepo := imagepg.NewImageRepository(db, zlog, nil)
 	jwtValidator := auth.NewJWTValidator(cfg.JWT.Secret)
 
-	s3Client := s3.NewFromConfig(aws.Config{
-		EndpointResolverWithOptions: aws.EndpointResolverWithOptionsFunc(
-			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-				if cfg.Storage.Endpoint != "" {
-					return aws.Endpoint{
-						URL:               cfg.Storage.Endpoint,
-						HostnameImmutable: true,
-					}, nil
-				}
-				return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-			},
+	awsCfg, err := awsConfig.LoadDefaultConfig(
+		context.Background(),
+		awsConfig.WithRegion("us-east-1"),
+		awsConfig.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(
+				cfg.Storage.AccessKey,
+				cfg.Storage.SecretKey,
+				"",
+			),
 		),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s3Client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+		o.UsePathStyle = true
+
+		o.BaseEndpoint = aws.String(cfg.Storage.Endpoint)
 	})
 
 	st := s3store.New(s3Client, cfg.Storage.Bucket, cfg.Storage.Endpoint)

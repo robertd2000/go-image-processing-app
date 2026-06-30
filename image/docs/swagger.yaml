@@ -1,0 +1,202 @@
+basePath: /api/v1
+definitions:
+  github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.GetImageResponse:
+    properties:
+      created_at:
+        type: string
+      file_name:
+        type: string
+      height:
+        type: integer
+      image_id:
+        type: string
+      mime_type:
+        type: string
+      size:
+        type: integer
+      status:
+        type: string
+      url:
+        type: string
+      user_id:
+        type: string
+      width:
+        type: integer
+    type: object
+  github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.ListImagesResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.GetImageResponse'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.UploadImageResponse:
+    properties:
+      created_at:
+        type: string
+      file_name:
+        type: string
+      height:
+        type: integer
+      image_id:
+        type: string
+      mime_type:
+        type: string
+      size:
+        type: integer
+      status:
+        type: string
+      url:
+        type: string
+      width:
+        type: integer
+    type: object
+info:
+  contact: {}
+  description: Image Processing Service API
+  title: Image Processing API
+  version: "1.0"
+paths:
+  /images:
+    get:
+      description: List images with pagination
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.ListImagesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: List images
+      tags:
+      - images
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload an image file
+      parameters:
+      - description: Image file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.UploadImageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: Upload image
+      tags:
+      - images
+  /images/{id}:
+    delete:
+      description: Delete image by ID
+      parameters:
+      - description: Image ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: Delete image
+      tags:
+      - images
+    get:
+      description: Retrieve image details by ID
+      parameters:
+      - description: Image ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_robertd2000_go-image-processing-app_image_internal_delivery_http_dao.GetImageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - Bearer: []
+      summary: Get image by ID
+      tags:
+      - images
+securityDefinitions:
+  Bearer:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

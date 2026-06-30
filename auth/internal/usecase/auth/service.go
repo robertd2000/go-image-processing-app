@@ -218,13 +218,37 @@ func (s *authService) Refresh(ctx context.Context, refreshToken string) (*model.
 	if newToken == nil {
 		return nil, errors.New("newToken is nil")
 	}
-	reuse, err := s.refreshRepo.Rotate(ctx, token, newToken)
+
+	var reuse bool
+
+	err = s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
+		var err error
+
+		reuse, err = s.refreshRepo.Rotate(
+			ctx,
+			tx,
+			token,
+			newToken,
+		)
+		if err != nil {
+			return err
+		}
+
+		if reuse {
+			return s.refreshRepo.RevokeFamily(
+				ctx,
+				tx,
+				token.FamilyID(),
+			)
+		}
+
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
 	if reuse {
-		_ = s.refreshRepo.RevokeFamily(ctx, token.FamilyID())
 		return nil, tokensDomain.ErrInvalidToken
 	}
 
@@ -245,7 +269,9 @@ func (s *authService) Logout(ctx context.Context, refreshToken string) error {
 		return nil
 	}
 
-	return s.refreshRepo.Revoke(ctx, token.ID())
+	return s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
+		return s.refreshRepo.Revoke(ctx, tx, token.ID())
+	})
 }
 
 func (s *authService) generateTokenPair(

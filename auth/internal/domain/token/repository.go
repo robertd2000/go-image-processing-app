@@ -10,14 +10,13 @@ import (
 
 type TokenRepository interface {
 	Create(ctx context.Context, tx txtx.Tx, token *Tokens, limit int) error
-	Update(ctx context.Context, userID uuid.UUID, oldToken, newToken string) error
-	Revoke(ctx context.Context, tokenID uuid.UUID) error
-	RevokeFamily(ctx context.Context, familyID uuid.UUID) error
-	Rotate(ctx context.Context,
-		oldToken *Tokens,
-		newToken *Tokens) (bool, error)
-	GetByHash(ctx context.Context, token string) (*Tokens, error)
+	Rotate(ctx context.Context, tx txtx.Tx, oldToken *Tokens, newToken *Tokens) (bool, error)
+	Revoke(ctx context.Context, tx txtx.Tx, tokenID uuid.UUID) error
+	RevokeFamily(ctx context.Context, tx txtx.Tx, familyID uuid.UUID) error
+	Update(ctx context.Context, tx txtx.Tx, userID uuid.UUID, oldToken, newToken string) error
 	DeleteByUserID(ctx context.Context, tx txtx.Tx, userID uuid.UUID) error
+	GetByHash(ctx context.Context, hash string) (*Tokens, error)
+	IsValid(ctx context.Context, userID uuid.UUID, token string) (bool, error)
 }
 
 type TokenGenerator interface {

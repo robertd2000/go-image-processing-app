@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
 	"github.com/robertd2000/go-image-processing-app/image/internal/domain/events"
+	imageDomain "github.com/robertd2000/go-image-processing-app/image/internal/domain/image"
 	txtx "github.com/robertd2000/go-image-processing-app/image/internal/domain/tx"
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
 	"github.com/robertd2000/go-image-processing-app/image/internal/usecase/image/model"
@@ -170,6 +170,7 @@ func (s *imageService) saveImage(
 				Status:      port.OutboxStatusPending,
 				CreatedAt:   event.OccurredAt,
 			}
+
 			if err := s.outboxRepo.Save(ctx, tx, outboxEvent); err != nil {
 				return fmt.Errorf("save outbox: %w", err)
 			}

@@ -66,7 +66,7 @@ func (t *tokenInMemoryRepository) IsValid(ctx context.Context, userID uuid.UUID,
 	return true, nil
 }
 
-func (t *tokenInMemoryRepository) Update(ctx context.Context, userID uuid.UUID, oldToken, newToken string) error {
+func (t *tokenInMemoryRepository) Update(ctx context.Context, tx txtx.Tx, userID uuid.UUID, oldToken, newToken string) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -101,7 +101,7 @@ func (t *tokenInMemoryRepository) Update(ctx context.Context, userID uuid.UUID, 
 	return nil
 }
 
-func (t *tokenInMemoryRepository) Revoke(ctx context.Context, tokenID uuid.UUID) error {
+func (t *tokenInMemoryRepository) Revoke(ctx context.Context, tx txtx.Tx, tokenID uuid.UUID) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -125,7 +125,7 @@ func (t *tokenInMemoryRepository) Revoke(ctx context.Context, tokenID uuid.UUID)
 	return nil
 }
 
-func (t *tokenInMemoryRepository) RevokeFamily(ctx context.Context, familyID uuid.UUID) error {
+func (t *tokenInMemoryRepository) RevokeFamily(ctx context.Context, tx txtx.Tx, familyID uuid.UUID) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -145,6 +145,7 @@ func (t *tokenInMemoryRepository) RevokeFamily(ctx context.Context, familyID uui
 
 func (t *tokenInMemoryRepository) Rotate(
 	ctx context.Context,
+	tx txtx.Tx,
 	oldToken *tokenDomain.Tokens,
 	newToken *tokenDomain.Tokens,
 ) (bool, error) {
