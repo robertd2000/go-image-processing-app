@@ -4,9 +4,13 @@ import (
 	"context"
 	"fmt"
 	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 
 	"github.com/robertd2000/go-image-processing-app/image/internal/port"
+	_ "golang.org/x/image/webp"
 )
 
 type MetadataExtractor struct{}

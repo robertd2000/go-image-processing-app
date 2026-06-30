@@ -65,7 +65,9 @@ func (r *imageRepository) Save(ctx context.Context, tx txtx.Tx, image *imageDoma
 		image.CreatedAt(),
 	)
 	if err != nil {
-		r.metrics.IncImageSaveError()
+		if r.metrics != nil {
+			r.metrics.IncImageSaveError()
+		}
 		r.logger.Errorw("failed to save image",
 			"image_id", image.ID(),
 			"user_id", image.UserID(),
@@ -75,19 +77,25 @@ func (r *imageRepository) Save(ctx context.Context, tx txtx.Tx, image *imageDoma
 		return mapPGError(fmt.Errorf("image repository: save: %w", err))
 	}
 
-	r.metrics.IncImageSaveSuccess()
-
+	if r.metrics != nil {
+		r.metrics.IncImageSaveSuccess()
+	}
 	return nil
 }
 
 func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDomain.Image, error) {
 	query := `
-		SELECT 
-			id, user_id,
-			original_name, storage_key,
-			file_size, mime_type,
-			width, height,
-			status, created_at
+		SELECT
+			id,
+			user_id,
+			original_name,
+			storage_key,
+			file_size,
+			mime_type,
+			width,
+			height,
+			status,
+			created_at
 		FROM images
 		WHERE id = $1
 		AND deleted_at IS NULL
@@ -106,21 +114,19 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDoma
 		height       int
 		status       string
 		createdAt    time.Time
-		deletedAt    time.Time
 	)
 
 	err := row.Scan(
 		&imgID,
 		&userID,
-		&storageKey,
 		&originalName,
+		&storageKey,
 		&size,
 		&mimeType,
 		&width,
 		&height,
 		&status,
 		&createdAt,
-		&deletedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -143,7 +149,7 @@ func (r *imageRepository) GetByID(ctx context.Context, id uuid.UUID) (*imageDoma
 		meta,
 		imageDomain.Status(status),
 		createdAt,
-		deletedAt,
+		nil,
 	)
 	if err != nil {
 		r.logger.Errorw("RestoreImage failed", "error", err)
@@ -285,7 +291,7 @@ func (r *imageRepository) GetByUser(ctx context.Context, userID uuid.UUID, limit
 			meta,
 			imageDomain.Status(status),
 			createdAt,
-			time.Time{},
+			nil,
 		)
 		if err != nil {
 			r.logger.Errorw("RestoreImage failed", "error", err)
@@ -295,7 +301,7 @@ func (r *imageRepository) GetByUser(ctx context.Context, userID uuid.UUID, limit
 		result = append(result, img)
 	}
 
-	return []*imageDomain.Image{}, nil
+	return result, nil
 }
 
 func mapPGError(err error) error {

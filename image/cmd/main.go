@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -43,7 +46,7 @@ import (
 // @description Image Processing Service API
 // @BasePath /api/v1
 
-// @securityDefinitions.apikey BearerAuth
+// @securityDefinitions.apikey Bearer
 // @in header
 // @name Authorization
 func main() {
@@ -90,18 +93,24 @@ func main() {
 	imageRepo := imagepg.NewImageRepository(db, zlog, nil)
 	jwtValidator := auth.NewJWTValidator(cfg.JWT.Secret)
 
-	s3Client := s3.NewFromConfig(aws.Config{
-		EndpointResolverWithOptions: aws.EndpointResolverWithOptionsFunc(
-			func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-				if cfg.Storage.Endpoint != "" {
-					return aws.Endpoint{
-						URL:               cfg.Storage.Endpoint,
-						HostnameImmutable: true,
-					}, nil
-				}
-				return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-			},
+	awsCfg, err := awsConfig.LoadDefaultConfig(
+		context.Background(),
+		awsConfig.WithRegion("us-east-1"),
+		awsConfig.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(
+				cfg.Storage.AccessKey,
+				cfg.Storage.SecretKey,
+				"",
+			),
 		),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	s3Client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+		o.UsePathStyle = true
+
+		o.BaseEndpoint = aws.String(cfg.Storage.Endpoint)
 	})
 
 	st := s3store.New(s3Client, cfg.Storage.Bucket, cfg.Storage.Endpoint)

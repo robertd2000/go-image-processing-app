@@ -195,7 +195,7 @@ paths:
       tags:
       - images
 securityDefinitions:
-  BearerAuth:
+  Bearer:
     in: header
     name: Authorization
     type: apiKey

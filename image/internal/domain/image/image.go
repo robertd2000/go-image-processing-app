@@ -57,7 +57,7 @@ func RestoreImage(
 	meta ImageMetadata,
 	status Status,
 	createdAt time.Time,
-	deletedAt time.Time,
+	deletedAt *time.Time,
 ) (*Image, error) {
 	if userID == uuid.Nil {
 		return nil, ErrInvalidUserID
@@ -71,7 +71,7 @@ func RestoreImage(
 		metadata:     meta,
 		status:       status,
 		createdAt:    createdAt,
-		deletedAt:    deletedAt,
+		deletedAt:    *deletedAt,
 	}, nil
 }
 
