@@ -21,7 +21,7 @@ type Image struct {
 	metadata     ImageMetadata
 	status       Status
 	createdAt    time.Time
-	deletedAt    time.Time
+	deletedAt    *time.Time
 }
 
 func NewImage(
@@ -71,7 +71,7 @@ func RestoreImage(
 		metadata:     meta,
 		status:       status,
 		createdAt:    createdAt,
-		deletedAt:    *deletedAt,
+		deletedAt:    deletedAt,
 	}, nil
 }
 
@@ -107,6 +107,6 @@ func (i *Image) CreatedAt() time.Time {
 	return i.createdAt
 }
 
-func (i *Image) DeletedAt() time.Time {
+func (i *Image) DeletedAt() *time.Time {
 	return i.deletedAt
 }
