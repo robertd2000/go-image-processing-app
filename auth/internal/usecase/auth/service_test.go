@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
+	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
 	outboxmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/outbox"
@@ -389,7 +390,10 @@ func (s *AuthTestSuite) TestAuthService_Refresh_TokenRevoked() {
 	refreshTokenEntity, err := s.tokenRepo.GetByHash(ctx, hashedRefreshToken)
 	s.Require().NoError(err)
 
-	err = s.tokenRepo.Revoke(ctx, refreshTokenEntity.ID())
+	err = s.txManager.WithTx(ctx, func(ctx context.Context, tx txtx.Tx) error {
+		return s.tokenRepo.Revoke(ctx, tx, refreshTokenEntity.ID())
+	})
+	s.Require().NoError(err)
 	_, err = s.service.Refresh(ctx, tokens.RefreshToken)
 
 	s.Require().Error(err)

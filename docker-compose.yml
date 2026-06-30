@@ -209,3 +209,4 @@ volumes:
   auth_db_data:
   user_db_data:
   image_db_data:
+  minio_data:
