@@ -249,29 +249,27 @@ func (r *imageRepository) GetByUser(ctx context.Context, userID uuid.UUID, limit
 		var (
 			imgID        uuid.UUID
 			userID       uuid.UUID
-			storageKey   string
 			originalName string
+			storageKey   string
 			size         int64
 			mimeType     string
 			width        int
 			height       int
 			status       string
 			createdAt    time.Time
-			deletedAt    time.Time
 		)
 
 		err := rows.Scan(
 			&imgID,
 			&userID,
-			&storageKey,
 			&originalName,
+			&storageKey,
 			&size,
 			&mimeType,
 			&width,
 			&height,
 			&status,
 			&createdAt,
-			&deletedAt,
 		)
 		if err != nil {
 			r.logger.Errorw("scan failed", "error", err)
