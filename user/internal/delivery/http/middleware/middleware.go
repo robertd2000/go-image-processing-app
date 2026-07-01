@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -130,6 +131,7 @@ func OwnerOrAdmin() gin.HandlerFunc {
 			c.AbortWithStatusJSON(400, gin.H{"error": "invalid id"})
 			return
 		}
+		fmt.Println(userID, targetID, userID == targetID)
 
 		// owner
 		if userID == targetID {

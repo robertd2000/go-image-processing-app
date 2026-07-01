@@ -98,11 +98,12 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 
 		// The envelope JSON (event) should have the same ID as the outbox event store row.
 		event, err := events.NewEvent(
+			eventID,
 			events.EventUserCreated,
 			1,
 			events.UserCreatedEvent{
 				Version:   1,
-				ID:        eventID, // use the same uuid as outbox row
+				UserID:    user.ID(),
 				Username:  user.Username(),
 				Email:     *user.Email(),
 				CreatedAt: user.CreatedAt(),

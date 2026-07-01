@@ -16,14 +16,14 @@ type Event struct {
 }
 
 // helpers
-func NewEvent[T any](eventType string, version int, payload T) (Event, error) {
+func NewEvent[T any](eventID uuid.UUID, eventType string, version int, payload T) (Event, error) {
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return Event{}, err
 	}
 
 	return Event{
-		EventID:    uuid.New(),
+		EventID:    eventID,
 		EventType:  eventType,
 		Version:    version,
 		OccurredAt: time.Now(),

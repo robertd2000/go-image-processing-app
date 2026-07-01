@@ -288,11 +288,15 @@ func (s *KafkaOutboxTestSuite) TestRegister_EventPayloadContainsUserID() {
 	assert.Equal(s.T(), "user.created", envelope.EventType)
 	assert.Greater(s.T(), envelope.Version, 0)
 
-	// Event ID in UserCreatedEvent.ID matches the outbox row ID (eventID used by NewEvent)
 	var payload events.UserCreatedEvent
 	err = json.Unmarshal(envelope.Payload, &payload)
 	assert.NoError(s.T(), err)
-	s.Equal(evts[0].ID.String(), payload.ID.String())
+
+	// Payload must contain the created user's ID
+	s.Equal(user.ID(), payload.UserID)
+
+	// Event ID must match the outbox row ID
+	s.Equal(evts[0].ID, envelope.EventID)
 
 	s.Equal("kafka_payload_user", payload.Username)
 	s.Equal("payload@example.com", payload.Email)
