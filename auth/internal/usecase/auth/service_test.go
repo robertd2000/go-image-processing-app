@@ -8,14 +8,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	roleDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/role"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
+	userRoleDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/userrole"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
 	outboxmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/outbox"
+	rolemem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/role"
 	tokenmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/token"
 	txmanagermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/txmanager"
 	usermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/user"
+	userrolemem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/userrole"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
@@ -41,6 +45,8 @@ type (
 
 		userRepo       userDomain.UserRepository
 		tokenRepo      tokensDomain.TokenRepository
+		roleRepo       roleDomain.Repository
+		userRoleRepo   userRoleDomain.Repository
 		outboxRepo     port.OutboxRepository
 		tokenGen       port.TokenGenerator
 		passwordHasher port.PasswordHasher
@@ -54,6 +60,8 @@ func (s *AuthTestSuite) SetupTest() {
 
 	s.tokenGen = jwt.NewInMemoryTokenGenerator()
 	s.userRepo = usermem.NewUserRepository()
+	s.roleRepo = rolemem.NewRoleRepository()
+	s.userRoleRepo = userrolemem.NewUserRoleRepository()
 	s.tokenRepo = tokenmem.NewTokenRepository()
 	s.passwordHasher = &security.FakeHasher{}
 	s.tokenHasher = &security.FakeTokenHasher{}
@@ -63,6 +71,8 @@ func (s *AuthTestSuite) SetupTest() {
 	s.service = auth.NewAuthService(
 		s.userRepo,
 		s.tokenRepo,
+		s.roleRepo,
+		s.userRoleRepo,
 		s.outboxRepo,
 		s.passwordHasher,
 		s.tokenHasher,
@@ -553,6 +563,8 @@ func (s *AuthTestSuite) TestAuthService_Refresh_ExpiredToken() {
 	s.service = auth.NewAuthService(
 		s.userRepo,
 		s.tokenRepo,
+		s.roleRepo,
+		s.userRoleRepo,
 		s.outboxRepo,
 		s.passwordHasher,
 		s.tokenHasher,

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -91,10 +92,39 @@ func extractRoles(c *gin.Context) ([]roleDomain.Role, error) {
 	roles := make([]roleDomain.Role, 0, len(names))
 
 	for _, name := range names {
-		r, err := roleDomain.FromName(name)
+		r, err := roleDomain.FromName(roleDomain.Name(name))
 		if err != nil {
 			return nil, err
 		}
+		if r != nil {
+
+			roles = append(roles, *r)
+		}
+	}
+
+	return roles, nil
+}
+
+func extractRoleNames(c *gin.Context) ([]roleDomain.Name, error) {
+	raw, exists := c.Get(string(ContextRoles))
+	if !exists {
+		return nil, errors.New("roles not found in context")
+	}
+
+	names, ok := raw.([]string)
+	if !ok {
+		return nil, errors.New("invalid roles type")
+	}
+
+	roles := make([]roleDomain.Name, 0, len(names))
+
+	for _, name := range names {
+		r := roleDomain.Name(name)
+
+		if !r.IsValid() {
+			return nil, roleDomain.ErrInvalidRoleName
+		}
+
 		roles = append(roles, r)
 	}
 
@@ -130,6 +160,7 @@ func OwnerOrAdmin() gin.HandlerFunc {
 			c.AbortWithStatusJSON(400, gin.H{"error": "invalid id"})
 			return
 		}
+		fmt.Println(userID, targetID, userID == targetID)
 
 		// owner
 		if userID == targetID {

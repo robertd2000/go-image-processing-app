@@ -1,4 +1,3 @@
-// Package role
 package role
 
 import (
@@ -52,7 +51,7 @@ func userPermissions() []Permission {
 }
 
 func New(id uuid.UUID, name Name, permissions []Permission) (*Role, error) {
-	if name == "" {
+	if !name.IsValid() {
 		return nil, ErrInvalidRoleName
 	}
 
@@ -61,6 +60,17 @@ func New(id uuid.UUID, name Name, permissions []Permission) (*Role, error) {
 		name:        name,
 		permissions: uniquePermissions(permissions),
 	}, nil
+}
+
+func FromName(id uuid.UUID, name Name) (*Role, error) {
+	switch name {
+	case Admin:
+		return New(id, Admin, adminPermissions())
+	case User:
+		return New(id, User, userPermissions())
+	default:
+		return nil, ErrInvalidRoleName
+	}
 }
 
 func (r *Role) ID() uuid.UUID {
@@ -83,31 +93,15 @@ func (r *Role) Permissions() []Permission {
 
 func uniquePermissions(perms []Permission) []Permission {
 	seen := make(map[Permission]struct{})
-	var result []Permission
+	result := make([]Permission, 0, len(perms))
 
 	for _, p := range perms {
-		if _, ok := seen[p]; !ok {
-			seen[p] = struct{}{}
-			result = append(result, p)
+		if _, ok := seen[p]; ok {
+			continue
 		}
+		seen[p] = struct{}{}
+		result = append(result, p)
 	}
 
 	return result
-}
-
-func FromName(name string) (Role, error) {
-	switch Name(name) {
-	case Admin:
-		return Role{
-			name:        Admin,
-			permissions: adminPermissions(),
-		}, nil
-	case User:
-		return Role{
-			name:        User,
-			permissions: userPermissions(),
-		}, nil
-	default:
-		return Role{}, ErrInvalidRoleName
-	}
 }

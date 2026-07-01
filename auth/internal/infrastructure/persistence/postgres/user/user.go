@@ -11,8 +11,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	roleDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/role"
-	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
+	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/dberrors"
 	"go.uber.org/zap"
 )
@@ -327,11 +327,11 @@ func scanUser(row pgx.Row) (*userDomain.AuthUser, error) {
 	roles := make([]roleDomain.Role, 0, len(roleNames))
 
 	for _, name := range roleNames {
-		r, err := roleDomain.FromName(name)
+		r, err := roleDomain.FromName(id, roleDomain.Name(name))
 		if err != nil {
 			return nil, err
 		}
-		roles = append(roles, r)
+		roles = append(roles, *r)
 	}
 
 	return userDomain.NewUserFromDB(

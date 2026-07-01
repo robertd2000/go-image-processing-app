@@ -9,9 +9,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	roleDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/role"
 	tokensDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/token"
 	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
+	userRoleDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/userrole"
+
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/validation"
@@ -21,9 +24,11 @@ import (
 const sessionLimit = 5
 
 type authService struct {
-	userRepo    userDomain.UserRepository
-	refreshRepo tokensDomain.TokenRepository
-	outboxRepo  port.OutboxRepository
+	userRepo     userDomain.UserRepository
+	refreshRepo  tokensDomain.TokenRepository
+	roleRepo     roleDomain.Repository
+	userRoleRepo userRoleDomain.Repository
+	outboxRepo   port.OutboxRepository
 
 	tokenGen       port.TokenGenerator
 	passwordHasher port.PasswordHasher
@@ -37,6 +42,8 @@ type authService struct {
 func NewAuthService(
 	userRepo userDomain.UserRepository,
 	refreshRepo tokensDomain.TokenRepository,
+	roleRepo roleDomain.Repository,
+	userRoleRepo userRoleDomain.Repository,
 	outboxRepo port.OutboxRepository,
 	passwordHasher port.PasswordHasher,
 	tokenHasher port.TokenHasher,
@@ -48,6 +55,8 @@ func NewAuthService(
 	return &authService{
 		userRepo:       userRepo,
 		refreshRepo:    refreshRepo,
+		roleRepo:       roleRepo,
+		userRoleRepo:   userRoleRepo,
 		outboxRepo:     outboxRepo,
 		tokenGen:       tokenGen,
 		passwordHasher: passwordHasher,
@@ -94,15 +103,31 @@ func (s *authService) Register(ctx context.Context, in model.RegisterInput) erro
 		if err := s.userRepo.Create(ctx, tx, user); err != nil {
 			return err
 		}
+
+		userRole, err := s.roleRepo.ByName(ctx, tx, roleDomain.User)
+		if err != nil {
+			return err
+		}
+
+		if err := s.userRoleRepo.Assign(
+			ctx,
+			tx,
+			user.ID(),
+			userRole.ID(),
+		); err != nil {
+			return err
+		}
+
 		eventID := uuid.New()
 
 		// The envelope JSON (event) should have the same ID as the outbox event store row.
 		event, err := events.NewEvent(
+			eventID,
 			events.EventUserCreated,
 			1,
 			events.UserCreatedEvent{
 				Version:   1,
-				ID:        eventID, // use the same uuid as outbox row
+				UserID:    user.ID(),
 				Username:  user.Username(),
 				Email:     *user.Email(),
 				CreatedAt: user.CreatedAt(),

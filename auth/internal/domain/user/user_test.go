@@ -7,6 +7,7 @@ import (
 	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/role"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -27,26 +28,30 @@ func createTestUser(t *testing.T) *user.AuthUser {
 
 func TestAddRole_Success(t *testing.T) {
 	u := createTestUser(t)
-	r, _ := role.New(uuid.New(), "admin", []role.Permission{"read", "write"})
-
-	err := u.AddRole(*r)
+	r, err := role.FromName(uuid.New(), role.Admin)
 	assert.NoError(t, err)
+	require.NotNil(t, r)
+
+	err = u.AddRole(*r)
+	assert.NoError(t, err)
+
 	assert.Len(t, u.Roles(), 1)
-	assert.Equal(t, "admin", string(u.Roles()[0].Name()))
+	assert.Equal(t, role.Admin, u.Roles()[0].Name())
 }
 
 func TestAddRole_AlreadyAssigned(t *testing.T) {
 	u := createTestUser(t)
-	r, _ := role.New(uuid.New(), "admin", nil)
+	r, _ := role.New(uuid.New(), role.Admin, nil)
 
-	_ = u.AddRole(*r)
 	err := u.AddRole(*r)
+	assert.NoError(t, err)
+	err = u.AddRole(*r)
 	assert.ErrorIs(t, err, user.ErrRoleAlreadyAssigned)
 }
 
 func TestRemoveRole_Success(t *testing.T) {
 	u := createTestUser(t)
-	r, _ := role.New(uuid.New(), "admin", nil)
+	r, _ := role.New(uuid.New(), role.Admin, nil)
 
 	_ = u.AddRole(*r)
 	err := u.RemoveRole(r.ID())
@@ -56,7 +61,7 @@ func TestRemoveRole_Success(t *testing.T) {
 
 func TestRemoveRole_NotAssigned(t *testing.T) {
 	u := createTestUser(t)
-	r, _ := role.New(uuid.New(), "admin", nil)
+	r, _ := role.New(uuid.New(), role.Admin, nil)
 
 	err := u.RemoveRole(r.ID())
 	assert.ErrorIs(t, err, user.ErrRoleNotAssigned)

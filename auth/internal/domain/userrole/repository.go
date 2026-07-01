@@ -1,4 +1,4 @@
-package role
+package userrole
 
 import (
 	"context"
@@ -9,6 +9,10 @@ import (
 )
 
 type Repository interface {
-	ByID(ctx context.Context, tx txtx.Tx, id uuid.UUID) (*Role, error)
-	ByName(ctx context.Context, tx txtx.Tx, name Name) (*Role, error)
+	Assign(
+		ctx context.Context,
+		tx txtx.Tx,
+		userID uuid.UUID,
+		roleID uuid.UUID,
+	) error
 }

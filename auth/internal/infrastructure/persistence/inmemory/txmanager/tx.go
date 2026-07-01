@@ -4,15 +4,26 @@ import (
 	"context"
 	"sync"
 
+	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 )
 
 var _ txtx.Tx = (*FakeTx)(nil)
 
+type FakeRow struct {
+	Err error
+}
+
+func (r *FakeRow) Scan(dest ...any) error {
+	return r.Err
+}
+
 type FakeTx struct {
 	mu         sync.Mutex
 	committed  bool
 	rolledBack bool
+
+	Row tx.Row
 }
 
 func (t *FakeTx) Committed() bool {
@@ -36,6 +47,14 @@ func (t *FakeTx) Commit(ctx context.Context) error {
 
 func (t *FakeTx) Exec(ctx context.Context, query string, args ...any) error {
 	return nil
+}
+
+func (t *FakeTx) QueryRow(ctx context.Context, query string, args ...any) tx.Row {
+	if t.Row != nil {
+		return t.Row
+	}
+
+	return &FakeRow{}
 }
 
 func (t *FakeTx) Rollback(ctx context.Context) error {

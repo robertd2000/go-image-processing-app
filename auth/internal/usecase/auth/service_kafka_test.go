@@ -11,9 +11,11 @@ import (
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	jwt "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
 	outboxmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/outbox"
+	rolemem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/role"
 	tokenmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/token"
 	txmanagermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/txmanager"
 	usermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/user"
+	userrolemem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/userrole"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/port"
 	authsvc "github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
@@ -23,6 +25,8 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/google/uuid"
+	roleDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/role"
+	userRoleDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/userrole"
 )
 
 // MockPublisher implements port.EventPublisher for testing
@@ -56,12 +60,14 @@ func (m *MockPublisher) Reset() {
 
 type KafkaOutboxTestSuite struct {
 	suite.Suite
-	ctx       context.Context
-	userRepo  userDomain.UserRepository
-	tokenRepo tokensDomain.TokenRepository
-	outbox    port.OutboxRepository
-	txManager port.TxManager
-	service   AuthService
+	ctx          context.Context
+	userRepo     userDomain.UserRepository
+	tokenRepo    tokensDomain.TokenRepository
+	roleRepo     roleDomain.Repository
+	userRoleRepo userRoleDomain.Repository
+	outbox       port.OutboxRepository
+	txManager    port.TxManager
+	service      AuthService
 }
 
 func (s *KafkaOutboxTestSuite) SetupTest() {
@@ -70,9 +76,14 @@ func (s *KafkaOutboxTestSuite) SetupTest() {
 	s.tokenRepo = tokenmem.NewTokenRepository()
 	s.outbox = outboxmem.NewRepository()
 	s.txManager = txmanagermem.NewFakeTxManager()
+	s.roleRepo = rolemem.NewRoleRepository()
+	s.userRoleRepo = userrolemem.NewUserRoleRepository()
+
 	s.service = authsvc.NewAuthService(
 		s.userRepo,
 		s.tokenRepo,
+		s.roleRepo,
+		s.userRoleRepo,
 		s.outbox,
 		&security.FakeHasher{},
 		&security.FakeTokenHasher{},
@@ -288,11 +299,15 @@ func (s *KafkaOutboxTestSuite) TestRegister_EventPayloadContainsUserID() {
 	assert.Equal(s.T(), "user.created", envelope.EventType)
 	assert.Greater(s.T(), envelope.Version, 0)
 
-	// Event ID in UserCreatedEvent.ID matches the outbox row ID (eventID used by NewEvent)
 	var payload events.UserCreatedEvent
 	err = json.Unmarshal(envelope.Payload, &payload)
 	assert.NoError(s.T(), err)
-	s.Equal(evts[0].ID.String(), payload.ID.String())
+
+	// Payload must contain the created user's ID
+	s.Equal(user.ID(), payload.UserID)
+
+	// Event ID must match the outbox row ID
+	s.Equal(evts[0].ID, envelope.EventID)
 
 	s.Equal("kafka_payload_user", payload.Username)
 	s.Equal("payload@example.com", payload.Email)

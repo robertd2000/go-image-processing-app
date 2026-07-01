@@ -52,20 +52,25 @@ type Role struct {
 	permissions []Permission
 }
 
-func FromName(name string) (Role, error) {
-	switch Name(name) {
+func New(name Name, permissions []Permission) (*Role, error) {
+	if !name.IsValid() {
+		return nil, ErrInvalidRoleName
+	}
+
+	return &Role{
+		name:        name,
+		permissions: uniquePermissions(permissions),
+	}, nil
+}
+
+func FromName(name Name) (*Role, error) {
+	switch name {
 	case Admin:
-		return Role{
-			name:        Admin,
-			permissions: adminPermissions(),
-		}, nil
+		return New(Admin, adminPermissions())
 	case User:
-		return Role{
-			name:        User,
-			permissions: userPermissions(),
-		}, nil
+		return New(User, userPermissions())
 	default:
-		return Role{}, ErrInvalidRoleName
+		return nil, ErrInvalidRoleName
 	}
 }
 
@@ -81,4 +86,18 @@ func (r Role) Permissions() []Permission {
 	cp := make([]Permission, len(r.permissions))
 	copy(cp, r.permissions)
 	return cp
+}
+func uniquePermissions(perms []Permission) []Permission {
+	seen := make(map[Permission]struct{}, len(perms))
+	result := make([]Permission, 0, len(perms))
+
+	for _, p := range perms {
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		result = append(result, p)
+	}
+
+	return result
 }

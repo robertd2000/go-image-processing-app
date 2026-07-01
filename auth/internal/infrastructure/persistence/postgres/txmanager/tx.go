@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
 	"go.uber.org/zap"
 )
@@ -80,4 +81,7 @@ func (m *TxManager) WithTx(
 	}
 
 	return nil
+}
+func (t *TxWrapper) QueryRow(ctx context.Context, query string, args ...any) tx.Row {
+	return t.Tx.QueryRow(ctx, query, args...)
 }
