@@ -1,4 +1,4 @@
-package userrole
+package userrolepg
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	txtx "github.com/robertd2000/go-image-processing-app/auth/internal/domain/tx"
-	userroleDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/userrole"
+	userRoleDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/userrole"
 	"go.uber.org/zap"
 )
 
@@ -15,7 +15,7 @@ type userroleRepository struct {
 	logger *zap.SugaredLogger
 }
 
-func NewUserRepository(db *pgxpool.Pool, logger *zap.SugaredLogger) userroleDomain.Repository {
+func NewUserRoleRepository(db *pgxpool.Pool, logger *zap.SugaredLogger) userRoleDomain.Repository {
 	return &userroleRepository{
 		db:     db,
 		logger: logger,

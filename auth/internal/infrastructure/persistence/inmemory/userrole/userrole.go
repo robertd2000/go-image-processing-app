@@ -16,6 +16,10 @@ type FakeRepository struct {
 	assignments []Assignment
 }
 
+func NewUserRoleRepository() *FakeRepository {
+	return &FakeRepository{}
+}
+
 func (r *FakeRepository) Assign(
 	ctx context.Context,
 	tx txtx.Tx,

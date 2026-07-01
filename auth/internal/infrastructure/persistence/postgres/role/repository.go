@@ -1,4 +1,4 @@
-package role
+package rolepg
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 
 type Repository struct{}
 
-func NewRepository() *Repository {
+func NewRoleRepository() *Repository {
 	return &Repository{}
 }
 

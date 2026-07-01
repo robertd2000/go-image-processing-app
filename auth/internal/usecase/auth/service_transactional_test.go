@@ -15,9 +15,11 @@ import (
 	userDomain "github.com/robertd2000/go-image-processing-app/auth/internal/domain/user"
 	jwt "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
 	outboxmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/outbox"
+	rolemem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/role"
 	tokenmem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/token"
 	txmanagermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/txmanager"
 	usermem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/user"
+	userrolemem "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/inmemory/userrole"
 	security "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
 	authsvc "github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth/model"
@@ -51,10 +53,14 @@ func TestAuthService_TransactionRollbackOnFailure(t *testing.T) {
 	passwordHasher := &security.FakeHasher{}
 	tokenHasher := &security.FakeTokenHasher{}
 	txManager := txmanagermem.NewFakeTxManager()
+	roleRepo := rolemem.NewRoleRepository()
+	userRoleRepo := userrolemem.NewUserRoleRepository()
 
 	svc := authsvc.NewAuthService(
 		repo,
 		tokenRepo,
+		roleRepo,
+		userRoleRepo,
 		outboxRepo,
 		passwordHasher,
 		tokenHasher,
@@ -90,9 +96,14 @@ func TestAuthService_OutboxEventCreation(t *testing.T) {
 	tokenHasher := &security.FakeTokenHasher{}
 	txManager := txmanagermem.NewFakeTxManager()
 
+	roleRepo := rolemem.NewRoleRepository()
+	userRoleRepo := userrolemem.NewUserRoleRepository()
+
 	svc := authsvc.NewAuthService(
 		userRepo,
 		tokenRepo,
+		roleRepo,
+		userRoleRepo,
 		outboxRepo,
 		passwordHasher,
 		tokenHasher,

@@ -21,21 +21,23 @@ import (
 
 	"github.com/robertd2000/go-image-processing-app/auth/internal/config"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/delivery"
+	"github.com/robertd2000/go-image-processing-app/auth/internal/delivery/http/health"
 	v1 "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/http/v1"
 	kafkahandler "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/kafka"
 	kafkamiddleware "github.com/robertd2000/go-image-processing-app/auth/internal/delivery/kafka/middleware"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/jwt"
 	ekafka "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/kafka"
 	outboxpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/outbox"
+	rolepg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/role"
 	tokenpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/token"
 	txmanagerpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/txmanager"
 	userpg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/user"
+	userrolepg "github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/persistence/postgres/userrole"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/infrastructure/security"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/outbox"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/pkg/app"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/auth"
 	"github.com/robertd2000/go-image-processing-app/auth/internal/usecase/user"
-	"github.com/robertd2000/go-image-processing-app/auth/internal/delivery/http/health"
 )
 
 // @title Auth Service API
@@ -108,6 +110,8 @@ func main() {
 	// ---------- repos ----------
 	userRepo := userpg.NewUserRepository(db, zlog)
 	tokenRepo := tokenpg.NewTokenRepository(db, zlog)
+	roleRepo := rolepg.NewRoleRepository()
+	userRoleRepo := userrolepg.NewUserRoleRepository(db, zlog)
 	outboxRepo := outboxpg.NewRepository(db)
 
 	// ---------- utils ----------
@@ -120,6 +124,8 @@ func main() {
 	authSvc := auth.NewAuthService(
 		userRepo,
 		tokenRepo,
+		roleRepo,
+		userRoleRepo,
 		outboxRepo,
 		hasher,
 		tokenHasher,
