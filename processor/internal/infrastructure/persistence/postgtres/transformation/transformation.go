@@ -1,109 +1,281 @@
-package transformationpg
+package transformation
 
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/robertd2000/go-image-processing-app/processor/internal/domain/transformation"
-	txtx "github.com/robertd2000/go-image-processing-app/processor/internal/domain/tx"
-	"go.uber.org/zap"
+
+	transformDomain "github.com/robertd2000/go-image-processing-app/processor/internal/domain/transformation"
+	txtx "github.com/robertd2000/go-image-processing-app/processor/internal/port"
 )
 
-type repo struct {
-	pool   *pgxpool.Pool
-	logger *zap.SugaredLogger
+const transformationColumns = `
+	id,
+	image_id,
+	storage_key,
+	mime_type,
+	width,
+	height,
+	transform_spec,
+	transform_hash,
+	status,
+	result_key,
+	error_message,
+	started_at,
+	completed_at,
+	created_at
+`
+
+type Repository struct {
+	db *pgxpool.Pool
 }
 
-func NewTransformationRepo(pool *pgxpool.Pool, logger *zap.SugaredLogger) *repo {
-	return &repo{pool: pool, logger: logger}
+func NewRepository(db *pgxpool.Pool) *Repository {
+	return &Repository{
+		db: db,
+	}
 }
 
-func (r *repo) Create(ctx context.Context, tx txtx.Tx, t *transformation.Transformation) error {
-	query := `
-		INSERT INTO transformations (id, image_id, transform_spec, transform_hash, status, created_at)
-		VALUES ($1,$2,$3,$4,$5,$6)
+func (r *Repository) Create(
+	ctx context.Context,
+	tx txtx.Tx,
+	t *transformDomain.Transformation,
+) error {
+	const query = `
+		INSERT INTO transformations (
+			id,
+			image_id,
+			storage_key,
+			mime_type,
+			width,
+			height,
+			transform_spec,
+			transform_hash,
+			status,
+			result_key,
+			error_message,
+			started_at,
+			completed_at,
+			created_at
+		)
+		VALUES (
+			$1,$2,$3,$4,$5,$6,
+			$7,$8,$9,$10,$11,$12,$13,$14
+		)
 	`
-	return tx.Exec(ctx, query,
-		t.ID(), t.ImageID(),
-		[]byte(t.Spec()), t.Hash(),
-		string(t.Status()), t.CreatedAt(),
-	)
-}
 
-func (r *repo) GetByID(ctx context.Context, id uuid.UUID) (*transformation.Transformation, error) {
-	query := `
-		SELECT id, image_id, transform_spec, transform_hash, status,
-		       COALESCE(result_key, '') as result_key,
-		       COALESCE(error_message, '') as error_message,
-		       started_at, completed_at, COALESCE(duration, 0) as duration,
-		       created_at
-		FROM transformations WHERE id = $1
-	`
-	row := r.pool.QueryRow(ctx, query, id)
-
-	var (
-		tid, iid       uuid.UUID
-		specBytes      []byte
-		hash, status   string
-		resultKey, em  string
-		started, compl *time.Time
-		dur            int64
-		createdAt      time.Time
+	_, err := tx.Exec(
+		ctx,
+		query,
+		t.ID(),
+		t.ImageID(),
+		t.StorageKey(),
+		t.MimeType(),
+		t.Width(),
+		t.Height(),
+		t.Spec(),
+		t.Hash(),
+		t.Status(),
+		t.ResultKey(),
+		t.ErrorMessage(),
+		t.StartedAt(),
+		t.CompletedAt(),
+		t.CreatedAt(),
 	)
-	if err := row.Scan(&tid, &iid, &specBytes, &hash, &status,
-		&resultKey, &em,
-		&started, &compl, &dur,
-		&createdAt); err != nil {
-		return nil, fmt.Errorf("get transformation: %w", err)
+	if err != nil {
+		return fmt.Errorf("create transformation: %w", err)
 	}
 
-	return transformation.RestoreTransformation(
-		tid, iid,
-		json.RawMessage(specBytes), hash,
-		transformation.Status(status),
-		resultKey, em,
-		started, compl,
-		dur, createdAt,
+	return nil
+}
+
+func (r *Repository) Update(
+	ctx context.Context,
+	tx txtx.Tx,
+	t *transformDomain.Transformation,
+) error {
+	const query = `
+		UPDATE transformations
+		SET
+			status = $2,
+			result_key = $3,
+			error_message = $4,
+			started_at = $5,
+			completed_at = $6
+		WHERE id = $1
+	`
+
+	tag, err := tx.Exec(
+		ctx,
+		query,
+		t.ID(),
+		t.Status(),
+		t.ResultKey(),
+		t.ErrorMessage(),
+		t.StartedAt(),
+		t.CompletedAt(),
+	)
+	if err != nil {
+		return fmt.Errorf("update transformation: %w", err)
+	}
+
+	if tag.RowsAffected() == 0 {
+		return transformDomain.ErrNotFound
+	}
+
+	return nil
+}
+
+func (r *Repository) GetByID(
+	ctx context.Context,
+	id uuid.UUID,
+) (*transformDomain.Transformation, error) {
+
+	query := `
+		SELECT ` + transformationColumns + `
+		FROM transformations
+		WHERE id = $1
+	`
+
+	return scanTransformation(
+		r.db.QueryRow(ctx, query, id),
 	)
 }
 
-func (r *repo) GetByImageAndHash(ctx context.Context, imageID uuid.UUID, hash string) (*transformation.Transformation, error) {
-	query := `
-		SELECT id, image_id, transform_spec, transform_hash, status,
-		       COALESCE(result_key, '') as result_key,
-		       COALESCE(error_message, '') as error_message,
-		       started_at, completed_at, COALESCE(duration, 0) as duration,
-		       created_at
-		FROM transformations WHERE image_id = $1 AND transform_hash = $2
-	`
-	row := r.pool.QueryRow(ctx, query, imageID, hash)
+func (r *Repository) GetByImageAndHash(
+	ctx context.Context,
+	imageID uuid.UUID,
+	hash string,
+) (*transformDomain.Transformation, error) {
 
-	var (
-		tid, iid       uuid.UUID
-		specBytes      []byte
-		hashOut, stat  string
-		resultKey, em  string
-		started, compl *time.Time
-		dur            int64
-		createdAt      time.Time
+	query := `
+		SELECT ` + transformationColumns + `
+		FROM transformations
+		WHERE image_id = $1
+		  AND transform_hash = $2
+	`
+
+	return scanTransformation(
+		r.db.QueryRow(ctx, query, imageID, hash),
 	)
-	if err := row.Scan(&tid, &iid, &specBytes, &hashOut, &stat,
-		&resultKey, &em,
-		&started, &compl, &dur,
-		&createdAt); err != nil {
-		return nil, fmt.Errorf("get transformation by hash: %w", err)
+}
+
+func (r *Repository) GetPending(
+	ctx context.Context,
+	limit int,
+) ([]*transformDomain.Transformation, error) {
+
+	query := `
+		SELECT ` + transformationColumns + `
+		FROM transformations
+		WHERE status = $1
+		ORDER BY created_at
+		LIMIT $2
+	`
+
+	rows, err := r.db.Query(
+		ctx,
+		query,
+		transformDomain.StatusPending,
+		limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query pending transformations: %w", err)
+	}
+	defer rows.Close()
+
+	result := make([]*transformDomain.Transformation, 0)
+
+	for rows.Next() {
+		t, err := scanTransformation(rows)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, t)
 	}
 
-	return transformation.RestoreTransformation(
-		tid, iid,
-		json.RawMessage(specBytes), hashOut,
-		transformation.Status(stat),
-		resultKey, em,
-		started, compl,
-		dur, createdAt,
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate rows: %w", err)
+	}
+
+	return result, nil
+}
+
+func scanTransformation(row interface {
+	Scan(dest ...any) error
+}) (*transformDomain.Transformation, error) {
+
+	var (
+		id uuid.UUID
+
+		imageID uuid.UUID
+
+		storageKey string
+		mimeType   string
+
+		width  int
+		height int
+
+		spec []byte
+
+		hash string
+
+		status transformDomain.Status
+
+		resultKey string
+		errorMsg  string
+
+		startedAt   *time.Time
+		completedAt *time.Time
+
+		createdAt time.Time
+	)
+
+	err := row.Scan(
+		&id,
+		&imageID,
+		&storageKey,
+		&mimeType,
+		&width,
+		&height,
+		&spec,
+		&hash,
+		&status,
+		&resultKey,
+		&errorMsg,
+		&startedAt,
+		&completedAt,
+		&createdAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, transformDomain.ErrNotFound
+		}
+
+		return nil, fmt.Errorf("scan transformation: %w", err)
+	}
+
+	return transformDomain.RestoreTransformation(
+		id,
+		imageID,
+		storageKey,
+		mimeType,
+		width,
+		height,
+		json.RawMessage(spec),
+		hash,
+		status,
+		resultKey,
+		errorMsg,
+		startedAt,
+		completedAt,
+		createdAt,
 	)
 }

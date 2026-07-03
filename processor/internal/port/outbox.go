@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	txtx "github.com/robertd2000/go-image-processing-app/processor/internal/domain/tx"
 )
 
 type OutboxEventStatus string
@@ -27,7 +26,7 @@ type OutboxEvent struct {
 }
 
 type OutboxRepository interface {
-	Save(ctx context.Context, tx txtx.Tx, event *OutboxEvent) error
+	Save(ctx context.Context, tx Tx, event *OutboxEvent) error
 	FetchPending(ctx context.Context, limit int) ([]*OutboxEvent, error)
 	MarkPublished(ctx context.Context, id uuid.UUID) error
 	MarkFailed(ctx context.Context, id uuid.UUID) error

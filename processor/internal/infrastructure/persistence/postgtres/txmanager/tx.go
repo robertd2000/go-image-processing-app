@@ -6,34 +6,59 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-	txtx "github.com/robertd2000/go-image-processing-app/processor/internal/domain/tx"
+
 	"github.com/robertd2000/go-image-processing-app/processor/internal/port"
+
 	"go.uber.org/zap"
 )
 
-var _ txtx.Tx = (*TxWrapper)(nil)
-var _ port.TxManager = (*TxManager)(nil)
+var (
+	_ port.Tx        = (*TxWrapper)(nil)
+	_ port.TxManager = (*TxManager)(nil)
+)
 
 type TxWrapper struct {
-	Tx pgx.Tx
+	tx pgx.Tx
 }
 
 func NewTxWrapper(tx pgx.Tx) *TxWrapper {
-	return &TxWrapper{Tx: tx}
+	return &TxWrapper{
+		tx: tx,
+	}
 }
 
 func (t *TxWrapper) Commit(ctx context.Context) error {
-	return t.Tx.Commit(ctx)
+	return t.tx.Commit(ctx)
 }
 
 func (t *TxWrapper) Rollback(ctx context.Context) error {
-	return t.Tx.Rollback(ctx)
+	return t.tx.Rollback(ctx)
 }
 
-func (t *TxWrapper) Exec(ctx context.Context, query string, args ...any) error {
-	_, err := t.Tx.Exec(ctx, query, args...)
-	return err
+func (t *TxWrapper) Exec(
+	ctx context.Context,
+	query string,
+	args ...any,
+) (pgconn.CommandTag, error) {
+	return t.tx.Exec(ctx, query, args...)
+}
+
+func (t *TxWrapper) Query(
+	ctx context.Context,
+	query string,
+	args ...any,
+) (pgx.Rows, error) {
+	return t.tx.Query(ctx, query, args...)
+}
+
+func (t *TxWrapper) QueryRow(
+	ctx context.Context,
+	query string,
+	args ...any,
+) pgx.Row {
+	return t.tx.QueryRow(ctx, query, args...)
 }
 
 type TxManager struct {
@@ -41,7 +66,10 @@ type TxManager struct {
 	logger *zap.SugaredLogger
 }
 
-func NewTxManager(pool *pgxpool.Pool, logger *zap.SugaredLogger) *TxManager {
+func NewTxManager(
+	pool *pgxpool.Pool,
+	logger *zap.SugaredLogger,
+) *TxManager {
 	return &TxManager{
 		pool:   pool,
 		logger: logger,
@@ -50,13 +78,13 @@ func NewTxManager(pool *pgxpool.Pool, logger *zap.SugaredLogger) *TxManager {
 
 func (m *TxManager) WithTx(
 	ctx context.Context,
-	fn func(ctx context.Context, tx txtx.Tx) error,
+	fn func(ctx context.Context, tx port.Tx) error,
 ) error {
 
 	tx, err := m.pool.Begin(ctx)
 	if err != nil {
-		m.logger.Errorw("failed to begin tx", "error", err)
-		return fmt.Errorf("begin tx: %w", err)
+		m.logger.Errorw("failed to begin transaction", "error", err)
+		return fmt.Errorf("begin transaction: %w", err)
 	}
 
 	wrapped := NewTxWrapper(tx)
@@ -69,18 +97,21 @@ func (m *TxManager) WithTx(
 	}()
 
 	if err := fn(ctx, wrapped); err != nil {
+
 		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
-			m.logger.Errorw("rollback failed",
-				"error", rollbackErr,
+			m.logger.Errorw(
+				"rollback failed",
+				"rollback_error", rollbackErr,
 				"original_error", err,
 			)
 		}
+
 		return err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		m.logger.Errorw("commit failed", "error", err)
-		return fmt.Errorf("commit tx: %w", err)
+		return fmt.Errorf("commit transaction: %w", err)
 	}
 
 	return nil

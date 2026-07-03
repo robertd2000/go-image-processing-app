@@ -4,7 +4,10 @@ import (
 	"context"
 	"sync"
 
-	txtx "github.com/robertd2000/go-image-processing-app/processor/internal/domain/tx"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+
+	txtx "github.com/robertd2000/go-image-processing-app/processor/internal/port"
 )
 
 var _ txtx.Tx = (*FakeTx)(nil)
@@ -54,11 +57,32 @@ func (t *FakeTx) Rollback(ctx context.Context) error {
 
 	t.rolledBack = true
 	t.pending = nil
+
 	return nil
 }
 
-func (t *FakeTx) Exec(ctx context.Context, query string, args ...any) error {
-	return nil
+func (t *FakeTx) Exec(
+	ctx context.Context,
+	query string,
+	args ...any,
+) (pgconn.CommandTag, error) {
+	return pgconn.CommandTag{}, nil
+}
+
+func (t *FakeTx) Query(
+	ctx context.Context,
+	query string,
+	args ...any,
+) (pgx.Rows, error) {
+	panic("FakeTx.Query not implemented")
+}
+
+func (t *FakeTx) QueryRow(
+	ctx context.Context,
+	query string,
+	args ...any,
+) pgx.Row {
+	panic("FakeTx.QueryRow not implemented")
 }
 
 type FakeTxManager struct {
@@ -73,10 +97,15 @@ func NewFakeTxManager() *FakeTxManager {
 func (m *FakeTxManager) LastTx() *FakeTx {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	return m.lastTx
 }
 
-func (m *FakeTxManager) WithTx(ctx context.Context, fn func(ctx context.Context, tx txtx.Tx) error) error {
+func (m *FakeTxManager) WithTx(
+	ctx context.Context,
+	fn func(ctx context.Context, tx txtx.Tx) error,
+) error {
+
 	tx := &FakeTx{}
 
 	m.mu.Lock()

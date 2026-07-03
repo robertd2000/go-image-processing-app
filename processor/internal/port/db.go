@@ -3,18 +3,11 @@ package port
 import (
 	"context"
 
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
-type TxManager interface {
-	WithTx(ctx context.Context, fn func(ctx context.Context, tx Tx) error) error
-}
-
-type Tx interface {
-	Commit(ctx context.Context) error
-	Rollback(ctx context.Context) error
-
+type DB interface {
 	Exec(
 		ctx context.Context,
 		query string,

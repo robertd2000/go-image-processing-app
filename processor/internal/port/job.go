@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	txtx "github.com/robertd2000/go-image-processing-app/processor/internal/domain/tx"
 )
 
 type ProcessingJobStatus string
@@ -28,7 +27,7 @@ type ProcessingJob struct {
 }
 
 type ProcessingJobRepository interface {
-	Create(ctx context.Context, tx txtx.Tx, job *ProcessingJob) error
+	Create(ctx context.Context, tx Tx, job *ProcessingJob) error
 	MarkCompleted(ctx context.Context, imageID, eventID uuid.UUID) (bool, error)
 	MarkFailed(ctx context.Context, imageID uuid.UUID, eventID uuid.UUID, reason string) (bool, error)
 }
