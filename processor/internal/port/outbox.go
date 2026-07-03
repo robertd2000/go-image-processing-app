@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	txtx "github.com/robertd2000/go-image-processing-app/image/internal/domain/tx"
+	txtx "github.com/robertd2000/go-image-processing-app/processor/internal/domain/tx"
 )
 
 type OutboxEventStatus string

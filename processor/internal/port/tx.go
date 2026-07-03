@@ -3,7 +3,7 @@ package port
 import (
 	"context"
 
-	txtx "github.com/robertd2000/go-image-processing-app/image/internal/domain/tx"
+	txtx "github.com/robertd2000/go-image-processing-app/processor/internal/domain/tx"
 )
 
 type TxManager interface {
