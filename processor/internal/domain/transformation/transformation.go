@@ -15,12 +15,15 @@ type Transformation struct {
 
 	imageID uuid.UUID
 
+	source SourceImage
+
 	spec TransformSpec
 	hash string
 
 	status Status
 
-	resultKey    string
+	result *ResultImage
+
 	errorMessage string
 
 	startedAt   *time.Time
@@ -32,6 +35,7 @@ type Transformation struct {
 
 func NewTransformation(
 	imageID uuid.UUID,
+	source SourceImage,
 	spec TransformSpec,
 ) (*Transformation, error) {
 
@@ -44,6 +48,7 @@ func NewTransformation(
 	return &Transformation{
 		id:        uuid.New(),
 		imageID:   imageID,
+		source:    source,
 		spec:      spec,
 		hash:      computeHash(imageID, spec),
 		status:    StatusPending,
@@ -55,10 +60,11 @@ func NewTransformation(
 func RestoreTransformation(
 	id uuid.UUID,
 	imageID uuid.UUID,
+	source SourceImage,
 	spec TransformSpec,
 	hash string,
 	status Status,
-	resultKey string,
+	result *ResultImage,
 	errorMessage string,
 	startedAt *time.Time,
 	completedAt *time.Time,
@@ -84,7 +90,7 @@ func RestoreTransformation(
 		spec:         spec,
 		hash:         hash,
 		status:       status,
-		resultKey:    resultKey,
+		result:       result,
 		errorMessage: errorMessage,
 		startedAt:    startedAt,
 		completedAt:  completedAt,
@@ -107,7 +113,6 @@ func computeHash(imageID uuid.UUID, spec TransformSpec) string {
 
 	return hex.EncodeToString(h.Sum(nil))
 }
-
 func (t *Transformation) Start() error {
 	if t.status != StatusPending {
 		return ErrInvalidStatusTransition
@@ -122,19 +127,19 @@ func (t *Transformation) Start() error {
 	return nil
 }
 
-func (t *Transformation) Complete(resultKey string) error {
+func (t *Transformation) Complete(result ResultImage) error {
 	if t.status != StatusProcessing {
 		return ErrInvalidStatusTransition
 	}
 
-	if resultKey == "" {
-		return ErrInvalidResultKey
+	if err := result.Validate(); err != nil {
+		return err
 	}
 
 	now := time.Now().UTC()
 
 	t.status = StatusCompleted
-	t.resultKey = resultKey
+	t.result = &result
 	t.errorMessage = ""
 	t.completedAt = &now
 	t.updatedAt = now
@@ -189,8 +194,8 @@ func (t *Transformation) Status() Status {
 	return t.status
 }
 
-func (t *Transformation) ResultKey() string {
-	return t.resultKey
+func (t *Transformation) Result() *ResultImage {
+	return t.result
 }
 
 func (t *Transformation) ErrorMessage() string {
@@ -229,4 +234,8 @@ func (t *Transformation) String() string {
 		t.hash,
 		specStr,
 	)
+}
+
+func (t *Transformation) Source() SourceImage {
+	return t.source
 }

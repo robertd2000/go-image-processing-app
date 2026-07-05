@@ -48,4 +48,6 @@ var (
 	ErrInvalidPosition  = errors.New("invalid position")
 
 	ErrInvalidFormat = errors.New("invalid format")
+
+	ErrInvalidFileSize = errors.New("invalid file size")
 )
