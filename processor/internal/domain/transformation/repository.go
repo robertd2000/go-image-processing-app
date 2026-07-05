@@ -8,14 +8,19 @@ import (
 )
 
 type Repository interface {
-	Create(ctx context.Context, tx tx.Tx, t *Transformation) error
-	Update(ctx context.Context, tx tx.Tx, t *Transformation) error
+	Create(ctx context.Context, tx tx.Tx, transformation *Transformation) error
+	Update(ctx context.Context, tx tx.Tx, transformation *Transformation) error
 
 	GetByID(ctx context.Context, id uuid.UUID) (*Transformation, error)
+
 	GetByImageAndHash(
 		ctx context.Context,
 		imageID uuid.UUID,
 		hash string,
 	) (*Transformation, error)
-	GetPending(ctx context.Context, limit int) ([]*Transformation, error)
+
+	AcquireNextPending(
+		ctx context.Context,
+		tx tx.Tx,
+	) (*Transformation, error)
 }

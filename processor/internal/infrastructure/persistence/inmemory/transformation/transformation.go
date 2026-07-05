@@ -7,103 +7,67 @@ import (
 	"github.com/google/uuid"
 
 	transformDomain "github.com/robertd2000/go-image-processing-app/processor/internal/domain/transformation"
-	txmem "github.com/robertd2000/go-image-processing-app/processor/internal/infrastructure/persistence/inmemory/txmanager"
-	txtx "github.com/robertd2000/go-image-processing-app/processor/internal/port"
+	"github.com/robertd2000/go-image-processing-app/processor/internal/port"
 )
 
-var _ transformDomain.Repository = (*Repository)(nil)
+var _ transformDomain.Repository = (*InMemoryRepository)(nil)
 
-type Repository struct {
+type InMemoryRepository struct {
 	mu sync.RWMutex
 
-	byID   map[uuid.UUID]*transformDomain.Transformation
-	byHash map[string]uuid.UUID
+	items map[uuid.UUID]*transformDomain.Transformation
+
+	locked map[uuid.UUID]struct{}
 }
 
-func NewRepository() *Repository {
-	return &Repository{
-		byID:   make(map[uuid.UUID]*transformDomain.Transformation),
-		byHash: make(map[string]uuid.UUID),
+func NewInMemoryRepository() *InMemoryRepository {
+	return &InMemoryRepository{
+		items:  make(map[uuid.UUID]*transformDomain.Transformation),
+		locked: make(map[uuid.UUID]struct{}),
 	}
 }
 
-func hashKey(imageID uuid.UUID, hash string) string {
-	return imageID.String() + ":" + hash
-}
-
-func (r *Repository) Create(
-	ctx context.Context,
-	tx txtx.Tx,
+func (r *InMemoryRepository) Create(
+	_ context.Context,
+	_ port.Tx,
 	t *transformDomain.Transformation,
 ) error {
-
-	if fakeTx, ok := tx.(*txmem.FakeTx); ok {
-		fakeTx.OnCommit(func(ctx context.Context) error {
-			r.mu.Lock()
-			defer r.mu.Unlock()
-
-			r.byID[t.ID()] = t
-			r.byHash[hashKey(t.ImageID(), t.Hash())] = t.ID()
-
-			return nil
-		})
-
-		return nil
-	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.byID[t.ID()] = t
-	r.byHash[hashKey(t.ImageID(), t.Hash())] = t.ID()
+	r.items[t.ID()] = t
 
 	return nil
 }
 
-func (r *Repository) Update(
-	ctx context.Context,
-	tx txtx.Tx,
+func (r *InMemoryRepository) Update(
+	_ context.Context,
+	_ port.Tx,
 	t *transformDomain.Transformation,
 ) error {
-
-	if fakeTx, ok := tx.(*txmem.FakeTx); ok {
-		fakeTx.OnCommit(func(ctx context.Context) error {
-			r.mu.Lock()
-			defer r.mu.Unlock()
-
-			if _, ok := r.byID[t.ID()]; !ok {
-				return transformDomain.ErrNotFound
-			}
-
-			r.byID[t.ID()] = t
-
-			return nil
-		})
-
-		return nil
-	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, ok := r.byID[t.ID()]; !ok {
+	if _, ok := r.items[t.ID()]; !ok {
 		return transformDomain.ErrNotFound
 	}
 
-	r.byID[t.ID()] = t
+	r.items[t.ID()] = t
 
 	return nil
 }
 
-func (r *Repository) GetByID(
-	ctx context.Context,
+func (r *InMemoryRepository) GetByID(
+	_ context.Context,
 	id uuid.UUID,
 ) (*transformDomain.Transformation, error) {
 
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	t, ok := r.byID[id]
+	t, ok := r.items[id]
 	if !ok {
 		return nil, transformDomain.ErrNotFound
 	}
@@ -111,8 +75,8 @@ func (r *Repository) GetByID(
 	return t, nil
 }
 
-func (r *Repository) GetByImageAndHash(
-	ctx context.Context,
+func (r *InMemoryRepository) GetByImageAndHash(
+	_ context.Context,
 	imageID uuid.UUID,
 	hash string,
 ) (*transformDomain.Transformation, error) {
@@ -120,35 +84,46 @@ func (r *Repository) GetByImageAndHash(
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	id, ok := r.byHash[hashKey(imageID, hash)]
-	if !ok {
-		return nil, transformDomain.ErrNotFound
+	for _, t := range r.items {
+		if t.ImageID() == imageID &&
+			t.Hash() == hash {
+			return t, nil
+		}
 	}
 
-	return r.byID[id], nil
+	return nil, transformDomain.ErrNotFound
 }
 
-func (r *Repository) GetPending(
-	ctx context.Context,
-	limit int,
-) ([]*transformDomain.Transformation, error) {
+func (r *InMemoryRepository) AcquireNextPending(
+	_ context.Context,
+	_ port.Tx,
+) (*transformDomain.Transformation, error) {
 
-	r.mu.RLock()
-	defer r.mu.RUnlock()
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	result := make([]*transformDomain.Transformation, 0, limit)
+	var oldest *transformDomain.Transformation
 
-	for _, t := range r.byID {
+	for _, t := range r.items {
+
 		if t.Status() != transformDomain.StatusPending {
 			continue
 		}
 
-		result = append(result, t)
+		if _, locked := r.locked[t.ID()]; locked {
+			continue
+		}
 
-		if len(result) >= limit {
-			break
+		if oldest == nil || t.CreatedAt().Before(oldest.CreatedAt()) {
+			oldest = t
 		}
 	}
 
-	return result, nil
+	if oldest == nil {
+		return nil, transformDomain.ErrNotFound
+	}
+
+	r.locked[oldest.ID()] = struct{}{}
+
+	return oldest, nil
 }
