@@ -5,7 +5,7 @@ type Status string
 const (
 	StatusPending    Status = "pending"
 	StatusProcessing Status = "processing"
-	StatusDone       Status = "done"
+	StatusCompleted  Status = "completed"
 	StatusFailed     Status = "failed"
 )
 
@@ -17,7 +17,7 @@ func (s Status) IsValid() bool {
 	switch s {
 	case StatusPending,
 		StatusProcessing,
-		StatusDone,
+		StatusCompleted,
 		StatusFailed:
 		return true
 	default:
@@ -26,5 +26,5 @@ func (s Status) IsValid() bool {
 }
 
 func (s Status) IsFinished() bool {
-	return s == StatusDone || s == StatusFailed
+	return s == StatusCompleted || s == StatusFailed
 }

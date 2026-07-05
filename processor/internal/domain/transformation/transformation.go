@@ -11,75 +11,51 @@ import (
 )
 
 type Transformation struct {
-	id      uuid.UUID
+	id uuid.UUID
+
 	imageID uuid.UUID
 
-	storageKey string
-	mimeType   string
-	width      int
-	height     int
-
-	spec json.RawMessage
+	spec TransformSpec
 	hash string
 
-	status       Status
+	status Status
+
 	resultKey    string
 	errorMessage string
 
 	startedAt   *time.Time
 	completedAt *time.Time
-	createdAt   time.Time
+
+	createdAt time.Time
+	updatedAt time.Time
 }
 
 func NewTransformation(
 	imageID uuid.UUID,
-	storageKey string,
-	mimeType string,
-	width, height int,
-	spec json.RawMessage,
+	spec TransformSpec,
 ) (*Transformation, error) {
 
 	if imageID == uuid.Nil {
 		return nil, ErrInvalidImageID
 	}
 
-	if storageKey == "" {
-		return nil, ErrInvalidStorageKey
-	}
-
-	if mimeType == "" {
-		return nil, ErrInvalidMimeType
-	}
-
-	if width <= 0 || height <= 0 {
-		return nil, ErrInvalidImageSize
-	}
-
-	if len(spec) == 0 || !json.Valid(spec) {
-		return nil, ErrInvalidSpec
-	}
+	now := time.Now().UTC()
 
 	return &Transformation{
-		id:         uuid.New(),
-		imageID:    imageID,
-		storageKey: storageKey,
-		mimeType:   mimeType,
-		width:      width,
-		height:     height,
-		spec:       spec,
-		hash:       computeHash(imageID, spec),
-		status:     StatusPending,
-		createdAt:  time.Now().UTC(),
+		id:        uuid.New(),
+		imageID:   imageID,
+		spec:      spec,
+		hash:      computeHash(imageID, spec),
+		status:    StatusPending,
+		createdAt: now,
+		updatedAt: now,
 	}, nil
 }
 
 func RestoreTransformation(
 	id uuid.UUID,
 	imageID uuid.UUID,
-	storageKey string,
-	mimeType string,
-	width, height int,
-	spec json.RawMessage,
+	spec TransformSpec,
 	hash string,
 	status Status,
 	resultKey string,
@@ -87,6 +63,7 @@ func RestoreTransformation(
 	startedAt *time.Time,
 	completedAt *time.Time,
 	createdAt time.Time,
+	updatedAt time.Time,
 ) (*Transformation, error) {
 
 	if id == uuid.Nil {
@@ -97,13 +74,13 @@ func RestoreTransformation(
 		return nil, ErrInvalidImageID
 	}
 
+	if spec.Validate() != nil {
+		return nil, ErrInvalidSpec
+	}
+
 	return &Transformation{
 		id:           id,
 		imageID:      imageID,
-		storageKey:   storageKey,
-		mimeType:     mimeType,
-		width:        width,
-		height:       height,
 		spec:         spec,
 		hash:         hash,
 		status:       status,
@@ -112,14 +89,21 @@ func RestoreTransformation(
 		startedAt:    startedAt,
 		completedAt:  completedAt,
 		createdAt:    createdAt,
+		updatedAt:    updatedAt,
 	}, nil
 }
 
-func computeHash(imageID uuid.UUID, spec json.RawMessage) string {
+func computeHash(imageID uuid.UUID, spec TransformSpec) string {
 	h := sha256.New()
 
 	h.Write(imageID[:])
-	h.Write(spec)
+
+	data, err := json.Marshal(spec)
+	if err != nil {
+		panic(fmt.Errorf("marshal transform spec: %w", err))
+	}
+
+	h.Write(data)
 
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -133,6 +117,7 @@ func (t *Transformation) Start() error {
 
 	t.status = StatusProcessing
 	t.startedAt = &now
+	t.updatedAt = now
 
 	return nil
 }
@@ -142,12 +127,17 @@ func (t *Transformation) Complete(resultKey string) error {
 		return ErrInvalidStatusTransition
 	}
 
+	if resultKey == "" {
+		return ErrInvalidResultKey
+	}
+
 	now := time.Now().UTC()
 
-	t.status = StatusDone
+	t.status = StatusCompleted
 	t.resultKey = resultKey
-	t.completedAt = &now
 	t.errorMessage = ""
+	t.completedAt = &now
+	t.updatedAt = now
 
 	return nil
 }
@@ -157,13 +147,26 @@ func (t *Transformation) Fail(message string) error {
 		return ErrInvalidStatusTransition
 	}
 
+	if message == "" {
+		return ErrInvalidErrorMessage
+	}
+
 	now := time.Now().UTC()
 
 	t.status = StatusFailed
 	t.errorMessage = message
 	t.completedAt = &now
+	t.updatedAt = now
 
 	return nil
+}
+
+func (t *Transformation) Duration() time.Duration {
+	if t.startedAt == nil || t.completedAt == nil {
+		return 0
+	}
+
+	return t.completedAt.Sub(*t.startedAt)
 }
 
 func (t *Transformation) ID() uuid.UUID {
@@ -174,23 +177,7 @@ func (t *Transformation) ImageID() uuid.UUID {
 	return t.imageID
 }
 
-func (t *Transformation) StorageKey() string {
-	return t.storageKey
-}
-
-func (t *Transformation) MimeType() string {
-	return t.mimeType
-}
-
-func (t *Transformation) Width() int {
-	return t.width
-}
-
-func (t *Transformation) Height() int {
-	return t.height
-}
-
-func (t *Transformation) Spec() json.RawMessage {
+func (t *Transformation) Spec() TransformSpec {
 	return t.spec
 }
 
@@ -222,25 +209,24 @@ func (t *Transformation) CreatedAt() time.Time {
 	return t.createdAt
 }
 
-func (t *Transformation) Duration() time.Duration {
-	if t.startedAt == nil || t.completedAt == nil {
-		return 0
-	}
-
-	return t.completedAt.Sub(*t.startedAt)
+func (t *Transformation) UpdatedAt() time.Time {
+	return t.updatedAt
 }
 
 func (t *Transformation) String() string {
-	spec := string(t.spec)
-	if len(spec) > 120 {
-		spec = spec[:120] + "..."
+	spec, _ := json.Marshal(t.spec)
+
+	specStr := string(spec)
+	if len(specStr) > 120 {
+		specStr = specStr[:120] + "..."
 	}
 
 	return fmt.Sprintf(
-		"Transformation{id=%s,image=%s,status=%s,hash=%s}",
+		"Transformation{id=%s,imageID=%s,status=%s,hash=%s,spec=%s}",
 		t.id,
 		t.imageID,
 		t.status,
 		t.hash,
+		specStr,
 	)
 }
