@@ -3,6 +3,7 @@ package transformation
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -200,6 +201,28 @@ func (r *transformRepository) GetByImageAndHash(
 	t, err := scanTransformation(row)
 	if err != nil {
 		return nil, fmt.Errorf("get transformation by image and hash: %w", err)
+	}
+
+	return t, nil
+}
+
+func (r *transformRepository) AcquireNextPending(
+	ctx context.Context,
+	tx port.Tx,
+) (*transformDomain.Transformation, error) {
+
+	row := tx.QueryRow(
+		ctx,
+		acquireNextPending,
+	)
+
+	t, err := scanTransformation(row)
+	if err != nil {
+		if errors.Is(err, transformDomain.ErrNotFound) {
+			return nil, transformDomain.ErrNotFound
+		}
+
+		return nil, fmt.Errorf("acquire next pending transformation: %w", err)
 	}
 
 	return t, nil
