@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	transformDomain "github.com/robertd2000/go-image-processing-app/processor/internal/domain/transformation"
 	transformationDomain "github.com/robertd2000/go-image-processing-app/processor/internal/domain/transformation"
 	"github.com/robertd2000/go-image-processing-app/processor/internal/port"
 	"go.uber.org/zap"
@@ -113,4 +114,72 @@ func (r *transformRepository) GetByID(ctx context.Context, id uuid.UUID) (*trans
 	}
 
 	return t, nil
+}
+
+func (r *transformRepository) Update(
+	ctx context.Context,
+	tx port.Tx,
+	t *transformDomain.Transformation,
+) error {
+
+	var (
+		resultStorageKey any
+		resultMimeType   any
+		resultWidth      any
+		resultHeight     any
+		resultSize       any
+	)
+
+	if result := t.Result(); result != nil {
+		resultStorageKey = result.StorageKey()
+		resultMimeType = result.MimeType()
+		resultWidth = result.Width()
+		resultHeight = result.Height()
+		resultSize = result.Size()
+	}
+
+	var (
+		errorMessage any
+		startedAt    any
+		completedAt  any
+	)
+
+	if t.ErrorMessage() != "" {
+		errorMessage = t.ErrorMessage()
+	}
+
+	if t.StartedAt() != nil {
+		startedAt = *t.StartedAt()
+	}
+
+	if t.CompletedAt() != nil {
+		completedAt = *t.CompletedAt()
+	}
+
+	_, err := tx.Exec(
+		ctx,
+		updateTransformation,
+
+		t.ID(),
+
+		t.Status(),
+
+		resultStorageKey,
+		resultMimeType,
+		resultWidth,
+		resultHeight,
+		resultSize,
+
+		errorMessage,
+
+		startedAt,
+		completedAt,
+
+		t.UpdatedAt(),
+	)
+	if err != nil {
+		return fmt.Errorf("update transformation: %w", err)
+	}
+
+	return nil
 }
