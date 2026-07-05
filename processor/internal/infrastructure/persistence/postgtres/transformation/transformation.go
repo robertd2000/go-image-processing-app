@@ -183,3 +183,24 @@ func (r *transformRepository) Update(
 
 	return nil
 }
+
+func (r *transformRepository) GetByImageAndHash(
+	ctx context.Context,
+	imageID uuid.UUID,
+	hash string,
+) (*transformDomain.Transformation, error) {
+
+	row := r.db.QueryRow(
+		ctx,
+		getTransformationByImageAndHash,
+		imageID,
+		hash,
+	)
+
+	t, err := scanTransformation(row)
+	if err != nil {
+		return nil, fmt.Errorf("get transformation by image and hash: %w", err)
+	}
+
+	return t, nil
+}
