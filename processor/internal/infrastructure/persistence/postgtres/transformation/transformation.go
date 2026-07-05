@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	transformationDomain "github.com/robertd2000/go-image-processing-app/processor/internal/domain/transformation"
 	"github.com/robertd2000/go-image-processing-app/processor/internal/port"
@@ -101,4 +102,15 @@ func (r *transformRepository) Create(ctx context.Context, tx port.Tx, t *transfo
 	}
 
 	return nil
+}
+
+func (r *transformRepository) GetByID(ctx context.Context, id uuid.UUID) (*transformationDomain.Transformation, error) {
+	row := r.db.QueryRow(ctx, getTransformationByID, id)
+
+	t, err := scanTransformation(row)
+	if err != nil {
+		return nil, fmt.Errorf("get transformation by id: %w", err)
+	}
+
+	return t, nil
 }
