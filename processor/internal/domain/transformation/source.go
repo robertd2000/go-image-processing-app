@@ -1,19 +1,19 @@
 package transformation
 
 type SourceImage struct {
-	StorageKey string
-	MimeType   string
+	storageKey string
+	mimeType   string
 
-	Width  int
-	Height int
+	width  int
+	height int
 }
 
 func NewSourceImage(storageKey, mimeType string, width, height int) (SourceImage, error) {
 	res := SourceImage{
-		StorageKey: storageKey,
-		MimeType:   mimeType,
-		Width:      width,
-		Height:     height,
+		storageKey: storageKey,
+		mimeType:   mimeType,
+		width:      width,
+		height:     height,
 	}
 
 	if err := res.Validate(); err != nil {
@@ -24,13 +24,26 @@ func NewSourceImage(storageKey, mimeType string, width, height int) (SourceImage
 }
 
 func (s SourceImage) Validate() error {
-	if s.Height < 0 {
+	if s.Height() < 0 {
 		return ErrInvalidHeight
 	}
 
-	if s.Width < 0 {
+	if s.Width() < 0 {
 		return ErrInvalidWidth
 	}
 
 	return nil
+}
+
+func (s SourceImage) Width() int {
+	return s.width
+}
+func (s SourceImage) Height() int {
+	return s.height
+}
+func (s SourceImage) StorageKey() string {
+	return s.storageKey
+}
+func (s SourceImage) MimeType() string {
+	return s.mimeType
 }
