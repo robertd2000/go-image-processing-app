@@ -30,10 +30,6 @@ type RequestTransformationSuite struct {
 	service RequestTransformationService
 }
 
-func TestRequestTransformationSuite(t *testing.T) {
-	suite.Run(t, new(RequestTransformationSuite))
-}
-
 func (s *RequestTransformationSuite) SetupTest() {
 	s.ctx = context.Background()
 
@@ -76,4 +72,70 @@ func (s *RequestTransformationSuite) newCommand() model.Command {
 		Source:  source,
 		Spec:    spec,
 	}
+}
+
+func (s *RequestTransformationSuite) TestExecute_Create() {
+	cmd := s.newCommand()
+
+	result, err := s.service.Execute(s.ctx, cmd)
+
+	s.Require().NoError(err)
+	s.Require().NotNil(result)
+
+	s.NotEqual(uuid.Nil, result.ID)
+	s.Equal(cmd.ImageID, result.ImageID)
+	s.Equal(transformDomain.StatusPending, result.Status)
+
+	tx := s.txManager.LastTx()
+	s.Require().NotNil(tx)
+	s.True(tx.Committed())
+	s.False(tx.RolledBack())
+
+	tr, err := s.repo.GetByID(s.ctx, result.ID)
+
+	s.Require().NoError(err)
+	s.Equal(result.ID, tr.ID())
+	s.Equal(cmd.ImageID, tr.ImageID())
+	s.Equal(transformDomain.StatusPending, tr.Status())
+}
+
+func (s *RequestTransformationSuite) TestExecute_ReturnExistingTransformation() {
+	cmd := s.newCommand()
+
+	first, err := s.service.Execute(s.ctx, cmd)
+	s.Require().NoError(err)
+
+	second, err := s.service.Execute(s.ctx, cmd)
+	s.Require().NoError(err)
+
+	s.Equal(first.ID, second.ID)
+	s.Equal(first.Status, second.Status)
+}
+
+func (s *RequestTransformationSuite) TestExecute_InvalidCommand() {
+	cmd := s.newCommand()
+	cmd.ImageID = uuid.Nil
+
+	result, err := s.service.Execute(s.ctx, cmd)
+
+	s.Nil(result)
+	s.Error(err)
+}
+
+func (s *RequestTransformationSuite) TestExecute_CommitTransaction() {
+	cmd := s.newCommand()
+
+	_, err := s.service.Execute(s.ctx, cmd)
+
+	s.Require().NoError(err)
+
+	tx := s.txManager.LastTx()
+
+	s.Require().NotNil(tx)
+	s.True(tx.Committed())
+	s.False(tx.RolledBack())
+}
+
+func TestRequestTransformationSuite(t *testing.T) {
+	suite.Run(t, new(RequestTransformationSuite))
 }
